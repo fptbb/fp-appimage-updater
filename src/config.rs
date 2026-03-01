@@ -15,9 +15,9 @@ impl Default for GlobalConfig {
         Self {
             storage_dir: "~/.local/bin/AppImages".to_string(),
             symlink_dir: "~/.local/bin".to_string(),
-            naming_format: "{name}-{version}.AppImage".to_string(),
+            naming_format: "{name}.AppImage".to_string(),
             manage_desktop_files: true,
-            create_symlinks: true,
+            create_symlinks: false,
         }
     }
 }

@@ -72,9 +72,9 @@ The tool expects application recipes in your `~/.config/fp-appimage-updater/` fo
 ```yaml
 storage_dir: ~/.local/bin/AppImages
 symlink_dir: ~/.local/bin
-naming_format: "{name}-{version}.AppImage"
+naming_format: "{name}.AppImage"
 manage_desktop_files: true
-create_symlinks: true
+create_symlinks: false
 ```
 
 ### App Recipe Example (`apps/whatpulse/app.yml`)
