@@ -4,20 +4,25 @@ set -e
 REPO="fptbb/fp-appimage-updater"
 APP_NAME="fp-appimage-updater"
 BIN_DIR="$HOME/.local/bin"
-SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
+SYSTEMD_DIR="$HOME/.config/systemd/user"
+SYSTEMCTL_CMD="systemctl --user"
 
 INSTALL_SYSTEMD=true
 
 for arg in "$@"; do
     if [ "$arg" = "--no-systemd" ]; then
         INSTALL_SYSTEMD=false
+    elif [ "$arg" = "--system" ]; then
+        BIN_DIR="/usr/bin"
+        SYSTEMD_DIR="/usr/lib/systemd/system"
+        SYSTEMCTL_CMD="systemctl"
     elif [ "$arg" = "uninstall" ] || [ "$arg" = "--uninstall" ]; then
         echo "Uninstalling $APP_NAME..."
-        systemctl --user disable --now "${APP_NAME}.timer" 2>/dev/null || true
+        $SYSTEMCTL_CMD disable --now "${APP_NAME}.timer" 2>/dev/null || true
         echo "Removing systemd units..."
-        rm -f "$SYSTEMD_USER_DIR/${APP_NAME}.service"
-        rm -f "$SYSTEMD_USER_DIR/${APP_NAME}.timer"
-        systemctl --user daemon-reload
+        rm -f "$SYSTEMD_DIR/${APP_NAME}.service"
+        rm -f "$SYSTEMD_DIR/${APP_NAME}.timer"
+        $SYSTEMCTL_CMD daemon-reload 2>/dev/null || true
         echo "Removing binary..."
         rm -f "$BIN_DIR/$APP_NAME"
         echo "Uninstallation complete!"
@@ -65,9 +70,9 @@ chmod +x "$BIN_DIR/$APP_NAME"
 if [ "$INSTALL_SYSTEMD" = true ]; then
     # 4. Create systemd instances
     echo "Setting up background systemd services..."
-    mkdir -p "$SYSTEMD_USER_DIR"
+    mkdir -p "$SYSTEMD_DIR"
 
-    cat << EOF > "$SYSTEMD_USER_DIR/${APP_NAME}.service"
+    cat << EOF > "$SYSTEMD_DIR/${APP_NAME}.service"
 [Unit]
 Description=FP AppImage Updater Service
 Documentation=https://github.com/$REPO
@@ -84,7 +89,7 @@ TimeoutStartSec=3600
 WantedBy=default.target
 EOF
 
-    cat << EOF > "$SYSTEMD_USER_DIR/${APP_NAME}.timer"
+    cat << EOF > "$SYSTEMD_DIR/${APP_NAME}.timer"
 [Unit]
 Description=FP AppImage Updater Background Timer
 Documentation=https://github.com/$REPO
@@ -100,8 +105,13 @@ WantedBy=timers.target
 EOF
 
     # 5. Enable and start systemd services
-    systemctl --user daemon-reload
-    systemctl --user enable --now "${APP_NAME}.timer"
+    if [ "$SYSTEMCTL_CMD" = "systemctl" ]; then
+        $SYSTEMCTL_CMD daemon-reload 2>/dev/null || true
+        $SYSTEMCTL_CMD enable "${APP_NAME}.timer" 2>/dev/null || true
+    else
+        $SYSTEMCTL_CMD daemon-reload
+        $SYSTEMCTL_CMD enable --now "${APP_NAME}.timer"
+    fi
 
     echo ""
     echo "Installation complete!"

@@ -23,6 +23,13 @@ This will install the binary to `~/.local/bin/` and the systemd service to `~/.c
 curl -sL https://fau.fpt.icu/install.sh | bash -s -- --no-systemd
 ```
 
+### System-Wide / Atomic Image Install
+If you are building an immutable/atomic OS image or want to install the binary system-wide to `/usr/bin/` with the systemd service in `/usr/lib/systemd/system/`, use the `--system` flag:
+
+```bash
+curl -sL https://fau.fpt.icu/install.sh | bash -s -- --system
+```
+
 Alternatively, to uninstall it:
 ```bash
 curl -sL https://fau.fpt.icu/install.sh | bash -s -- --uninstall
