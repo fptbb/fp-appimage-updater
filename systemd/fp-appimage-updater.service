@@ -1,0 +1,14 @@
+[Unit]
+Description=FP AppImage Updater Service
+Documentation=https://github.com/imputnet/fp-appimage-updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/fp-appimage-updater update
+# Give generous limits for downloading massive AppImages
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=default.target

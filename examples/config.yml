@@ -1,0 +1,5 @@
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: '{name}.AppImage'
+manage_desktop_files: true
+create_symlinks: false

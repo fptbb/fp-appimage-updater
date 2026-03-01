@@ -1,0 +1,12 @@
+[Unit]
+Description=FP AppImage Updater Background Timer
+Documentation=https://github.com/imputnet/fp-appimage-updater
+
+[Timer]
+# Run 15 minutes after boot, and then every 2 hours
+OnBootSec=15min
+OnUnitActiveSec=12h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,5 @@
+name: whatpulse
+strategy:
+  strategy: direct
+  url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
+  check_method: etag
