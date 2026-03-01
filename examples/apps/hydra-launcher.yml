@@ -1,0 +1,5 @@
+name: hydra-launcher
+strategy:
+  strategy: forge
+  repository: https://github.com/hydralauncher/hydra
+  asset_match: "hydralauncher-*.AppImage"

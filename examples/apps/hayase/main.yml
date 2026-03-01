@@ -1,0 +1,4 @@
+name: hayase
+strategy:
+  strategy: script
+  script_path: ./resolver.sh

@@ -1,0 +1,5 @@
+name: winboat
+strategy:
+  strategy: forge
+  repository: https://github.com/TibixDev/winboat
+  asset_match: "winboat-*-x86_64.AppImage"

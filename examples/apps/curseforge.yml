@@ -1,0 +1,5 @@
+name: curseforge
+strategy:
+  strategy: direct
+  url: "https://curseforge.overwolf.com/downloads/curseforge-latest-linux.AppImage"
+  check_method: etag
