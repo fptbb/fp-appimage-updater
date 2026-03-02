@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use comfy_table::Table;
 use reqwest::Client;
 use std::time::Duration;
@@ -179,6 +179,11 @@ async fn main() -> Result<()> {
             } else {
                 state_manager.save()?;
             }
+        }
+        Commands::Completion { shell } => {
+            let mut cmd = Cli::command();
+            let bin_name = cmd.get_name().to_string();
+            clap_complete::generate(*shell, &mut cmd, bin_name, &mut std::io::stdout());
         }
     }
 

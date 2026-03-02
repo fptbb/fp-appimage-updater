@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use clap_complete::Shell;
 
 #[derive(Parser)]
 #[command(name = "fp-appimage-updater")]
@@ -30,5 +31,11 @@ pub enum Commands {
         #[arg(short, long)]
         /// Remove all applications
         all: bool,
+    },
+    /// Generate shell completions
+    Completion {
+        /// The shell to generate the completions for
+        #[arg(value_enum)]
+        shell: Shell,
     },
 }
