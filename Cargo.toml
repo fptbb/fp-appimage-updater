@@ -25,3 +25,8 @@ lto = true           # Enable Link-Time Optimization
 codegen-units = 1    # Maximize size optimization efficiency
 panic = "abort"      # Remove panic unwinding logic to save space
 strip = true         # Strip symbols from binary
+
+[dev-dependencies]
+testcontainers = "0.23.1"
+testcontainers-modules = "0.11.0"
+tokio = { version = "1.43", features = ["macros", "rt-multi-thread"] }

@@ -78,6 +78,8 @@ jobs:
           files: |
             build/fp-appimage-updater.x64
             build/fp-appimage-updater.ARM
+            systemd/fp-appimage-updater.service
+            systemd/fp-appimage-updater.timer
           draft: false
           prerelease: false
         env:

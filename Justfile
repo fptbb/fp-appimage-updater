@@ -62,3 +62,10 @@ uninstall:
     @rm -f ~/.local/bin/fp-appimage-updater
     @echo "Uninstallation complete."
     @echo "Note: AppImage binaries and configs in ~/.config/fp-appimage-updater were left intact."
+
+test:
+    cargo test --test cli_tests --test resolver_tests -- --nocapture
+
+clean-test-images:
+    docker rm -f $(docker ps -aq --filter ancestor=fedora) 2>/dev/null || true
+    docker rmi fedora:latest 2>/dev/null || true

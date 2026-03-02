@@ -68,41 +68,21 @@ curl -sL --fail --progress-bar "$DOWNLOAD_URL" -o "$BIN_DIR/$APP_NAME"
 chmod +x "$BIN_DIR/$APP_NAME"
 
 if [ "$INSTALL_SYSTEMD" = true ]; then
-    # 4. Create systemd instances
+    # 4. Download systemd instances
     echo "Setting up background systemd services..."
     mkdir -p "$SYSTEMD_DIR"
 
-    cat << EOF > "$SYSTEMD_DIR/${APP_NAME}.service"
-[Unit]
-Description=FP AppImage Updater Service
-Documentation=https://github.com/$REPO
-After=network-online.target
-Wants=network-online.target
+    SERVICE_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.service"
+    TIMER_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.timer"
 
-[Service]
-Type=oneshot
-ExecStart=$BIN_DIR/$APP_NAME update
-# Give generous limits for downloading massive AppImages
-TimeoutStartSec=3600
+    echo "Downloading systemd service from $SERVICE_URL..."
+    curl -sL --fail "$SERVICE_URL" -o "$SYSTEMD_DIR/${APP_NAME}.service"
 
-[Install]
-WantedBy=default.target
-EOF
+    echo "Downloading systemd timer from $TIMER_URL..."
+    curl -sL --fail "$TIMER_URL" -o "$SYSTEMD_DIR/${APP_NAME}.timer"
 
-    cat << EOF > "$SYSTEMD_DIR/${APP_NAME}.timer"
-[Unit]
-Description=FP AppImage Updater Background Timer
-Documentation=https://github.com/$REPO
-
-[Timer]
-# Run 15 minutes after boot, and then every 12 hours
-OnBootSec=15min
-OnUnitActiveSec=12h
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-EOF
+    # Adjust ExecStart
+    sed -i "s|%h/.local/bin|$BIN_DIR|g" "$SYSTEMD_DIR/${APP_NAME}.service"
 
     # 5. Enable and start systemd services
     if [ "$SYSTEMCTL_CMD" = "systemctl" ]; then
