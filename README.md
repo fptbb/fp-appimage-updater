@@ -23,46 +23,30 @@ This will install the binary to `~/.local/bin/` and the systemd service to `~/.c
 curl -sL https://fau.fpt.icu/install.sh | bash -s -- --no-systemd
 ```
 
-Alternatively, to uninstall it:
-```bash
-curl -sL https://fau.fpt.icu/install.sh | bash -s -- --uninstall
-```
-
-### System-Wide / Atomic Image Install
 If you are building an immutable/atomic OS image or want to install the binary system-wide to `/usr/bin/` with the systemd service in `/usr/lib/systemd/system/`, use the `--system` flag:
 
 ```bash
 curl -sL https://fau.fpt.icu/install.sh | bash -s -- --system
 ```
+Note that these flags can work together.
+
+Alternatively, to uninstall it:
+```bash
+curl -sL https://fau.fpt.icu/install.sh | bash -s -- --uninstall
+```
 
 ### Using Pre-built Binaries
-You can download the latest compiled binary (`fp-appimage-updater.x64`) from the GitHub Releases page. Make it executable and drop it into your `~/.local/bin/` folder.
+You can download the latest compiled binary (`fp-appimage-updater.x64`) from the GitHub Releases page. Make it executable and drop it into your `~/.local/bin/` folder. It works as a standalone binary without any dependencies or scheduled services. You can run it manually or integrate it into your own scripts.
 
-### From Source
+### Building From Source
 If you wish to compile the tool yourself from the source code, please see the [CONTRIBUTING](CONTRIBUTING.md) guidelines.
 
-### Systemd Background Updates
-If you installed the application using the quick install script, a systemd timer is automatically configured to run checks periodically in the background.
+## Documentation sections:
+*click to expand*
+<details>
+<summary>1. Directory Structure / Configuration</summary>
 
-Since this tool is strictly designed around user-space operations, **do not use `sudo`** when interacting with its systemd services. Always use the `--user` flag.
-
-Check the background timer status:
-```bash
-systemctl --user status fp-appimage-updater.timer
-```
-
-View the latest background execution logs:
-```bash
-journalctl --user -u fp-appimage-updater.service -n 50
-```
-
-Enable or start the timer manually:
-```bash
-systemctl --user enable --now fp-appimage-updater.timer
-```
-
-## Directory Structure
-The tool expects application recipes in your `~/.config/fp-appimage-updater/` folder.
+### The tool expects application recipes in your `~/.config/fp-appimage-updater/` folder.
 
 ```
 ~/.config/fp-appimage-updater/
@@ -134,8 +118,33 @@ strategy:
 ```
 
 More examples in [examples/apps/](examples/apps/) folder.
+</details>
+<br />
+<details>
+<summary>2. Systemd Background Updates</summary>
+<br />
+If you installed the application using the quick install script, a systemd timer is automatically configured to run checks periodically in the background.
 
-## CLI Usage
+Since this tool is strictly designed around user-space operations, **do not use `sudo`** when interacting with its systemd services (except if you installed it system-wide, in which case you should use `sudo` and the `--system` flag instead of `--user`).
+
+Check the background timer status:
+```bash
+systemctl --user status fp-appimage-updater.timer
+```
+
+View the latest background execution logs:
+```bash
+journalctl --user -u fp-appimage-updater.service -n 50
+```
+
+Enable or start the timer manually:
+```bash
+systemctl --user enable --now fp-appimage-updater.timer
+```
+</details>
+<br />
+<details>
+<summary>3. CLI Usage</summary>
 
 ### Check for Updates
 Check the status of all your configured recipes to see if new versions are available remotely:
@@ -175,3 +184,4 @@ Remove all installed applications at once:
 ```bash
 fp-appimage-updater remove -a
 ```
+</details>
