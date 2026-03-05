@@ -11,6 +11,7 @@ fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed t
 
 ## Project Facts
 - This was made for myself because I was tired of manually updating my AppImages and I wanted a tool that could do it for me automatically without deleting my config files.
+- Contributions are welcome, but keep in mind that the project is intended to be simple, any bug fix is welcome, no out of scope features will be added.
 - It is intentional that it will never have a repository for recipes, users must be comfortable with creating their own recipes.
 - It's just a standalone binary that you can use however you want outside of the systemd service.
 - It will never have a GUI, it's just a CLI tool.
