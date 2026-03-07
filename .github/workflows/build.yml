@@ -112,8 +112,16 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         id: changelog
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           HEAD_SHA=$(git rev-parse --short HEAD)
+
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            # Pre-release: diff from the nearest preceding tag (stable or RC)
+            PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          else
+            # Stable release: skip all RC tags to get the last stable tag,
+            # so the changelog covers everything since the previous real release
+            PREV_TAG=$(git tag --sort=-creatordate | grep -v -- '-RC' | head -1)
+          fi
 
           if [ -z "$PREV_TAG" ]; then
             BASE_SHA=$(git rev-list --max-parents=0 HEAD --abbrev-commit)
