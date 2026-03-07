@@ -11,6 +11,7 @@ mod downloader;
 mod integrator;
 mod parser;
 mod resolvers;
+mod self_updater;
 mod state;
 
 use cli::{Cli, Commands};
@@ -177,6 +178,9 @@ async fn main() -> Result<()> {
             } else {
                 state_manager.save()?;
             }
+        }
+        Commands::SelfUpdate => {
+            self_updater::self_update(&client).await?;
         }
         Commands::Completion { shell } => {
             let mut cmd = Cli::command();

@@ -66,6 +66,12 @@ uninstall:
 test:
     cargo test --test cli_tests --test resolver_tests -- --nocapture
 
+clippy:
+    cargo clippy --workspace --all-targets -- -D warnings
+
+docs:
+    cargo doc
+
 clean-test-images:
     docker rm -f $(docker ps -aq --filter ancestor=fedora) 2>/dev/null || true
     docker rmi fedora:latest 2>/dev/null || true

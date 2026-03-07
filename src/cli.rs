@@ -4,6 +4,7 @@ use clap_complete::Shell;
 #[derive(Parser)]
 #[command(name = "fp-appimage-updater")]
 #[command(about = "Data-Driven AppImage Manager", long_about = None)]
+#[command(version)]
 pub struct Cli {
     /// Override the default configuration directory
     #[arg(short, long, global = true, value_name = "PATH")]
@@ -36,6 +37,8 @@ pub enum Commands {
         /// Remove all applications
         all: bool,
     },
+    /// Update fp-appimage-updater itself to the latest GitHub release
+    SelfUpdate,
     /// Generate shell completions
     Completion {
         /// The shell to generate the completions for

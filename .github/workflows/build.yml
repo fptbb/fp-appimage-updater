@@ -6,11 +6,6 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag for release (e.g., v1.0.0). Leave empty to only build an artifact.'
-        required: false
-        type: string
 
 permissions:
   contents: write
@@ -19,10 +14,18 @@ jobs:
   build:
     name: Build & Compress
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
       
+      - name: Get Version from Cargo.toml
+        id: get_version
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/')
+          echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -54,7 +57,6 @@ jobs:
           mv target/aarch64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.ARM
 
       - name: Upload x64 Artifact
-        if: ${{ inputs.version == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: fp-appimage-updater-linux-x64
@@ -62,7 +64,6 @@ jobs:
           retention-days: 7
 
       - name: Upload ARM64 Artifact
-        if: ${{ inputs.version == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: fp-appimage-updater-linux-arm64
@@ -70,11 +71,11 @@ jobs:
           retention-days: 7
 
       - name: Publish GitHub Release
-        if: ${{ inputs.version != '' }}
+        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.version }}
-          name: Release ${{ inputs.version }}
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: Release ${{ steps.get_version.outputs.version }}
           files: |
             build/fp-appimage-updater.x64
             build/fp-appimage-updater.ARM
@@ -84,3 +85,4 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
