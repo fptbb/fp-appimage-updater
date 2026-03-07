@@ -14,11 +14,25 @@ pub struct ConfigPaths {
 }
 
 impl ConfigPaths {
+    /// Resolve paths using the OS-standard project directories.
     pub fn new() -> Result<Self> {
         let proj_dirs = ProjectDirs::from("", "", APP_NAME)
             .context("Could not determine project directories")?;
 
         let config_dir = proj_dirs.config_dir().to_path_buf();
+        let state_dir = proj_dirs.state_dir()
+            .unwrap_or_else(|| proj_dirs.data_local_dir())
+            .to_path_buf();
+
+        Ok(Self { config_dir, state_dir })
+    }
+
+    /// Use an explicit config directory override (from `--config`).
+    /// The state directory falls back to the OS default.
+    pub fn with_config_dir(config_dir: std::path::PathBuf) -> Result<Self> {
+        let proj_dirs = ProjectDirs::from("", "", APP_NAME)
+            .context("Could not determine project directories")?;
+
         let state_dir = proj_dirs.state_dir()
             .unwrap_or_else(|| proj_dirs.data_local_dir())
             .to_path_buf();

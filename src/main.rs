@@ -21,7 +21,11 @@ use state::StateManager;
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     
-    let paths = ConfigPaths::new()?;
+    let paths = if let Some(config_dir) = cli.config.clone() {
+        ConfigPaths::with_config_dir(config_dir)?
+    } else {
+        ConfigPaths::new()?
+    };
     let global_config = parser::load_global_config(&paths)?;
     let app_configs = parser::load_app_configs(&paths)?;
     let mut state_manager = StateManager::load(paths.cache_path());

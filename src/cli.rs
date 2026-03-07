@@ -5,6 +5,10 @@ use clap_complete::Shell;
 #[command(name = "fp-appimage-updater")]
 #[command(about = "Data-Driven AppImage Manager", long_about = None)]
 pub struct Cli {
+    /// Override the default configuration directory
+    #[arg(short, long, global = true, value_name = "PATH")]
+    pub config: Option<std::path::PathBuf>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
