@@ -9,6 +9,19 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         
     let container = image.start().await.expect("Failed to start Fedora container");
 
+    let container_id_for_install = container.id();
+    let status = Command::new("docker")
+        .arg("exec")
+        .arg(container_id_for_install)
+        .arg("dnf")
+        .arg("install")
+        .arg("-y")
+        .arg("zsync")
+        .arg("python3")
+        .status()
+        .expect("Failed to execute dnf install");
+    assert!(status.success(), "Failed to install zsync and python3 in test container");
+
     // 2. Get the host path to the compiled binary
     let binary_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("build/fp-appimage-updater.x64");

@@ -19,7 +19,7 @@ pub async fn download_app(
 ) -> Result<PathBuf> {
     let actual_storage_dir = app.storage_dir
         .as_ref()
-        .map(|s| PathBuf::from(crate::integrator::expand_tilde(s)))
+        .map(|s| crate::integrator::expand_tilde(s))
         .unwrap_or_else(|| storage_dir.to_path_buf());
 
     let file_name = naming_format
@@ -41,14 +41,10 @@ pub async fn download_app(
 
     let mut zsync_success = false;
 
-    if let Some(zurl) = zsync_url {
-        if let Some(old_path_str) = state.and_then(|s| s.file_path.as_ref()) {
-            let old_path = Path::new(old_path_str);
-            if old_path.exists() {
-                if try_zsync(&zurl, old_path, &tmp_path) {
-                    zsync_success = true;
-                }
-            }
+    if let Some(zurl) = zsync_url && let Some(old_path_str) = state.and_then(|s| s.file_path.as_ref()) {
+        let old_path = Path::new(old_path_str);
+        if old_path.exists() && try_zsync(&zurl, old_path, &tmp_path) {
+            zsync_success = true;
         }
     }
 
@@ -63,6 +59,7 @@ pub async fn download_app(
 }
 
 fn try_zsync(zsync_url: &str, old_file: &Path, target_file: &Path) -> bool {
+    println!("Attempting zsync update using: {}", zsync_url);
     // Run `zsync -i <old_file> -o <target_file> <zsync_url>`
     let status = Command::new("zsync")
         .arg("-i")
@@ -73,7 +70,10 @@ fn try_zsync(zsync_url: &str, old_file: &Path, target_file: &Path) -> bool {
         .status();
 
     match status {
-        Ok(s) if s.success() => true,
+        Ok(s) if s.success() => {
+            println!("Successfully updated via zsync!");
+            true
+        }
         _ => {
             eprintln!("Warning: zsync failed or not found, falling back to full HTTP download.");
             false

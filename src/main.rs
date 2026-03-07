@@ -62,10 +62,8 @@ async fn main() -> Result<()> {
         Commands::Check { app_name } => {
             let mut found = false;
             for app in &app_configs {
-                if let Some(target) = &app_name {
-                    if app.name != *target {
-                        continue;
-                    }
+                if let Some(target) = &app_name && app.name != *target {
+                    continue;
                 }
                 found = true;
                 
@@ -82,20 +80,16 @@ async fn main() -> Result<()> {
                     }
                 }
             }
-            if let Some(target) = app_name {
-                if !found {
-                    eprintln!("App '{}' not found in configuration.", target);
-                }
+            if let Some(target) = app_name && !found {
+                eprintln!("App '{}' not found in configuration.", target);
             }
         }
         Commands::Update { app_name } => {
             let storage_dir = integrator::expand_tilde(&global_config.storage_dir);
             
             for app in &app_configs {
-                if let Some(target) = app_name {
-                    if app.name != *target {
-                        continue;
-                    }
+                if let Some(target) = app_name && app.name != *target {
+                    continue;
                 }
 
                 let state = state_manager.get_app(&app.name);

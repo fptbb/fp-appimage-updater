@@ -1,0 +1,8 @@
+name: dummy-direct
+strategy:
+  strategy: direct
+  url: http://localhost:8123/dummy.AppImage
+  check_method: last-modified
+zsync: true
+integration: false
+# This is just used for tests, ignore it

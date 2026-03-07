@@ -24,10 +24,8 @@ pub async fn resolve(
         .context("No tag_name in release")?
         .to_string();
 
-    if let Some(s) = state {
-        if s.local_version.as_deref() == Some(&version) {
-            return Ok(None); // Already up to date
-        }
+    if let Some(s) = state && s.local_version.as_deref() == Some(&version) {
+        return Ok(None); // Already up to date
     }
 
     // Find asset
@@ -35,17 +33,13 @@ pub async fn resolve(
     let pattern = glob::Pattern::new(asset_match)?;
 
     for asset in assets {
-        if let Some(name) = asset["name"].as_str() {
-            if pattern.matches(name) {
-                if let Some(download_url) = asset["browser_download_url"].as_str() {
-                    return Ok(Some(UpdateInfo {
-                        download_url: download_url.to_string(),
-                        version,
-                        new_etag: None,
-                        new_last_modified: None,
-                    }));
-                }
-            }
+        if let Some(name) = asset["name"].as_str() && pattern.matches(name) && let Some(download_url) = asset["browser_download_url"].as_str() {
+            return Ok(Some(UpdateInfo {
+                download_url: download_url.to_string(),
+                version,
+                new_etag: None,
+                new_last_modified: None,
+            }));
         }
     }
 

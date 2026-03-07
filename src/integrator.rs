@@ -35,12 +35,8 @@ pub async fn integrate(
     }
 
     // 3. Delete old AppImage if it's different
-    if let Some(old_path) = old_appimage_path {
-        if old_path != appimage_path && old_path.exists() {
-            if let Err(e) = fs::remove_file(old_path) {
-                eprintln!("Warning: Failed to delete old AppImage {:?}: {}", old_path, e);
-            }
-        }
+    if let Some(old_path) = old_appimage_path && old_path != appimage_path && old_path.exists() && let Err(e) = fs::remove_file(old_path) {
+        eprintln!("Warning: Failed to delete old AppImage {:?}: {}", old_path, e);
     }
 
     // 4. Desktop Integration
@@ -56,7 +52,7 @@ async fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
     // Determine data storage directory
     let data_local_dir = UserDirs::new()
         .and_then(|u| u.document_dir().map(|d| d.parent().unwrap().join(".local/share")))
-        .unwrap_or_else(|| PathBuf::from(expand_tilde("~/.local/share")));
+        .unwrap_or_else(|| expand_tilde("~/.local/share"));
     let apps_dir = data_local_dir.join("applications");
     fs::create_dir_all(&apps_dir)?;
 
@@ -126,14 +122,12 @@ async fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
 
     // 4. Find the .desktop file
     let mut extracted_desktop: Option<PathBuf> = None;
-    if extracted_root.exists() {
-        if let Ok(entries) = fs::read_dir(&extracted_root) {
-            for entry in entries.filter_map(Result::ok) {
-                let path = entry.path();
-                if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("desktop") {
-                    extracted_desktop = Some(path);
-                    break;
-                }
+    if extracted_root.exists() && let Ok(entries) = fs::read_dir(&extracted_root) {
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("desktop") {
+                extracted_desktop = Some(path);
+                break;
             }
         }
     }
@@ -174,12 +168,10 @@ async fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
 }
 
 pub fn expand_tilde(path: &str) -> PathBuf {
-    if path.starts_with("~/") {
-        if let Some(user_dirs) = UserDirs::new() {
-            let mut resolved = user_dirs.home_dir().to_path_buf();
-            resolved.push(&path[2..]);
-            return resolved;
-        }
+    if let Some(stripped) = path.strip_prefix("~/") && let Some(user_dirs) = UserDirs::new() {
+        let mut resolved = user_dirs.home_dir().to_path_buf();
+        resolved.push(stripped);
+        return resolved;
     }
     PathBuf::from(path)
 }

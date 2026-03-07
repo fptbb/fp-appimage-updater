@@ -22,10 +22,8 @@ pub fn resolve(app: &AppConfig, script_path: &str, state: Option<&AppState>) -> 
     let download_url = lines.next().context("Script did not output download URL")?.to_string();
     let version = lines.next().unwrap_or("unknown-version").to_string();
 
-    if let Some(s) = state {
-        if s.local_version.as_deref() == Some(&version) {
-            return Ok(None);
-        }
+    if let Some(s) = state && s.local_version.as_deref() == Some(&version) {
+        return Ok(None);
     }
 
     Ok(Some(UpdateInfo {
