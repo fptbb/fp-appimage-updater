@@ -22,7 +22,7 @@ fn asset_suffix() -> Result<&'static str> {
 /// Otherwise, uses the /releases/latest shortcut which only returns stable releases.
 async fn resolve_latest_tag(client: &Client, pre_release: bool) -> Result<String> {
     if pre_release {
-        let api_url = format!("https://api.github.com/repos/{}/releases?per_page=20", REPO);
+        let api_url = format!("https://api.github.com/repos/{}/releases?per_page=1", REPO);
         let releases: serde_json::Value = client
             .get(&api_url)
             .send()
@@ -37,10 +37,9 @@ async fn resolve_latest_tag(client: &Client, pre_release: bool) -> Result<String
         let tag = releases
             .as_array()
             .context("Expected a JSON array from /releases")?
-            .iter()
-            .find(|r| r["prerelease"].as_bool().unwrap_or(false))
+            .first()
             .and_then(|r| r["tag_name"].as_str())
-            .context("No pre-release found on GitHub")?
+            .context("No releases found on GitHub")?
             .to_string();
 
         Ok(tag)

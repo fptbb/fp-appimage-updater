@@ -53,13 +53,10 @@ esac
 
 # 2. Fetch release version
 if [ "$USE_PRERELEASE" = "true" ]; then
-    echo "Fetching latest pre-release version from GitHub..."
-    VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases?per_page=20" \
-        | awk '
-            /"tag_name":/ { gsub(/.*"tag_name": "|",?[[:space:]]*$/, "", $0); tag = $0 }
-            /"prerelease": true/ { print tag; exit }
-        ')
-    RELEASE_KIND="pre-release"
+    echo "Fetching latest release version from GitHub (including pre-releases)..."
+    VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases?per_page=1" \
+        | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+    RELEASE_KIND="release"
 else
     echo "Fetching latest stable release version from GitHub..."
     VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
