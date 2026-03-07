@@ -42,6 +42,11 @@ jobs:
           BASE_TAG="v${VERSION}"
 
           if [ "${{ inputs.prerelease }}" = "true" ]; then
+            # Refuse to create an RC for a version that is already stable
+            if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
+              echo "::error::Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before creating a new pre-release."
+              exit 1
+            fi
             # Find the highest existing RC number for this version using git ls-remote
             HIGHEST=$(git ls-remote --tags origin \
               | grep -oP "refs/tags/${BASE_TAG}-RC\K[0-9]+" \
