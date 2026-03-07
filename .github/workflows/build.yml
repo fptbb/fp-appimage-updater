@@ -19,12 +19,23 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history needed for changelog
       
       - name: Get Version from Cargo.toml
         id: get_version
         run: |
           VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/')
           echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check Tag Does Not Already Exist
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAG="v$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/')"
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+            echo "::error::Tag ${TAG} already exists. Bump the version in Cargo.toml before releasing."
+            exit 1
+          fi
 
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -70,12 +81,31 @@ jobs:
           path: build/fp-appimage-updater.ARM
           retention-days: 7
 
+      - name: Generate Changelog
+        if: github.event_name == 'workflow_dispatch'
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            LOG=$(git log --pretty=format:"- %s (%h) by @%an" HEAD)
+          else
+            LOG=$(git log --pretty=format:"- %s (%h) by @%an" "${PREV_TAG}..HEAD")
+          fi
+          # Write multiline output safely
+          {
+            echo 'notes<<EOF'
+            echo "## What's Changed"
+            echo "$LOG"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Publish GitHub Release
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.version }}
           name: Release ${{ steps.get_version.outputs.version }}
+          body: ${{ steps.changelog.outputs.notes }}
           files: |
             build/fp-appimage-updater.x64
             build/fp-appimage-updater.ARM
