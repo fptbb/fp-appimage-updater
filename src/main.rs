@@ -179,8 +179,8 @@ async fn main() -> Result<()> {
                 state_manager.save()?;
             }
         }
-        Commands::SelfUpdate => {
-            self_updater::self_update(&client).await?;
+        Commands::SelfUpdate { pre_release } => {
+            self_updater::self_update(&client, *pre_release).await?;
         }
         Commands::Completion { shell } => {
             let mut cmd = Cli::command();

@@ -16,31 +16,72 @@ fn asset_suffix() -> Result<&'static str> {
     }
 }
 
+/// 1. Fetch the latest release tag from GitHub.
+/// When `pre_release` is true, scans the releases list for the first pre-release entry.
+/// Otherwise, uses the /releases/latest shortcut which only returns stable releases.
+async fn resolve_latest_tag(client: &Client, pre_release: bool) -> Result<String> {
+    if pre_release {
+        let api_url = format!("https://api.github.com/repos/{}/releases?per_page=20", REPO);
+        let releases: serde_json::Value = client
+            .get(&api_url)
+            .send()
+            .await
+            .context("Failed to reach GitHub API")?
+            .error_for_status()
+            .context("GitHub API returned an error")?
+            .json()
+            .await
+            .context("Failed to parse GitHub releases list")?;
+
+        let tag = releases
+            .as_array()
+            .context("Expected a JSON array from /releases")?
+            .iter()
+            .find(|r| r["prerelease"].as_bool().unwrap_or(false))
+            .and_then(|r| r["tag_name"].as_str())
+            .context("No pre-release found on GitHub")?
+            .to_string();
+
+        Ok(tag)
+    } else {
+        let api_url = format!("https://api.github.com/repos/{}/releases/latest", REPO);
+        let resp: serde_json::Value = client
+            .get(&api_url)
+            .send()
+            .await
+            .context("Failed to reach GitHub API")?
+            .error_for_status()
+            .context("GitHub API returned an error")?
+            .json()
+            .await
+            .context("Failed to parse GitHub API response")?;
+
+        resp["tag_name"]
+            .as_str()
+            .context("No tag_name in latest release")
+            .map(|s| s.to_string())
+    }
+}
+
 /// Check GitHub releases and, if a newer version exists, replace the running binary.
-pub async fn self_update(client: &Client) -> Result<()> {
-    println!("Checking for updates to fp-appimage-updater (current: v{})...", CURRENT_VERSION);
+pub async fn self_update(client: &Client, pre_release: bool) -> Result<()> {
+    let kind = if pre_release { "pre-release" } else { "stable" };
+    println!(
+        "Checking for {} updates to fp-appimage-updater (current: v{})...",
+        kind, CURRENT_VERSION
+    );
 
-    // 1. Fetch latest release tag from GitHub API
-    let api_url = format!("https://api.github.com/repos/{}/releases/latest", REPO);
-    let resp: serde_json::Value = client
-        .get(&api_url)
-        .send()
-        .await
-        .context("Failed to reach GitHub API")?
-        .error_for_status()
-        .context("GitHub API returned an error")?
-        .json()
-        .await
-        .context("Failed to parse GitHub API response")?;
+    let latest_tag = resolve_latest_tag(client, pre_release).await?;
 
-    let latest_tag = resp["tag_name"]
-        .as_str()
-        .context("No tag_name in latest release")?;
+    // Normalise to bare semver for comparison: strip leading 'v' and any '-RC<N>' suffix.
+    // CURRENT_VERSION is always plain semver (from Cargo.toml), so both sides must match that form.
+    let latest_semver = latest_tag
+        .trim_start_matches('v')
+        .split('-')
+        .next()
+        .unwrap_or("");
 
-    // Strip leading 'v' for comparison
-    let latest_version = latest_tag.trim_start_matches('v');
-
-    if latest_version == CURRENT_VERSION {
+    if latest_semver == CURRENT_VERSION {
         println!("fp-appimage-updater is already up to date (v{}).", CURRENT_VERSION);
         return Ok(());
     }

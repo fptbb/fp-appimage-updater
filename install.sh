@@ -8,10 +8,13 @@ SYSTEMD_DIR="$HOME/.config/systemd/user"
 SYSTEMCTL_CMD="systemctl --user"
 
 INSTALL_SYSTEMD=true
+USE_PRERELEASE=false
 
 for arg in "$@"; do
     if [ "$arg" = "--no-systemd" ]; then
         INSTALL_SYSTEMD=false
+    elif [ "$arg" = "--pre-release" ]; then
+        USE_PRERELEASE=true
     elif [ "$arg" = "--system" ]; then
         BIN_DIR="/usr/bin"
         SYSTEMD_DIR="/usr/lib/systemd/system"
@@ -48,16 +51,30 @@ case "$ARCH" in
         ;;
 esac
 
-# 2. Fetch latest release version
-echo "Fetching latest release version from GitHub..."
-VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+# 2. Fetch release version
+if [ "$USE_PRERELEASE" = "true" ]; then
+    echo "Fetching latest pre-release version from GitHub..."
+    # Get the first release with "prerelease": true using only grep/sed (no jq required)
+    RELEASES_JSON=$(curl -sL "https://api.github.com/repos/$REPO/releases?per_page=20")
+    VERSION=$(echo "$RELEASES_JSON" \
+        | grep -A5 '"prerelease": true' \
+        | grep '"tag_name":' \
+        | head -n1 \
+        | sed -E 's/.*"([^"]+)".*/\1/')
+    RELEASE_KIND="pre-release"
+else
+    echo "Fetching latest stable release version from GitHub..."
+    VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
+        | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+    RELEASE_KIND="release"
+fi
 
 if [ -z "$VERSION" ]; then
     echo "Error: Could not determine latest release version. Maybe API rate limited?"
     exit 1
 fi
 
-echo "Found latest version: $VERSION"
+echo "Found latest ${RELEASE_KIND}: $VERSION"
 
 # 3. Download the binary
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.${TARGET_ARCH}"

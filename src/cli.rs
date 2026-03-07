@@ -38,7 +38,11 @@ pub enum Commands {
         all: bool,
     },
     /// Update fp-appimage-updater itself to the latest GitHub release
-    SelfUpdate,
+    SelfUpdate {
+        #[arg(long)]
+        /// Also consider pre-release (RC) versions
+        pre_release: bool,
+    },
     /// Generate shell completions
     Completion {
         /// The shell to generate the completions for
