@@ -17,6 +17,7 @@ fn asset_suffix() -> Result<&'static str> {
 }
 
 /// 1. Fetch the latest release tag from GitHub.
+///
 /// When `pre_release` is true, scans the releases list for the first pre-release entry.
 /// Otherwise, uses the /releases/latest shortcut which only returns stable releases.
 async fn resolve_latest_tag(client: &Client, pre_release: bool) -> Result<String> {
