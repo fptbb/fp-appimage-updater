@@ -100,7 +100,11 @@ async fn main() -> Result<()> {
                 let state = state_manager.get_app(&app.name);
                 match resolvers::check_for_updates(app, state).await {
                     Ok(Some(info)) => {
-                        println!("Updating {} to version {}...", app.name, info.version);
+                        println!("Updating {} from version {} to version {}...",
+                            app.name,
+                            state.and_then(|s| s.local_version.clone()).unwrap_or_else(|| "Unknown".to_string()),
+                            info.version
+                        );
                         
                         match downloader::download_app(
                             &client,
