@@ -14,7 +14,7 @@ pub async fn resolve(
     let url = if repository.starts_with("https://github.com/") {
         repository.replace("https://github.com/", "https://api.github.com/repos/") + "/releases/latest"
     } else {
-        return Err(anyhow!("Only github.com is currently supported for forge strategy"));
+        return Err(anyhow!("Only github.com is currently supported for forge strategy, because it's the most widely used, if you want to see support for other forge platforms please open an issue with the forge platform you'd like to see supported and an application that uses it as an example"));
     };
 
     let resp: serde_json::Value = client.get(&url).send().await?.error_for_status()?.json().await?;

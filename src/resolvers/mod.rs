@@ -19,7 +19,7 @@ pub struct UpdateInfo {
 pub async fn check_for_updates(app: &AppConfig, state: Option<&AppState>) -> Result<Option<UpdateInfo>> {
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
-        .user_agent("fp-appimage-updater/1.0")
+        .user_agent("fp-appimage-updater/1.0 (+https://fau.fpt.icu/)")
         .build()?;
 
     match &app.strategy {
