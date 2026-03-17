@@ -16,6 +16,7 @@ pub async fn download_app(
     storage_dir: &Path,
     naming_format: &str,
     state: Option<&AppState>,
+    quiet: bool,
 ) -> Result<PathBuf> {
     let actual_storage_dir = app.storage_dir
         .as_ref()
@@ -43,7 +44,7 @@ pub async fn download_app(
 
     if let Some(zurl) = zsync_url && let Some(old_path_str) = state.and_then(|s| s.file_path.as_ref()) {
         let old_path = Path::new(old_path_str);
-        if old_path.exists() && try_zsync(&zurl, old_path, &tmp_path) {
+        if old_path.exists() && try_zsync(&zurl, old_path, &tmp_path, quiet) {
             zsync_success = true;
         }
     }
@@ -58,8 +59,10 @@ pub async fn download_app(
     Ok(final_path)
 }
 
-fn try_zsync(zsync_url: &str, old_file: &Path, target_file: &Path) -> bool {
-    println!("Attempting zsync update using: {}", zsync_url);
+fn try_zsync(zsync_url: &str, old_file: &Path, target_file: &Path, quiet: bool) -> bool {
+    if !quiet {
+        println!("Attempting zsync update using: {}", zsync_url);
+    }
     // Run `zsync -i <old_file> -o <target_file> <zsync_url>`
     let status = Command::new("zsync")
         .arg("-i")
@@ -71,7 +74,9 @@ fn try_zsync(zsync_url: &str, old_file: &Path, target_file: &Path) -> bool {
 
     match status {
         Ok(s) if s.success() => {
-            println!("Successfully updated via zsync!");
+            if !quiet {
+                println!("Successfully updated via zsync!");
+            }
             true
         }
         _ => {

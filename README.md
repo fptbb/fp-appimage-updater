@@ -154,6 +154,8 @@ systemctl --user enable --now fp-appimage-updater.timer
 <summary>3. CLI Usage</summary>
 
 ### Check for Updates
+Add `--json` to `list`, `check`, `update`, or `remove` when you want machine-readable output instead of tables and status lines.
+
 Check the status of all your configured recipes to see if new versions are available remotely:
 ```bash
 fp-appimage-updater check

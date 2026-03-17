@@ -10,6 +10,7 @@ pub fn remove_app(
     app: &AppConfig,
     global: &GlobalConfig,
     state: Option<&AppState>,
+    quiet: bool,
 ) -> Result<()> {
     // 1. Delete AppImage binary
     if let Some(s) = state
@@ -33,7 +34,9 @@ pub fn remove_app(
     // 3. Remove Desktop Integration
     remove_desktop(app, state)?;
 
-    println!("Successfully removed {}", app.name);
+    if !quiet {
+        println!("Successfully removed {}", app.name);
+    }
     Ok(())
 }
 

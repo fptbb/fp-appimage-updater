@@ -10,6 +10,10 @@ pub struct Cli {
     #[arg(short, long, global = true, value_name = "PATH")]
     pub config: Option<std::path::PathBuf>,
 
+    /// Emit machine-readable JSON instead of human-readable text
+    #[arg(long, global = true)]
+    pub json: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }

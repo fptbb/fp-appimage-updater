@@ -1,6 +1,7 @@
 mod common;
 
 use common::{setup_fedora_container, run_updater_success};
+use serde_json::Value;
 
 #[tokio::test]
 async fn test_cli_list() {
@@ -15,6 +16,18 @@ async fn test_cli_list() {
     assert!(stdout.contains("hayase"));
     assert!(stdout.contains("hydra-launcher"));
     assert!(stdout.contains("curseforge"));
+}
+
+#[tokio::test]
+async fn test_cli_list_json() {
+    let container = setup_fedora_container().await;
+
+    let stdout = run_updater_success(&container, &["--json", "list"]).await;
+    let payload: Value = serde_json::from_str(&stdout).expect("List output was not valid JSON");
+
+    assert_eq!(payload["command"], "list");
+    assert!(payload["apps"].is_array());
+    assert!(!payload["apps"].as_array().unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -41,4 +54,16 @@ async fn test_cli_remove() {
     
     // Assert there's output that uninstalls elements
     assert!(stdout.to_lowercase().contains("removed") || stdout.contains("Removing") || stdout.contains("Not installed"));
+}
+
+#[tokio::test]
+async fn test_cli_update_json() {
+    let container = setup_fedora_container().await;
+
+    let stdout = run_updater_success(&container, &["--json", "update", "whatpulse"]).await;
+    let payload: Value = serde_json::from_str(&stdout).expect("Update output was not valid JSON");
+
+    assert_eq!(payload["command"], "update");
+    assert!(payload["apps"].is_array());
+    assert_eq!(payload["apps"].as_array().unwrap().len(), 1);
 }
