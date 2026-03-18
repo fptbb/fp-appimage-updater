@@ -7,6 +7,7 @@ use std::process::Command;
 
 use crate::config::{AppConfig, ZsyncConfig};
 use crate::resolvers::UpdateInfo;
+use crate::output::{print_progress, print_warning};
 use crate::state::AppState;
 
 pub async fn download_app(
@@ -17,6 +18,7 @@ pub async fn download_app(
     naming_format: &str,
     state: Option<&AppState>,
     quiet: bool,
+    colors: bool,
 ) -> Result<PathBuf> {
     let actual_storage_dir = app.storage_dir
         .as_ref()
@@ -44,7 +46,7 @@ pub async fn download_app(
 
     if let Some(zurl) = zsync_url && let Some(old_path_str) = state.and_then(|s| s.file_path.as_ref()) {
         let old_path = Path::new(old_path_str);
-        if old_path.exists() && try_zsync(&zurl, old_path, &tmp_path, quiet) {
+        if old_path.exists() && try_zsync(&zurl, old_path, &tmp_path, quiet, colors) {
             zsync_success = true;
         }
     }
@@ -59,9 +61,15 @@ pub async fn download_app(
     Ok(final_path)
 }
 
-fn try_zsync(zsync_url: &str, old_file: &Path, target_file: &Path, quiet: bool) -> bool {
+fn try_zsync(
+    zsync_url: &str,
+    old_file: &Path,
+    target_file: &Path,
+    quiet: bool,
+    colors: bool,
+) -> bool {
     if !quiet {
-        println!("Attempting zsync update using: {}", zsync_url);
+        print_progress(&format!("Attempting zsync update using: {}", zsync_url), colors);
     }
     // Run `zsync -i <old_file> -o <target_file> <zsync_url>`
     let status = Command::new("zsync")
@@ -75,12 +83,17 @@ fn try_zsync(zsync_url: &str, old_file: &Path, target_file: &Path, quiet: bool) 
     match status {
         Ok(s) if s.success() => {
             if !quiet {
-                println!("Successfully updated via zsync!");
+                print_progress("Successfully updated via zsync!", colors);
             }
             true
         }
         _ => {
-            eprintln!("Warning: zsync failed or not found, falling back to full HTTP download.");
+            if !quiet {
+                print_warning(
+                    "zsync failed or not found, falling back to full HTTP download.",
+                    colors,
+                );
+            }
             false
         }
     }

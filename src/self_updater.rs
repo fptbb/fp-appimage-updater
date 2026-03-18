@@ -4,6 +4,11 @@ use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
+use crate::output::{
+    print_self_update_available, print_self_update_current, print_self_update_download,
+    print_self_update_start, print_self_update_success,
+};
+
 const REPO: &str = "fptbb/fp-appimage-updater";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -64,12 +69,9 @@ async fn resolve_latest_tag(client: &Client, pre_release: bool) -> Result<String
 }
 
 /// Check GitHub releases and, if a newer version exists, replace the running binary.
-pub async fn self_update(client: &Client, pre_release: bool) -> Result<()> {
+pub async fn self_update(client: &Client, pre_release: bool, colors: bool) -> Result<()> {
     let kind = if pre_release { "pre-release" } else { "stable" };
-    println!(
-        "Checking for {} updates to fp-appimage-updater (current: v{})...",
-        kind, CURRENT_VERSION
-    );
+    print_self_update_start(kind, CURRENT_VERSION, colors);
 
     let latest_tag = resolve_latest_tag(client, pre_release).await?;
 
@@ -82,11 +84,11 @@ pub async fn self_update(client: &Client, pre_release: bool) -> Result<()> {
         .unwrap_or("");
 
     if latest_semver == CURRENT_VERSION {
-        println!("fp-appimage-updater is already up to date (v{}).", CURRENT_VERSION);
+        print_self_update_current(CURRENT_VERSION, colors);
         return Ok(());
     }
 
-    println!("New version available: {} → {}", CURRENT_VERSION, latest_tag);
+    print_self_update_available(CURRENT_VERSION, &latest_tag, colors);
 
     // 2. Resolve download URL
     let suffix = asset_suffix()?;
@@ -96,7 +98,7 @@ pub async fn self_update(client: &Client, pre_release: bool) -> Result<()> {
         REPO, latest_tag, binary_name
     );
 
-    println!("Downloading from {}...", download_url);
+    print_self_update_download(&download_url, colors);
 
     // 3. Download new binary to a temp file
     let mut response = client
@@ -128,6 +130,6 @@ pub async fn self_update(client: &Client, pre_release: bool) -> Result<()> {
     fs::rename(&tmp_path, &current_binary)
         .context("Failed to replace current binary — you may need elevated permissions (are you maybe on an immutable filesystem?)")?;
 
-    println!("Successfully updated to {}!", latest_tag);
+    print_self_update_success(&latest_tag, colors);
     Ok(())
 }

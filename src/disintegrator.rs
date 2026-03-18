@@ -4,6 +4,7 @@ use std::fs;
 
 use crate::config::{AppConfig, GlobalConfig};
 use crate::integrator::expand_tilde;
+use crate::output::{print_success, print_warning};
 use crate::state::AppState;
 
 pub fn remove_app(
@@ -11,6 +12,7 @@ pub fn remove_app(
     global: &GlobalConfig,
     state: Option<&AppState>,
     quiet: bool,
+    colors: bool,
 ) -> Result<()> {
     // 1. Delete AppImage binary
     if let Some(s) = state
@@ -18,7 +20,15 @@ pub fn remove_app(
             let file_path = std::path::Path::new(file_path_str);
             if file_path.exists()
                 && let Err(e) = fs::remove_file(file_path) {
-                    eprintln!("Warning: Failed to delete AppImage binary {:?}: {}", file_path, e);
+                    if !quiet {
+                        print_warning(
+                            &format!(
+                                "Failed to delete AppImage binary {:?}: {}",
+                                file_path, e
+                            ),
+                            colors,
+                        );
+                    }
                 }
         }
 
@@ -28,19 +38,24 @@ pub fn remove_app(
 
     if (symlink_path.exists() || symlink_path.is_symlink())
         && let Err(e) = fs::remove_file(&symlink_path) {
-            eprintln!("Warning: Failed to remove symlink {:?}: {}", symlink_path, e);
+            if !quiet {
+                print_warning(
+                    &format!("Failed to remove symlink {:?}: {}", symlink_path, e),
+                    colors,
+                );
+            }
         }
 
     // 3. Remove Desktop Integration
-    remove_desktop(app, state)?;
+    remove_desktop(app, state, colors)?;
 
     if !quiet {
-        println!("Successfully removed {}", app.name);
+        print_success(&format!("Removed {}", app.name), colors);
     }
     Ok(())
 }
 
-fn remove_desktop(app: &AppConfig, state: Option<&AppState>) -> Result<()> {
+fn remove_desktop(app: &AppConfig, state: Option<&AppState>, colors: bool) -> Result<()> {
     let data_local_dir = UserDirs::new()
         .and_then(|u| u.document_dir().map(|d| d.parent().unwrap().join(".local/share")))
         .unwrap_or_else(|| expand_tilde("~/.local/share"));
@@ -49,7 +64,10 @@ fn remove_desktop(app: &AppConfig, state: Option<&AppState>) -> Result<()> {
 
     let desktop_path = apps_dir.join(format!("{}.desktop", app.name));
     if desktop_path.exists() && let Err(e) = fs::remove_file(&desktop_path) {
-        eprintln!("Warning: Failed to remove desktop file {:?}: {}", desktop_path, e);
+        print_warning(
+            &format!("Failed to remove desktop file {:?}: {}", desktop_path, e),
+            colors,
+        );
     }
 
     // Attempt to remove icon files from the AppImages local .icons folder
