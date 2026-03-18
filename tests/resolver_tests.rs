@@ -1,6 +1,6 @@
 mod common;
 
-use common::{setup_fedora_container, run_updater_success};
+use common::{run_updater_success, setup_fedora_container, write_file_in_container};
 use std::process::Command;
 
 #[tokio::test]
@@ -155,6 +155,54 @@ async fn test_zsync_download_with_mock_server() {
     client.post(format!("{}/__admin/mappings", mock_url))
         .json(&zsync_stub).send().await.expect("Failed to configure ZSYNC stub");
 
+    // 2b. Replace the real zsync binary with a tiny stub so the test only
+    // verifies request wiring, not zsync parsing behavior.
+    let fake_zsync_script = r#"#!/bin/sh
+target=""
+url=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -o)
+            target="$2"
+            shift 2
+            ;;
+        -i)
+            shift 2
+            ;;
+        *)
+            url="$1"
+            shift
+            ;;
+    esac
+done
+
+python3 - "$url" "$target" <<'PY'
+import pathlib
+import sys
+import urllib.request
+
+url = sys.argv[1]
+target = sys.argv[2]
+
+if url:
+    urllib.request.urlopen(url).read()
+
+if target:
+    pathlib.Path(target).write_bytes(b"fake zsync output\n")
+PY
+"#;
+    write_file_in_container(&container, "/tmp/fake-bin/zsync", fake_zsync_script);
+
+    let status = Command::new("docker")
+        .arg("exec")
+        .arg(container_id)
+        .arg("chmod")
+        .arg("+x")
+        .arg("/tmp/fake-bin/zsync")
+        .status()
+        .expect("Failed to chmod fake zsync");
+    assert!(status.success(), "Failed to make fake zsync executable");
+
     // 3. Configure fp-appimage-updater apps/dummy-direct.yml dynamically
     // Since our fedora container runs on --network host, it can reach localhost:{mock_port}
     let dummy_config = format!(r#"name: dummy-direct
@@ -209,9 +257,9 @@ integration: false
     let status = Command::new("docker")
         .arg("exec")
         .arg(container_id)
-        .arg("fp-appimage-updater")
-        .arg("update")
-        .arg("dummy-direct")
+        .arg("sh")
+        .arg("-lc")
+        .arg("PATH=/tmp/fake-bin:$PATH fp-appimage-updater update dummy-direct")
         .status()
         .expect("Failed to execute updater for dummy-direct");
         

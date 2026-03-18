@@ -36,10 +36,15 @@ async fn test_cli_check() {
     
     // Command: check
     let stdout = run_updater_success(&container, &["check"]).await;
-    
-    // Check shouldn't panic and should iterate through apps
-    assert!(stdout.contains("Update available for winboat") || stdout.contains("winboat is up to date"));
-    assert!(stdout.contains("whatpulse"));
+
+    let lower = stdout.to_lowercase();
+
+    // Check should print the new structured status output and include a summary.
+    assert!(lower.contains("check results"));
+    assert!(lower.contains("winboat"));
+    assert!(lower.contains("whatpulse"));
+    assert!(lower.contains("update available") || lower.contains("up to date"));
+    assert!(lower.contains("summary:"));
 }
 
 #[tokio::test]

@@ -108,10 +108,12 @@ if [ "$INSTALL_SYSTEMD" = true ]; then
     echo ""
     echo "Installation complete!"
     echo "Make sure '$BIN_DIR' is in your PATH."
+    echo "Adding "" export PATH=\"\$HOME/.local/bin:\$PATH\" "" to your shell profile."
     echo "Background updates are scheduled via systemd (${APP_NAME}.timer)."
 else
     echo ""
     echo "Installation complete!"
     echo "Make sure '$BIN_DIR' is in your PATH."
+    echo "Adding "" export PATH=\"\$HOME/.local/bin:\$PATH\" "" to your shell profile."
     echo "Systemd service installation was skipped (--no-systemd specified)."
 fi

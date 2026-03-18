@@ -9,6 +9,7 @@ pub mod script;
 use crate::config::{AppConfig, StrategyConfig};
 use crate::state::AppState;
 
+#[derive(Debug)]
 pub struct UpdateInfo {
     pub download_url: String,
     pub version: String,

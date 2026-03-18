@@ -122,3 +122,24 @@ pub async fn run_updater_success(container: &ContainerAsync<GenericImage>, args:
     
     stdout
 }
+
+#[allow(dead_code)]
+pub fn write_file_in_container(
+    container: &ContainerAsync<GenericImage>,
+    path: &str,
+    content: &str,
+) {
+    let command = format!(
+        "mkdir -p \"$(dirname '{path}')\" && cat > '{path}' <<'EOF'\n{content}\nEOF"
+    );
+    let status = Command::new("docker")
+        .arg("exec")
+        .arg(container.id())
+        .arg("sh")
+        .arg("-lc")
+        .arg(command)
+        .status()
+        .expect("Failed to write file in container");
+
+    assert!(status.success(), "Failed to write file in container");
+}

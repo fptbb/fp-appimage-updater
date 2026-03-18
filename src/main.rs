@@ -105,7 +105,7 @@ async fn main() -> Result<()> {
                             local_version: state.and_then(|s| s.local_version.clone()),
                             remote_version: None,
                             download_url: None,
-                            error: Some(e.to_string()),
+                            error: Some(format!("{:#}", e)),
                         });
                     }
                 }
@@ -180,11 +180,11 @@ async fn main() -> Result<()> {
                                             from_version,
                                             to_version: Some(to_version),
                                             path: Some(new_path.to_string_lossy().to_string()),
-                                            error: Some(format!("Integration failed: {}", e)),
+                                            error: Some(format!("Integration failed: {:#}", e)),
                                         });
                                     } else {
                                         print_warning(
-                                            &format!("Integration failed for {}: {}", app.name, e),
+                                            &format!("Integration failed for {}: {:#}", app.name, e),
                                             color_output,
                                         );
                                     }
@@ -225,11 +225,11 @@ async fn main() -> Result<()> {
                                         from_version,
                                         to_version: Some(to_version),
                                         path: None,
-                                        error: Some(format!("Download failed: {}", e)),
+                                        error: Some(format!("Download failed: {:#}", e)),
                                     });
                                 } else {
                                     print_warning(
-                                        &format!("Download failed for {}: {}", app.name, e),
+                                        &format!("Download failed for {}: {:#}", app.name, e),
                                         color_output,
                                     );
                                 }
@@ -267,11 +267,11 @@ async fn main() -> Result<()> {
                                 from_version: state.and_then(|s| s.local_version.clone()),
                                 to_version: None,
                                 path: state.and_then(|s| s.file_path.clone()),
-                                error: Some(e.to_string()),
+                                error: Some(format!("{:#}", e)),
                             });
                         } else {
                             print_warning(
-                                &format!("Error checking updates for {}: {}", app.name, e),
+                                &format!("Error checking updates for {}: {:#}", app.name, e),
                                 color_output,
                             );
                         }
@@ -357,11 +357,11 @@ async fn main() -> Result<()> {
                                 results.push(RemoveApp {
                                     name: app.name.clone(),
                                     status: RemoveStatus::Error,
-                                    error: Some(e.to_string()),
+                                    error: Some(format!("{:#}", e)),
                                 });
                             } else {
                                 print_warning(
-                                    &format!("Error removing {}: {}", app.name, e),
+                                    &format!("Error removing {}: {:#}", app.name, e),
                                     color_output,
                                 );
                             }
