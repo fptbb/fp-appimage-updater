@@ -3,12 +3,10 @@ set -e
 
 REPO="fptbb/fp-appimage-updater"
 APP_NAME="fp-appimage-updater"
-BIN_DIR="$HOME/.local/bin"
-SYSTEMD_DIR="$HOME/.config/systemd/user"
-SYSTEMCTL_CMD="systemctl --user"
 
 INSTALL_SYSTEMD=true
 USE_PRERELEASE=false
+SCOPE="auto"
 
 for arg in "$@"; do
     if [ "$arg" = "--no-systemd" ]; then
@@ -16,27 +14,80 @@ for arg in "$@"; do
     elif [ "$arg" = "--pre-release" ]; then
         USE_PRERELEASE=true
     elif [ "$arg" = "--system" ]; then
-        BIN_DIR="/usr/bin"
-        SYSTEMD_DIR="/usr/lib/systemd/system"
-        SYSTEMCTL_CMD="systemctl"
+        SCOPE="system"
+    elif [ "$arg" = "--user" ]; then
+        SCOPE="user"
     elif [ "$arg" = "uninstall" ] || [ "$arg" = "--uninstall" ]; then
         echo "Uninstalling $APP_NAME..."
-        $SYSTEMCTL_CMD disable --now "${APP_NAME}.timer" 2>/dev/null || true
-        echo "Removing systemd units..."
-        rm -f "$SYSTEMD_DIR/${APP_NAME}.service"
-        rm -f "$SYSTEMD_DIR/${APP_NAME}.timer"
-        $SYSTEMCTL_CMD daemon-reload 2>/dev/null || true
-        echo "Removing binary..."
-        rm -f "$BIN_DIR/$APP_NAME"
+
+        # disables user-wide active timers gracefully
+        systemctl --user disable --now "${APP_NAME}.timer" 2>/dev/null || true
+
+        # cleans user-wide paths
+        rm -f "$HOME/.local/bin/$APP_NAME"
+        rm -f "$HOME/.config/systemd/user/${APP_NAME}.service"
+        rm -f "$HOME/.config/systemd/user/${APP_NAME}.timer"
+        systemctl --user daemon-reload 2>/dev/null || true
+
+        # skips system-wide cleanup entirely on immutable systems or non-root executions
+        if [ -w "/usr/bin" ] && [ -w "/usr/lib/systemd/system" ]; then
+            systemctl disable --now "${APP_NAME}.timer" 2>/dev/null || true
+            
+            SYSTEM_PATHS=(
+                "/usr/bin/$APP_NAME"
+                "/usr/local/bin/$APP_NAME"
+                "/usr/lib/systemd/system/${APP_NAME}.service"
+                "/usr/lib/systemd/system/${APP_NAME}.timer"
+                "/etc/systemd/system/${APP_NAME}.service"
+                "/etc/systemd/system/${APP_NAME}.timer"
+            )
+
+            for target in "${SYSTEM_PATHS[@]}"; do
+                if [ -f "$target" ]; then
+                    rm -f "$target"
+                fi
+            done
+            
+            systemctl daemon-reload 2>/dev/null || true
+        else
+            echo "note: skipped system-wide cleanup (read-only filesystem or requires root)"
+        fi
+
         echo "Uninstallation complete!"
         echo "Note: AppImage binaries and configs in ~/.config/fp-appimage-updater were left intact."
         exit 0
     fi
 done
 
-echo "Starting installation of $APP_NAME..."
+# resolves target directories and validates system writability
+if [ "$SCOPE" = "auto" ] || [ "$SCOPE" = "system" ]; then
+    if [ -w "/usr/bin" ] && [ -w "/usr/lib/systemd/system" ]; then
+        SCOPE="system"
+        BIN_DIR="/usr/bin"
+        SYSTEMD_DIR="/usr/lib/systemd/system"
+        SYSTEMCTL_CMD="systemctl"
+    else
+        if [ "$SCOPE" = "system" ]; then
+            echo "error: failed to write to /usr/bin or /usr/lib/systemd/system."
+            echo "you must be on an immutable system or lack sufficient privileges."
+            exit 1
+        else
+            echo "warning: system paths are read-only. you must be on an immutable system."
+            echo "falling back to user-wide installation."
+            SCOPE="user"
+        fi
+    fi
+fi
 
-# 1. Detect Architecture
+if [ "$SCOPE" = "user" ]; then
+    BIN_DIR="$HOME/.local/bin"
+    SYSTEMD_DIR="$HOME/.config/systemd/user"
+    SYSTEMCTL_CMD="systemctl --user"
+fi
+
+echo "Starting $SCOPE-wide installation of $APP_NAME..."
+
+# detects architecture
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64|amd64)
@@ -51,7 +102,7 @@ case "$ARCH" in
         ;;
 esac
 
-# 2. Fetch release version
+# fetches release version
 if [ "$USE_PRERELEASE" = "true" ]; then
     echo "Fetching latest release version from GitHub (including pre-releases)..."
     VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases?per_page=1" \
@@ -71,7 +122,7 @@ fi
 
 echo "Found latest ${RELEASE_KIND}: $VERSION"
 
-# 3. Download the binary
+# downloads binary
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.${TARGET_ARCH}"
 echo "Downloading binary for $TARGET_ARCH from $DOWNLOAD_URL..."
 
@@ -80,23 +131,20 @@ curl -sL --fail --progress-bar "$DOWNLOAD_URL" -o "$BIN_DIR/$APP_NAME"
 chmod +x "$BIN_DIR/$APP_NAME"
 
 if [ "$INSTALL_SYSTEMD" = true ]; then
-    # 4. Download systemd instances
-    echo "Setting up background systemd services..."
+    # downloads systemd instances
+    echo "Setting up background systemd services in $SYSTEMD_DIR..."
     mkdir -p "$SYSTEMD_DIR"
 
     SERVICE_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.service"
     TIMER_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.timer"
 
-    echo "Downloading systemd service from $SERVICE_URL..."
     curl -sL --fail "$SERVICE_URL" -o "$SYSTEMD_DIR/${APP_NAME}.service"
-
-    echo "Downloading systemd timer from $TIMER_URL..."
     curl -sL --fail "$TIMER_URL" -o "$SYSTEMD_DIR/${APP_NAME}.timer"
 
-    # Adjust ExecStart
+    # adjusts ExecStart path to match installation directory
     sed -i "s|%h/.local/bin|$BIN_DIR|g" "$SYSTEMD_DIR/${APP_NAME}.service"
 
-    # 5. Enable and start systemd services
+    # enables and starts systemd services
     if [ "$SYSTEMCTL_CMD" = "systemctl" ]; then
         $SYSTEMCTL_CMD daemon-reload 2>/dev/null || true
         $SYSTEMCTL_CMD enable "${APP_NAME}.timer" 2>/dev/null || true
@@ -107,13 +155,20 @@ if [ "$INSTALL_SYSTEMD" = true ]; then
 
     echo ""
     echo "Installation complete!"
-    echo "Make sure '$BIN_DIR' is in your PATH."
-    echo "Adding "" export PATH=\"\$HOME/.local/bin:\$PATH\" "" to your shell profile."
     echo "Background updates are scheduled via systemd (${APP_NAME}.timer)."
 else
     echo ""
     echo "Installation complete!"
-    echo "Make sure '$BIN_DIR' is in your PATH."
-    echo "Adding "" export PATH=\"\$HOME/.local/bin:\$PATH\" "" to your shell profile."
     echo "Systemd service installation was skipped (--no-systemd specified)."
+fi
+
+# verifies if target directory is in current path
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    echo ""
+    echo "warning: $BIN_DIR is not in your PATH."
+    if [ "$SCOPE" = "user" ]; then
+        echo "add 'export PATH=\"$BIN_DIR:\$PATH\"' to your shell configuration."
+    else
+        echo "ensure $BIN_DIR is added to the system-wide path variables."
+    fi
 fi
