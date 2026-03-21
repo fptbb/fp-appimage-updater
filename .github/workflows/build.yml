@@ -130,18 +130,24 @@ jobs:
 
           if [ -z "$PREV_TAG" ]; then
             BASE_SHA=$(git rev-list --max-parents=0 HEAD --abbrev-commit)
+            # Use the first commit as the base for the compare link
+            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${BASE_SHA}...${HEAD_SHA}"
             ALL_COMMITS=$(git log --pretty=format:"- %s (%h) by %an" HEAD)
           else
             BASE_SHA=$(git rev-parse --short "${PREV_TAG}")
+            # Use the tag as the base for a cleaner comparison link
+            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${HEAD_SHA}"
             ALL_COMMITS=$(git log --pretty=format:"- %s (%h) by %an" "${PREV_TAG}..HEAD")
           fi
 
           HEADER="## What's Changed"
-          RANGE="*(from ${BASE_SHA} to ${HEAD_SHA})*"
+          # Link the range description to the GitHub comparison tool
+          RANGE="**Full Changelog**: [${BASE_SHA}...${HEAD_SHA}](${COMPARE_URL})"
+          
           MAX=120000
           TOTAL=$(echo "$ALL_COMMITS" | wc -l)
 
-          # Reserve space for header, range line, and the potential "...and N more" suffix
+          # Reserve space for header, range line, and the potential suffix
           AVAILABLE=$((MAX - ${#HEADER} - ${#RANGE} - 35))
 
           COUNT=0
@@ -165,7 +171,7 @@ jobs:
 
           {
             echo 'notes<<CHANGELOG_EOF'
-            printf '%s\n%s\n%s' "$HEADER" "$RANGE" "$LOG"
+            printf '%s\n%s\n\n%s' "$HEADER" "$RANGE" "$LOG"
             echo 'CHANGELOG_EOF'
           } >> "$GITHUB_OUTPUT"
 
