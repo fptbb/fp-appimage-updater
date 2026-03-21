@@ -19,6 +19,10 @@ on:
         description: 'Show commit authors'
         type: boolean
         default: true
+      auto_publish:
+        description: 'Automatically publish the release (undraft) after uploading'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -186,8 +190,9 @@ jobs:
             echo 'CHANGELOG_EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Publish GitHub Release
+      - name: Create Draft Release and Upload Assets
         if: github.event_name == 'workflow_dispatch'
+        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.resolve_tag.outputs.tag }}
@@ -198,7 +203,16 @@ jobs:
             build/fp-appimage-updater.ARM
             systemd/fp-appimage-updater.service
             systemd/fp-appimage-updater.timer
-          draft: false
-          prerelease: ${{ inputs.prerelease }}
+          draft: true
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Draft Release
+        if: |
+          github.event_name == 'workflow_dispatch' && 
+          github.event.inputs.auto_publish == 'true'
+        run: |
+          gh release edit "${{ steps.resolve_tag.outputs.tag }}" --draft=false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
