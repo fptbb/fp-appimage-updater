@@ -128,23 +128,20 @@ jobs:
         run: |
           HEAD_SHA=$(git rev-parse --short HEAD)
           
-          if [ "${{ inputs.prerelease }}" = "true" ]; then
-            # Pre-release: diff from the nearest preceding tag (stable or RC)
+          # Determine previous tag
+          if [ "${{ github.event.inputs.prerelease }}" = "true" ]; then
             PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           else
-            # Stable release: skip all RC tags to get the last stable tag,
-            # so the changelog covers everything since the previous real release
             PREV_TAG=$(git tag --sort=-creatordate | grep -v -- '-RC' | head -1)
           fi
 
+          # Set Base SHA and Comparison URL
           if [ -z "$PREV_TAG" ]; then
             BASE_SHA=$(git rev-list --max-parents=0 HEAD --abbrev-commit)
-            # Use the first commit as the base for the compare link
             COMPARE_URL="https://github.com/${{ github.repository }}/compare/${BASE_SHA}...${HEAD_SHA}"
             RANGE_SPEC="HEAD"
           else
             BASE_SHA=$(git rev-parse --short "${PREV_TAG}")
-            # Use the tag as the base for a cleaner comparison link
             COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${HEAD_SHA}"
             RANGE_SPEC="${PREV_TAG}..HEAD"
           fi
@@ -159,17 +156,19 @@ jobs:
           # Logic for Categorization vs Simple List
           if [ "${{ github.event.inputs.categorize }}" = "true" ]; then
             LOG_CONTENT=""
-            declare -A GROUPS
+            declare -A COMMIT_GROUPS
             # handles grouping by prefix case-insensitively
             while IFS= read -r line; do
+              # Extract prefix or default to 'other'
               PREFIX=$(echo "$line" | grep -oP "^- \K[^: ]+(?=:)" | tr '[:upper:]' '[:lower:]' || echo "other")
-              GROUPS["$PREFIX"]="${GROUPS["$PREFIX"]}$line"$'\n'
+              COMMIT_GROUPS["$PREFIX"]="${COMMIT_GROUPS["$PREFIX"]}$line"$'\n'
             done < <(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
 
             # Build the categorized log
-            for KEY in "${!GROUPS[@]}"; do
+            for KEY in "${!COMMIT_GROUPS[@]}"; do
+              # Title case the header
               HEADER_KEY="$(tr '[:lower:]' '[:upper:]' <<< ${KEY:0:1})${KEY:1}"
-              LOG_CONTENT="${LOG_CONTENT}### $HEADER_KEY"$'\n'"${GROUPS[$KEY]}"$'\n'
+              LOG_CONTENT="${LOG_CONTENT}### $HEADER_KEY"$'\n'"${COMMIT_GROUPS[$KEY]}"$'\n'
             done
           else
             LOG_CONTENT=$(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
@@ -177,7 +176,7 @@ jobs:
 
           HEADER="## What's Changed"
           RANGE="**Full Changelog**: [${BASE_SHA}...${HEAD_SHA}](${COMPARE_URL})"
-          // More readable output with multiple echo instead of printf
+          
           {
             echo 'notes<<CHANGELOG_EOF'
             echo "$HEADER"
