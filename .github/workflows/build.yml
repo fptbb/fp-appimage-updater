@@ -11,6 +11,14 @@ on:
         description: 'Publish as pre-release (appends -RC<N> to the version tag)'
         type: boolean
         default: false
+      categorize:
+        description: 'Categorize commits by prefix (feat, fix, etc.)'
+        type: boolean
+        default: false
+      show_authors:
+        description: 'Show commit authors'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -26,7 +34,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history needed for changelog
+          fetch-depth: 0
 
       - name: Get Version from Cargo.toml
         id: get_version
@@ -116,9 +124,10 @@ jobs:
       - name: Generate Changelog
         if: github.event_name == 'workflow_dispatch'
         id: changelog
+        shell: bash
         run: |
           HEAD_SHA=$(git rev-parse --short HEAD)
-
+          
           if [ "${{ inputs.prerelease }}" = "true" ]; then
             # Pre-release: diff from the nearest preceding tag (stable or RC)
             PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -132,46 +141,49 @@ jobs:
             BASE_SHA=$(git rev-list --max-parents=0 HEAD --abbrev-commit)
             # Use the first commit as the base for the compare link
             COMPARE_URL="https://github.com/${{ github.repository }}/compare/${BASE_SHA}...${HEAD_SHA}"
-            ALL_COMMITS=$(git log --pretty=format:"- %s (%h) by %an" HEAD)
+            RANGE_SPEC="HEAD"
           else
             BASE_SHA=$(git rev-parse --short "${PREV_TAG}")
             # Use the tag as the base for a cleaner comparison link
             COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${HEAD_SHA}"
-            ALL_COMMITS=$(git log --pretty=format:"- %s (%h) by %an" "${PREV_TAG}..HEAD")
+            RANGE_SPEC="${PREV_TAG}..HEAD"
+          fi
+
+          # Format string based on author toggle
+          if [ "${{ github.event.inputs.show_authors }}" = "false" ]; then
+            FORMAT="- %s (%h)"
+          else
+            FORMAT="- %s (%h) by %an"
+          fi
+
+          # Logic for Categorization vs Simple List
+          if [ "${{ github.event.inputs.categorize }}" = "true" ]; then
+            LOG_CONTENT=""
+            declare -A GROUPS
+            # handles grouping by prefix case-insensitively
+            while IFS= read -r line; do
+              PREFIX=$(echo "$line" | grep -oP "^- \K[^: ]+(?=:)" | tr '[:upper:]' '[:lower:]' || echo "other")
+              GROUPS["$PREFIX"]="${GROUPS["$PREFIX"]}$line"$'\n'
+            done < <(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
+
+            # Build the categorized log
+            for KEY in "${!GROUPS[@]}"; do
+              HEADER_KEY="$(tr '[:lower:]' '[:upper:]' <<< ${KEY:0:1})${KEY:1}"
+              LOG_CONTENT="${LOG_CONTENT}### $HEADER_KEY"$'\n'"${GROUPS[$KEY]}"$'\n'
+            done
+          else
+            LOG_CONTENT=$(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
           fi
 
           HEADER="## What's Changed"
-          # Link the range description to the GitHub comparison tool
           RANGE="**Full Changelog**: [${BASE_SHA}...${HEAD_SHA}](${COMPARE_URL})"
-          
-          MAX=120000
-          TOTAL=$(echo "$ALL_COMMITS" | wc -l)
-
-          # Reserve space for header, range line, and the potential suffix
-          AVAILABLE=$((MAX - ${#HEADER} - ${#RANGE} - 35))
-
-          COUNT=0
-          USED=0
-          LOG=""
-          while IFS= read -r line; do
-            NEED=$((USED + ${#line} + 1))
-            if [ $NEED -le $AVAILABLE ]; then
-              LOG="${LOG}${line}"$'\n'
-              USED=$((USED + ${#line} + 1))
-              COUNT=$((COUNT + 1))
-            else
-              break
-            fi
-          done <<< "$ALL_COMMITS"
-
-          REMAINING=$((TOTAL - COUNT))
-          if [ $REMAINING -gt 0 ]; then
-            LOG="${LOG}...and ${REMAINING} more commits"
-          fi
-
+          // More readable output with multiple echo instead of printf
           {
             echo 'notes<<CHANGELOG_EOF'
-            printf '%s\n%s\n\n%s' "$HEADER" "$RANGE" "$LOG"
+            echo "$HEADER"
+            echo "$RANGE"
+            echo ""
+            echo "$LOG_CONTENT"
             echo 'CHANGELOG_EOF'
           } >> "$GITHUB_OUTPUT"
 
