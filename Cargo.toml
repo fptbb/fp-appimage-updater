@@ -27,6 +27,6 @@ panic = "abort"      # Remove panic unwinding logic to save space
 strip = true         # Strip symbols from binary
 
 [dev-dependencies]
-testcontainers = { version = "=0.23.1", features = ["http_wait"] }
+testcontainers = { version = "=0.27.2", features = ["http_wait"] }
 testcontainers-modules = "=0.11.0"
 tokio = { version = "=1.50.0", features = ["macros", "rt-multi-thread"] }
