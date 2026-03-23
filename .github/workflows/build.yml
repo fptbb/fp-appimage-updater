@@ -40,7 +40,7 @@ jobs:
       tag: ${{ steps.release_meta.outputs.tag }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
@@ -112,7 +112,7 @@ jobs:
           targets: x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu
 
       - name: Cache Rust Dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
       - name: Install System Dependencies
         run: sudo apt-get update && sudo apt-get install -y upx-ucl gcc-aarch64-linux-gnu
@@ -137,21 +137,21 @@ jobs:
           mv target/aarch64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.ARM
 
       - name: Generate Attestations
-        uses: actions/attest@v4
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
         with:
           subject-path: |
             build/fp-appimage-updater.x64
             build/fp-appimage-updater.ARM
 
       - name: Upload x64 Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: fp-appimage-updater-linux-x64
           path: build/fp-appimage-updater.x64
           retention-days: 7
 
       - name: Upload ARM64 Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: fp-appimage-updater-linux-arm64
           path: build/fp-appimage-updater.ARM
@@ -225,7 +225,7 @@ jobs:
       - name: Create Release and Upload Assets
         if: steps.release_meta.outputs.should_release == 'true'
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
           tag_name: ${{ steps.release_meta.outputs.tag }}
           name: Release ${{ steps.release_meta.outputs.tag }}
