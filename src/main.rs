@@ -1,12 +1,14 @@
 use anyhow::Result;
 use clap::{CommandFactory, Parser};
 use reqwest::Client;
+use serde::Serialize;
 use std::time::Duration;
 
 mod cli;
 mod config;
 mod disintegrator;
 mod downloader;
+mod initializer;
 mod integrator;
 mod lock;
 mod parser;
@@ -37,12 +39,67 @@ async fn main() -> Result<()> {
         ConfigPaths::new()?
     };
     let _process_lock = lock::FileLock::acquire(paths.lock_path())?;
+    let color_output = colors_enabled(json_output);
+
+    if let Commands::Init {
+        global,
+        app,
+        strategy,
+        force,
+    } = &cli.command
+    {
+        let result = initializer::run(&paths, *global, app.as_deref(), *strategy, *force)?;
+
+        if json_output {
+            #[derive(Serialize)]
+            struct InitResponse {
+                command: &'static str,
+                created: Vec<String>,
+                skipped: Vec<String>,
+            }
+            print_json(&InitResponse {
+                command: "init",
+                created: result
+                    .created
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect(),
+                skipped: result
+                    .skipped
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect(),
+            })?;
+        } else {
+            for path in &result.created {
+                print_success(&format!("Created {}", path.display()), color_output);
+                print_progress(
+                    &format!("Edit: {}", path.display()),
+                    color_output,
+                );
+                print_progress("Then run: fp-appimage-updater validate", color_output);
+            }
+            for path in &result.skipped {
+                print_warning(
+                    &format!(
+                        "Skipped existing file {} (use --force to overwrite)",
+                        path.display()
+                    ),
+                    color_output,
+                );
+            }
+            if result.created.is_empty() && result.skipped.is_empty() {
+                print_progress("Nothing to initialize.", color_output);
+            }
+        }
+        return Ok(());
+    }
+
     let global_config = parser::load_global_config(&paths)?;
     let app_load = parser::load_app_configs(&paths)?;
     let app_configs = app_load.apps;
     let app_config_errors = app_load.errors;
     let mut state_manager = StateManager::load(paths.cache_path());
-    let color_output = colors_enabled(json_output);
 
     // Use a connect timeout, but leave the stream timeout unbounded
     // so large AppImages (e.g., 250MB+) don't timeout mid-download.
@@ -52,6 +109,7 @@ async fn main() -> Result<()> {
         .build()?;
 
     match &cli.command {
+        Commands::Init { .. } => unreachable!("init handled before config loading"),
         Commands::Validate { app_name } => {
             let (apps, error) = validator::validate_app_configs(&paths, app_name.as_deref())?;
             let results = apps

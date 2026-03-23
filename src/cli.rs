@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
 #[derive(Parser)]
@@ -20,6 +20,21 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Initialize starter configuration files
+    Init {
+        /// Create global config.yml
+        #[arg(long)]
+        global: bool,
+        /// Create an app recipe with this name
+        #[arg(long, value_name = "NAME")]
+        app: Option<String>,
+        /// Strategy to scaffold when using --app
+        #[arg(long, value_enum, default_value_t = InitStrategy::Direct)]
+        strategy: InitStrategy,
+        /// Overwrite files if they already exist
+        #[arg(long)]
+        force: bool,
+    },
     /// Validate application recipe files
     Validate {
         /// Optional specific application to validate
@@ -58,4 +73,11 @@ pub enum Commands {
         #[arg(value_enum)]
         shell: Shell,
     },
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum InitStrategy {
+    Direct,
+    Forge,
+    Script,
 }
