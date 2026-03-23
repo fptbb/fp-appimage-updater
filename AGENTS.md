@@ -20,3 +20,6 @@ When adding a new way to check for AppImage updates:
 -   Implement an async `resolve` function returning `Result<Option<UpdateInfo>>`.
 -   Wire it into the `StrategyConfig` enum in `src/config.rs`.
 -   Dispatch it in `src/resolvers/mod.rs -> check_for_updates()`.
+
+## Versioning policy
+When version changes in the Cargo.toml, the commit message should be always exactly chore: bump version to VERSION_NUMBER in Cargo.toml just replacing the version number.

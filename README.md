@@ -7,6 +7,7 @@ fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed t
 - **Update Resolvers:** Fetch the latest version via Forge Releases (GitHub/GitLab), Direct Links (ETag/Last-Modified HTTP Headers), or Custom Shell Scripts.
 - **Delta Updates:** Uses `zsync` when available to download only modified bytes.
 - **Desktop Integration:** Extracts exact `.desktop` manifests and icons directly from the AppImage using `--appimage-extract` and seamlessly inserts them into your `.local/share/applications` application menu.
+- **Local Health Checks:** `doctor` checks the local configuration, required directories, and optional tooling like `zsync`.
 - **Global & Local Configs:** Override storage paths, integration behaviors, and symlinking easily per-app or globally.
 
 ## Project Facts
@@ -43,7 +44,7 @@ curl -sL https://fau.fpt.icu/install.sh | bash -s -- --uninstall
 ```
 
 ### Using Pre-built Binaries
-You can download the latest compiled binary (`fp-appimage-updater.x64`) from the GitHub Releases page. Make it executable and drop it into your `~/.local/bin/` folder. It works as a standalone binary without any dependencies or scheduled services. You can run it manually or integrate it into your own scripts.
+You can download the latest compiled binaries from the GitHub Releases page. Releases currently provide Linux `x64` and `ARM64` artifacts, and the release workflow also publishes build provenance attestations for those binaries. Make the binary executable and drop it into your `~/.local/bin/` folder. It works as a standalone binary without any dependencies or scheduled services. You can run it manually or integrate it into your own scripts.
 
 ### Building From Source
 If you wish to compile the tool yourself from the source code, please see the [CONTRIBUTING](CONTRIBUTING.md) guidelines.
@@ -153,8 +154,49 @@ systemctl --user enable --now fp-appimage-updater.timer
 <details>
 <summary>3. CLI Usage</summary>
 
-### Check for Updates
-Add `--json` to `list`, `check`, `update`, or `remove` when you want machine-readable output instead of tables and status lines.
+### JSON Output
+Add `--json` to `init`, `validate`, `doctor`, `list`, `check`, `update`, or `remove` when you want machine-readable output instead of tables and status lines.
+
+### Initialize Configuration
+Create starter configuration files for the global config or a specific app recipe:
+```bash
+fp-appimage-updater init --global
+```
+
+Create an app recipe scaffold with a chosen update strategy:
+```bash
+fp-appimage-updater init --app whatpulse --strategy direct
+```
+
+Use `--force` to overwrite existing files if needed.
+
+### Validate Recipes
+Validate all configured application recipe files:
+```bash
+fp-appimage-updater validate
+```
+
+Validate a single recipe by app name:
+```bash
+fp-appimage-updater validate whatpulse
+```
+
+This command checks that recipe files parse correctly and reports invalid files so you can fix them before running updates.
+
+### Doctor
+Run a quick health check on the local setup:
+```bash
+fp-appimage-updater doctor
+```
+
+This command checks:
+- the config directory
+- the apps directory
+- the global config file
+- the state directory
+- whether any recipe files were parsed successfully
+- whether any recipe files failed to parse
+- whether `zsync` is available on `PATH`
 
 Check the status of all your configured recipes to see if new versions are available remotely:
 ```bash
