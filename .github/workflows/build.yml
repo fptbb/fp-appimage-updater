@@ -137,7 +137,7 @@ jobs:
           mv target/aarch64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.ARM
 
       - name: Generate Attestations
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest@v4
         with:
           subject-path: |
             build/fp-appimage-updater.x64

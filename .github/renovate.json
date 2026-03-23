@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "config:best-practices"
+  ],
+  "github-actions": {
+    "enabled": true
+  },
+  "git-submodules": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "automerge": true,
+      "matchUpdateTypes": [
+        "pin",
+        "pinDigest"
+      ]
+    }
+  ]
+}
