@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use directories::ProjectDirs;
 use glob::glob;
+use serde_yaml::Value;
 use std::fs;
 use std::path::PathBuf;
 
@@ -11,6 +12,17 @@ const APP_NAME: &str = "fp-appimage-updater";
 pub struct ConfigPaths {
     pub config_dir: PathBuf,
     pub state_dir: PathBuf,
+}
+
+pub struct AppConfigLoadError {
+    pub path: PathBuf,
+    pub app_name: Option<String>,
+    pub message: String,
+}
+
+pub struct AppConfigLoadResult {
+    pub apps: Vec<AppConfig>,
+    pub errors: Vec<AppConfigLoadError>,
 }
 
 impl ConfigPaths {
@@ -80,12 +92,13 @@ pub fn load_global_config(paths: &ConfigPaths) -> Result<GlobalConfig> {
     }
 }
 
-pub fn load_app_configs(paths: &ConfigPaths) -> Result<Vec<AppConfig>> {
+pub fn load_app_configs(paths: &ConfigPaths) -> Result<AppConfigLoadResult> {
     let mut apps = Vec::new();
+    let mut errors = Vec::new();
     let apps_dir = paths.apps_dir();
     
     if !apps_dir.exists() {
-        return Ok(apps);
+        return Ok(AppConfigLoadResult { apps, errors });
     }
 
     let pattern = format!("{}/**/*.yml", apps_dir.display());
@@ -94,14 +107,22 @@ pub fn load_app_configs(paths: &ConfigPaths) -> Result<Vec<AppConfig>> {
             Ok(path) => {
                 match parse_app_config(&path) {
                     Ok(app) => apps.push(app),
-                    Err(e) => eprintln!("Warning: Failed to parse app config at {:?}: {}", path, e),
+                    Err(e) => errors.push(AppConfigLoadError {
+                        app_name: infer_name_from_yaml_path(&path),
+                        path,
+                        message: e.to_string(),
+                    }),
                 }
             }
-            Err(e) => eprintln!("Warning: Glob error: {:?}", e),
+            Err(e) => errors.push(AppConfigLoadError {
+                app_name: None,
+                path: paths.apps_dir(),
+                message: format!("Glob error: {e}"),
+            }),
         }
     }
 
-    Ok(apps)
+    Ok(AppConfigLoadResult { apps, errors })
 }
 
 fn parse_app_config(path: &std::path::Path) -> Result<AppConfig> {
@@ -111,4 +132,13 @@ fn parse_app_config(path: &std::path::Path) -> Result<AppConfig> {
         app.config_dir = parent.to_path_buf();
     }
     Ok(app)
+}
+
+fn infer_name_from_yaml_path(path: &std::path::Path) -> Option<String> {
+    let content = fs::read_to_string(path).ok()?;
+    let value: Value = serde_yaml::from_str(&content).ok()?;
+    let map = value.as_mapping()?;
+    map.get(&Value::String("name".to_string()))?
+        .as_str()
+        .map(ToOwned::to_owned)
 }

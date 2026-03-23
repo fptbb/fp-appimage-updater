@@ -95,6 +95,30 @@ pub enum RemoveStatus {
     NotFound,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ValidateResponse {
+    pub command: &'static str,
+    pub apps: Vec<ValidateApp>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ValidateApp {
+    pub name: Option<String>,
+    pub file: String,
+    pub status: ValidateStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidateStatus {
+    Valid,
+    Invalid,
+}
+
 pub fn print_json<T: Serialize>(value: &T) -> Result<()> {
     serde_json::to_writer_pretty(std::io::stdout(), value)?;
     println!();
@@ -244,6 +268,48 @@ pub fn print_success(message: &str, colors: bool) {
 
 pub fn print_warning(message: &str, colors: bool) {
     eprintln!("{}", colorize(message, Color::Yellow, colors));
+}
+
+pub fn print_validate_human(apps: &[ValidateApp], error: Option<&str>, colors: bool) {
+    print_command_header("validate", apps.len(), colors);
+    let mut valid = 0usize;
+    let mut invalid = 0usize;
+
+    for app in apps {
+        let label = app.name.as_deref().unwrap_or("<unknown>");
+        match app.status {
+            ValidateStatus::Valid => {
+                valid += 1;
+                println!(
+                    "- {} {} {}",
+                    bold(label, colors),
+                    bracketed(&status_text("valid", Color::Green), colors),
+                    dim(&app.file, colors)
+                );
+            }
+            ValidateStatus::Invalid => {
+                invalid += 1;
+                println!(
+                    "- {} {} {}",
+                    bold(label, colors),
+                    bracketed(&status_text("invalid", Color::Red), colors),
+                    dim(&app.file, colors)
+                );
+                if let Some(msg) = &app.error {
+                    println!("  {}", msg);
+                }
+            }
+        }
+    }
+
+    println!(
+        "{}",
+        dim(&format!("summary: {} valid, {} invalid", valid, invalid), colors)
+    );
+
+    if let Some(error) = error {
+        println!("{}", colorize(&format!("note: {}", error), Color::Red, colors));
+    }
 }
 
 #[derive(Clone, Copy)]

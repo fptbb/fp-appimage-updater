@@ -14,12 +14,14 @@ mod output;
 mod resolvers;
 mod self_updater;
 mod state;
+mod validator;
 
 use cli::{Cli, Commands};
 use output::{
     colors_enabled, print_check_human, print_json, print_list_human, print_progress,
-    print_success, print_warning, CheckApp, CheckResponse, CheckStatus, ListApp, ListResponse,
-    RemoveApp, RemoveResponse, RemoveStatus, UpdateApp, UpdateResponse, UpdateStatus,
+    print_success, print_validate_human, print_warning, CheckApp, CheckResponse, CheckStatus,
+    ListApp, ListResponse, RemoveApp, RemoveResponse, RemoveStatus, UpdateApp, UpdateResponse,
+    UpdateStatus, ValidateApp, ValidateResponse, ValidateStatus,
 };
 use parser::ConfigPaths;
 use state::StateManager;
@@ -36,7 +38,9 @@ async fn main() -> Result<()> {
     };
     let _process_lock = lock::FileLock::acquire(paths.lock_path())?;
     let global_config = parser::load_global_config(&paths)?;
-    let app_configs = parser::load_app_configs(&paths)?;
+    let app_load = parser::load_app_configs(&paths)?;
+    let app_configs = app_load.apps;
+    let app_config_errors = app_load.errors;
     let mut state_manager = StateManager::load(paths.cache_path());
     let color_output = colors_enabled(json_output);
 
@@ -48,6 +52,31 @@ async fn main() -> Result<()> {
         .build()?;
 
     match &cli.command {
+        Commands::Validate { app_name } => {
+            let (apps, error) = validator::validate_app_configs(&paths, app_name.as_deref())?;
+            let results = apps
+                .into_iter()
+                .map(|app| ValidateApp {
+                    name: app.app_name,
+                    file: app.file,
+                    status: match app.status {
+                        validator::ValidationStatus::Valid => ValidateStatus::Valid,
+                        validator::ValidationStatus::Invalid => ValidateStatus::Invalid,
+                    },
+                    error: app.error,
+                })
+                .collect::<Vec<_>>();
+
+            if json_output {
+                print_json(&ValidateResponse {
+                    command: "validate",
+                    apps: results,
+                    error,
+                })?;
+            } else {
+                print_validate_human(&results, error.as_deref(), color_output);
+            }
+        }
         Commands::List => {
             let apps = app_configs
                 .iter()
@@ -113,6 +142,28 @@ async fn main() -> Result<()> {
                 }
             }
 
+            for parse_error in &app_config_errors {
+                if !matches_target(app_name.as_deref(), parse_error.app_name.as_deref()) {
+                    continue;
+                }
+                found = true;
+                results.push(CheckApp {
+                    name: parse_error
+                        .app_name
+                        .clone()
+                        .unwrap_or_else(|| parse_error.path.display().to_string()),
+                    status: CheckStatus::Error,
+                    local_version: None,
+                    remote_version: None,
+                    download_url: None,
+                    error: Some(format!(
+                        "Failed to parse app config at {}: {}",
+                        parse_error.path.display(),
+                        parse_error.message
+                    )),
+                });
+            }
+
             let error = if let Some(target) = app_name && !found {
                 Some(format!("App '{}' not found in configuration.", target))
             } else {
@@ -175,16 +226,15 @@ async fn main() -> Result<()> {
                                 let old_path = old_path_str.as_ref().map(std::path::Path::new);
                                 
                                 if let Err(e) = integrator::integrate(app, &global_config, &new_path, old_path).await {
-                                    if json_output {
-                                        results.push(UpdateApp {
-                                            name: app.name.clone(),
-                                            status: UpdateStatus::Error,
-                                            from_version,
-                                            to_version: Some(to_version),
-                                            path: Some(new_path.to_string_lossy().to_string()),
-                                            error: Some(format!("Integration failed: {:#}", e)),
-                                        });
-                                    } else {
+                                    results.push(UpdateApp {
+                                        name: app.name.clone(),
+                                        status: UpdateStatus::Error,
+                                        from_version,
+                                        to_version: Some(to_version),
+                                        path: Some(new_path.to_string_lossy().to_string()),
+                                        error: Some(format!("Integration failed: {:#}", e)),
+                                    });
+                                    if !json_output {
                                         print_warning(
                                             &format!("Integration failed for {}: {:#}", app.name, e),
                                             color_output,
@@ -202,16 +252,15 @@ async fn main() -> Result<()> {
                                     }
                                     state_mut.file_path = Some(new_path.to_string_lossy().to_string());
                                     
-                                    if json_output {
-                                        results.push(UpdateApp {
-                                            name: app.name.clone(),
-                                            status: UpdateStatus::Updated,
-                                            from_version,
-                                            to_version: Some(to_version),
-                                            path: Some(new_path.to_string_lossy().to_string()),
-                                            error: None,
-                                        });
-                                    } else {
+                                    results.push(UpdateApp {
+                                        name: app.name.clone(),
+                                        status: UpdateStatus::Updated,
+                                        from_version,
+                                        to_version: Some(to_version.clone()),
+                                        path: Some(new_path.to_string_lossy().to_string()),
+                                        error: None,
+                                    });
+                                    if !json_output {
                                         print_success(
                                             &format!("{} updated to {}", app.name, to_version),
                                             color_output,
@@ -220,16 +269,15 @@ async fn main() -> Result<()> {
                                 }
                             }
                             Err(e) => {
-                                if json_output {
-                                    results.push(UpdateApp {
-                                        name: app.name.clone(),
-                                        status: UpdateStatus::Error,
-                                        from_version,
-                                        to_version: Some(to_version),
-                                        path: None,
-                                        error: Some(format!("Download failed: {:#}", e)),
-                                    });
-                                } else {
+                                results.push(UpdateApp {
+                                    name: app.name.clone(),
+                                    status: UpdateStatus::Error,
+                                    from_version,
+                                    to_version: Some(to_version),
+                                    path: None,
+                                    error: Some(format!("Download failed: {:#}", e)),
+                                });
+                                if !json_output {
                                     print_warning(
                                         &format!("Download failed for {}: {:#}", app.name, e),
                                         color_output,
@@ -239,16 +287,15 @@ async fn main() -> Result<()> {
                         }
                     }
                     Ok(None) => {
-                        if json_output {
-                            results.push(UpdateApp {
-                                name: app.name.clone(),
-                                status: UpdateStatus::UpToDate,
-                                from_version: state.and_then(|s| s.local_version.clone()),
-                                to_version: None,
-                                path: state.and_then(|s| s.file_path.clone()),
-                                error: None,
-                            });
-                        } else {
+                        results.push(UpdateApp {
+                            name: app.name.clone(),
+                            status: UpdateStatus::UpToDate,
+                            from_version: state.and_then(|s| s.local_version.clone()),
+                            to_version: None,
+                            path: state.and_then(|s| s.file_path.clone()),
+                            error: None,
+                        });
+                        if !json_output {
                             print_progress(
                                 &format!(
                                     "{} is already up to date ({})",
@@ -262,22 +309,47 @@ async fn main() -> Result<()> {
                         }
                     }
                     Err(e) => {
-                        if json_output {
-                            results.push(UpdateApp {
-                                name: app.name.clone(),
-                                status: UpdateStatus::Error,
-                                from_version: state.and_then(|s| s.local_version.clone()),
-                                to_version: None,
-                                path: state.and_then(|s| s.file_path.clone()),
-                                error: Some(format!("{:#}", e)),
-                            });
-                        } else {
+                        results.push(UpdateApp {
+                            name: app.name.clone(),
+                            status: UpdateStatus::Error,
+                            from_version: state.and_then(|s| s.local_version.clone()),
+                            to_version: None,
+                            path: state.and_then(|s| s.file_path.clone()),
+                            error: Some(format!("{:#}", e)),
+                        });
+                        if !json_output {
                             print_warning(
                                 &format!("Error checking updates for {}: {:#}", app.name, e),
                                 color_output,
                             );
                         }
                     }
+                }
+            }
+
+            for parse_error in &app_config_errors {
+                if !matches_target(app_name.as_deref(), parse_error.app_name.as_deref()) {
+                    continue;
+                }
+                found = true;
+                let parse_error_message = format!(
+                    "Failed to parse app config at {}: {}",
+                    parse_error.path.display(),
+                    parse_error.message
+                );
+                results.push(UpdateApp {
+                    name: parse_error
+                        .app_name
+                        .clone()
+                        .unwrap_or_else(|| parse_error.path.display().to_string()),
+                    status: UpdateStatus::Error,
+                    from_version: None,
+                    to_version: None,
+                    path: None,
+                    error: Some(parse_error_message.clone()),
+                });
+                if !json_output {
+                    print_warning(&parse_error_message, color_output);
                 }
             }
 
@@ -450,5 +522,12 @@ fn strategy_label(strategy: &config::StrategyConfig) -> &'static str {
         config::StrategyConfig::Forge { .. } => "Forge",
         config::StrategyConfig::Direct { .. } => "Direct",
         config::StrategyConfig::Script { .. } => "Script",
+    }
+}
+
+fn matches_target(target: Option<&str>, app_name: Option<&str>) -> bool {
+    match target {
+        Some(target) => app_name == Some(target),
+        None => true,
     }
 }

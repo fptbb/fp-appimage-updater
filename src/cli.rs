@@ -20,6 +20,11 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Validate application recipe files
+    Validate {
+        /// Optional specific application to validate
+        app_name: Option<String>,
+    },
     /// List all configured applications and their status
     List,
     /// Check for updates

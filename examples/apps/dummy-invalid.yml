@@ -1,0 +1,8 @@
+name: dummy-invalid
+strategy:
+  strategy: direct
+  url: http://localhost:8123/dummy.AppImage
+  check_method: last-added-modified
+zsync: traue
+integration: false
+# This is just used for tests, ignore it
