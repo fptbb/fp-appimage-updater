@@ -7,6 +7,9 @@
   "github-actions": {
     "enabled": true
   },
+  "cargo": {
+    "enabled": true
+  },
   "git-submodules": {
     "enabled": true
   },
