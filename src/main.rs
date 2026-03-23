@@ -6,6 +6,7 @@ use std::time::Duration;
 
 mod cli;
 mod config;
+mod doctor;
 mod disintegrator;
 mod downloader;
 mod initializer;
@@ -20,10 +21,11 @@ mod validator;
 
 use cli::{Cli, Commands};
 use output::{
-    colors_enabled, print_check_human, print_json, print_list_human, print_progress,
-    print_success, print_validate_human, print_warning, CheckApp, CheckResponse, CheckStatus,
-    ListApp, ListResponse, RemoveApp, RemoveResponse, RemoveStatus, UpdateApp, UpdateResponse,
-    UpdateStatus, ValidateApp, ValidateResponse, ValidateStatus,
+    colors_enabled, print_check_human, print_doctor_human, print_json, print_list_human,
+    print_progress, print_success, print_validate_human, print_warning, CheckApp, CheckResponse,
+    CheckStatus, DoctorCheck, DoctorResponse, DoctorStatus, ListApp, ListResponse, RemoveApp,
+    RemoveResponse, RemoveStatus, UpdateApp, UpdateResponse, UpdateStatus, ValidateApp,
+    ValidateResponse, ValidateStatus,
 };
 use parser::ConfigPaths;
 use state::StateManager;
@@ -110,6 +112,31 @@ async fn main() -> Result<()> {
 
     match &cli.command {
         Commands::Init { .. } => unreachable!("init handled before config loading"),
+        Commands::Doctor => {
+            let checks = doctor::run(&paths, app_configs.len(), app_config_errors.len())
+                .into_iter()
+                .map(|check| DoctorCheck {
+                    name: check.name,
+                    status: match check.status {
+                        doctor::DoctorStatus::Ok => DoctorStatus::Ok,
+                        doctor::DoctorStatus::Warn => DoctorStatus::Warn,
+                    },
+                    detail: check.detail,
+                })
+                .collect::<Vec<_>>();
+
+            if json_output {
+                print_json(&DoctorResponse {
+                    command: "doctor",
+                    checks,
+                })?;
+            } else {
+                print_doctor_human(&checks, color_output);
+                if !app_config_errors.is_empty() {
+                    print_progress("Tip: run `fp-appimage-updater validate` for detailed parse errors.", color_output);
+                }
+            }
+        }
         Commands::Validate { app_name } => {
             let (apps, error) = validator::validate_app_configs(&paths, app_name.as_deref())?;
             let results = apps

@@ -40,6 +40,8 @@ pub enum Commands {
         /// Optional specific application to validate
         app_name: Option<String>,
     },
+    /// Run health checks for local setup
+    Doctor,
     /// List all configured applications and their status
     List,
     /// Check for updates

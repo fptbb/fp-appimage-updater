@@ -119,6 +119,26 @@ pub enum ValidateStatus {
     Invalid,
 }
 
+#[derive(Debug, Serialize)]
+pub struct DoctorResponse {
+    pub command: &'static str,
+    pub checks: Vec<DoctorCheck>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DoctorCheck {
+    pub name: String,
+    pub status: DoctorStatus,
+    pub detail: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DoctorStatus {
+    Ok,
+    Warn,
+}
+
 pub fn print_json<T: Serialize>(value: &T) -> Result<()> {
     serde_json::to_writer_pretty(std::io::stdout(), value)?;
     println!();
@@ -310,6 +330,40 @@ pub fn print_validate_human(apps: &[ValidateApp], error: Option<&str>, colors: b
     if let Some(error) = error {
         println!("{}", colorize(&format!("note: {}", error), Color::Red, colors));
     }
+}
+
+pub fn print_doctor_human(checks: &[DoctorCheck], colors: bool) {
+    print_command_header("doctor", checks.len(), colors);
+    let mut ok = 0usize;
+    let mut warn = 0usize;
+
+    for check in checks {
+        match check.status {
+            DoctorStatus::Ok => {
+                ok += 1;
+                println!(
+                    "- {} {} {}",
+                    bold(&check.name, colors),
+                    bracketed(&status_text("ok", Color::Green), colors),
+                    check.detail
+                );
+            }
+            DoctorStatus::Warn => {
+                warn += 1;
+                println!(
+                    "- {} {} {}",
+                    bold(&check.name, colors),
+                    bracketed(&status_text("warn", Color::Yellow), colors),
+                    check.detail
+                );
+            }
+        }
+    }
+
+    println!(
+        "{}",
+        dim(&format!("summary: {} ok, {} warn", ok, warn), colors)
+    );
 }
 
 #[derive(Clone, Copy)]
