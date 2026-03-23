@@ -27,4 +27,4 @@ strip = true         # Strip symbols from binary
 testcontainers = { version = "=0.27.2", features = ["http_wait"] }
 testcontainers-modules = "=0.15.0"
 tokio = { version = "=1", features = ["macros", "rt-multi-thread"] }
-reqwest = { version = "=0.12", features = ["json"] }
+reqwest = { version = "=0.13.2", features = ["json"] }
