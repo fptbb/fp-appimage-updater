@@ -314,8 +314,8 @@ async fn main() -> Result<()> {
                                     results.push(UpdateApp {
                                         name: app.name.clone(),
                                         status: UpdateStatus::Error,
-                                        from_version,
-                                        to_version: Some(to_version),
+                                        from_version: from_version.clone(),
+                                        to_version: Some(to_version.clone()),
                                         path: Some(new_path.to_string_lossy().to_string()),
                                         error: Some(format!("Integration failed: {:#}", e)),
                                     });
@@ -324,7 +324,13 @@ async fn main() -> Result<()> {
                                             &format!("Integration failed for {}: {:#}", app.name, e),
                                             color_output,
                                         );
+                                        print_warning(
+                                            &format!("Rolling back {} to its previous state...", app.name),
+                                            color_output,
+                                        );
                                     }
+                                    
+                                    integrator::rollback(app, &global_config, &new_path, old_path).await;
                                 } else {
                                     // Update State
                                     let state_mut = state_manager.get_app_mut(&app.name);

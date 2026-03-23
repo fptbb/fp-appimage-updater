@@ -34,15 +34,15 @@ pub async fn integrate(
         symlink(appimage_path, &symlink_path).context("Failed to create symlink")?;
     }
 
-    // 3. Delete old AppImage if it's different
-    if let Some(old_path) = old_appimage_path && old_path != appimage_path && old_path.exists() && let Err(e) = fs::remove_file(old_path) {
-        eprintln!("Warning: Failed to delete old AppImage {:?}: {}", old_path, e);
-    }
-
-    // 4. Desktop Integration
+    // 3. Desktop Integration
     let should_integrate = app.integration.unwrap_or(global.manage_desktop_files);
     if should_integrate {
         integrate_desktop(app, appimage_path).await?;
+    }
+
+    // 4. Delete old AppImage if it's different
+    if let Some(old_path) = old_appimage_path && old_path != appimage_path && old_path.exists() && let Err(e) = fs::remove_file(old_path) {
+        eprintln!("Warning: Failed to delete old AppImage {:?}: {}", old_path, e);
     }
 
     Ok(())
@@ -174,4 +174,26 @@ pub fn expand_tilde(path: &str) -> PathBuf {
         return resolved;
     }
     PathBuf::from(path)
+}
+
+pub async fn rollback(
+    app: &AppConfig,
+    global: &GlobalConfig,
+    failed_new_appimage_path: &Path,
+    old_appimage_path: Option<&Path>,
+) {
+    if failed_new_appimage_path.exists() {
+        if let Err(e) = fs::remove_file(failed_new_appimage_path) {
+            eprintln!("Warning: Failed to remove new AppImage during rollback: {}", e);
+        }
+    }
+
+    if let Some(old_path) = old_appimage_path {
+        if old_path.exists() {
+            // Re-integrate the old AppImage to restore symlink and desktop file
+            if let Err(e) = integrate(app, global, old_path, None).await {
+                eprintln!("Warning: Failed to fully restore old AppImage during rollback: {}", e);
+            }
+        }
+    }
 }
