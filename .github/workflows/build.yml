@@ -31,6 +31,10 @@ jobs:
   build:
     name: Build & Compress
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     outputs:
       version: ${{ steps.get_version.outputs.version }}
       tag: ${{ steps.resolve_tag.outputs.tag }}
