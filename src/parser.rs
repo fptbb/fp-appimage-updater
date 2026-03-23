@@ -51,6 +51,10 @@ impl ConfigPaths {
     pub fn cache_path(&self) -> PathBuf {
         self.state_dir.join("cache.json")
     }
+
+    pub fn lock_path(&self) -> PathBuf {
+        self.state_dir.join("process.lock")
+    }
 }
 
 pub fn load_global_config(paths: &ConfigPaths) -> Result<GlobalConfig> {

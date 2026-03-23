@@ -8,6 +8,7 @@ mod config;
 mod disintegrator;
 mod downloader;
 mod integrator;
+mod lock;
 mod parser;
 mod output;
 mod resolvers;
@@ -33,6 +34,7 @@ async fn main() -> Result<()> {
     } else {
         ConfigPaths::new()?
     };
+    let _process_lock = lock::FileLock::acquire(paths.lock_path())?;
     let global_config = parser::load_global_config(&paths)?;
     let app_configs = parser::load_app_configs(&paths)?;
     let mut state_manager = StateManager::load(paths.cache_path());
