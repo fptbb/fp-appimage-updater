@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::config::{AppConfig, GlobalConfig};
 
-pub async fn integrate(
+pub fn integrate(
     app: &AppConfig,
     global: &GlobalConfig,
     appimage_path: &Path,
@@ -37,7 +37,7 @@ pub async fn integrate(
     // 3. Desktop Integration
     let should_integrate = app.integration.unwrap_or(global.manage_desktop_files);
     if should_integrate {
-        integrate_desktop(app, appimage_path).await?;
+        integrate_desktop(app, appimage_path)?;
     }
 
     // 4. Delete old AppImage if it's different
@@ -48,7 +48,7 @@ pub async fn integrate(
     Ok(())
 }
 
-async fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
+fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
     // Determine data storage directory
     let data_local_dir = UserDirs::new()
         .and_then(|u| u.document_dir().map(|d| d.parent().unwrap().join(".local/share")))
@@ -176,7 +176,7 @@ pub fn expand_tilde(path: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
-pub async fn rollback(
+pub fn rollback(
     app: &AppConfig,
     global: &GlobalConfig,
     failed_new_appimage_path: &Path,
@@ -191,7 +191,7 @@ pub async fn rollback(
     if let Some(old_path) = old_appimage_path {
         if old_path.exists() {
             // Re-integrate the old AppImage to restore symlink and desktop file
-            if let Err(e) = integrate(app, global, old_path, None).await {
+            if let Err(e) = integrate(app, global, old_path, None) {
                 eprintln!("Warning: Failed to fully restore old AppImage during rollback: {}", e);
             }
         }

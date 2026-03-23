@@ -1,11 +1,11 @@
 use anyhow::{anyhow, Context, Result};
 use crate::state::AppState;
-use reqwest::Client;
+use ureq::Agent;
 
 use super::UpdateInfo;
 
-pub async fn resolve(
-    client: &Client,
+pub fn resolve(
+    client: &Agent,
     repository: &str,
     asset_match: &str,
     state: Option<&AppState>,
@@ -16,13 +16,10 @@ pub async fn resolve(
 
     let resp: serde_json::Value = client
         .get(&url)
-        .send()
-        .await
+        .call()
         .with_context(|| format!("Failed to reach GitHub release API for {}", repository))?
-        .error_for_status()
-        .with_context(|| format!("GitHub release API returned an error for {}", repository))?
-        .json()
-        .await
+        .into_body()
+        .read_json()
         .with_context(|| format!("Failed to parse GitHub release metadata for {}", repository))?;
 
     let version = resp["tag_name"]
@@ -87,18 +84,17 @@ fn github_release_url(repository: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reqwest::Client;
+    use ureq::Agent;
 
-    #[tokio::test]
-    async fn invalid_asset_pattern_is_reported_before_network() {
-        let client = Client::new();
+    #[test]
+    fn invalid_asset_pattern_is_reported_before_network() {
+        let client = Agent::new_with_defaults();
         let err = resolve(
             &client,
             "https://github.com/fptbb/fp-appimage-updater",
             "[",
             None,
         )
-        .await
         .expect_err("expected invalid asset pattern to fail");
 
         let message = format!("{:#}", err);
@@ -106,11 +102,10 @@ mod tests {
         assert!(message.contains("https://github.com/fptbb/fp-appimage-updater"));
     }
 
-    #[tokio::test]
-    async fn unsupported_repository_is_reported() {
-        let client = Client::new();
+    #[test]
+    fn unsupported_repository_is_reported() {
+        let client = Agent::new_with_defaults();
         let err = resolve(&client, "https://example.com/owner/repo", "*", None)
-            .await
             .expect_err("expected unsupported repository to fail");
 
         let message = format!("{:#}", err);

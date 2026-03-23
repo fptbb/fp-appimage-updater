@@ -1,24 +1,24 @@
 use anyhow::{anyhow, Result};
-use reqwest::Client;
+use ureq::Agent;
 use crate::config::CheckMethod;
 use crate::state::AppState;
 use super::UpdateInfo;
 
-pub async fn resolve(
-    client: &Client,
+pub fn resolve(
+    client: &Agent,
     url: &str,
     check_method: &CheckMethod,
     state: Option<&AppState>,
 ) -> Result<Option<UpdateInfo>> {
-    let resp = client.head(url).send().await?.error_for_status()?;
+    let resp = client.head(url).call()?;
 
     let (mut new_etag, mut new_last_modified) = (None, None);
     let mut is_new = false;
 
     match check_method {
         CheckMethod::Etag => {
-            if let Some(etag) = resp.headers().get(reqwest::header::ETAG) {
-                let etag_str = etag.to_str()?.trim_matches('"').to_string();
+            if let Some(etag) = resp.headers().get("ETag") {
+                let etag_str = etag.to_str().unwrap_or("").trim_matches('"').to_string();
                 new_etag = Some(etag_str.clone());
                 if state.and_then(|s| s.etag.as_ref()) != Some(&etag_str) {
                     is_new = true;
@@ -28,8 +28,8 @@ pub async fn resolve(
             }
         }
         CheckMethod::LastModified => {
-            if let Some(lm) = resp.headers().get(reqwest::header::LAST_MODIFIED) {
-                let lm_str = lm.to_str()?.to_string();
+            if let Some(lm) = resp.headers().get("Last-Modified") {
+                let lm_str = lm.to_str().unwrap_or("").to_string();
                 new_last_modified = Some(lm_str.clone());
                 if state.and_then(|s| s.last_modified.as_ref()) != Some(&lm_str) {
                     is_new = true;

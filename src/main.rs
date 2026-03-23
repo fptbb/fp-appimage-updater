@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::{CommandFactory, Parser};
-use reqwest::Client;
 use serde::Serialize;
 use std::time::Duration;
 
@@ -30,8 +29,7 @@ use output::{
 use parser::ConfigPaths;
 use state::StateManager;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let cli = Cli::parse();
     let json_output = cli.json;
     
@@ -105,10 +103,11 @@ async fn main() -> Result<()> {
 
     // Use a connect timeout, but leave the stream timeout unbounded
     // so large AppImages (e.g., 250MB+) don't timeout mid-download.
-    let client = Client::builder()
-        .connect_timeout(Duration::from_secs(10))
+    let client: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_connect(Some(Duration::from_secs(10)))
         .user_agent("fp-appimage-updater/1.0")
-        .build()?;
+        .build()
+        .into();
 
     match &cli.command {
         Commands::Init { .. } => unreachable!("init handled before config loading"),
@@ -193,7 +192,7 @@ async fn main() -> Result<()> {
                 found = true;
                 
                 let state = state_manager.get_app(&app.name);
-                match resolvers::check_for_updates(app, state).await {
+                match resolvers::check_for_updates(app, state) {
                     Ok(Some(info)) => {
                         results.push(CheckApp {
                             name: app.name.clone(),
@@ -277,7 +276,7 @@ async fn main() -> Result<()> {
                 found = true;
 
                 let state = state_manager.get_app(&app.name);
-                match resolvers::check_for_updates(app, state).await {
+                match resolvers::check_for_updates(app, state) {
                     Ok(Some(info)) => {
                         let from_version = state.and_then(|s| s.local_version.clone());
                         let to_version = info.version.clone();
@@ -304,13 +303,12 @@ async fn main() -> Result<()> {
                             json_output,
                             color_output,
                         )
-                        .await
                         {
                             Ok(new_path) => {
                                 let old_path_str = state.and_then(|s| s.file_path.clone());
                                 let old_path = old_path_str.as_ref().map(std::path::Path::new);
                                 
-                                if let Err(e) = integrator::integrate(app, &global_config, &new_path, old_path).await {
+                                if let Err(e) = integrator::integrate(app, &global_config, &new_path, old_path) {
                                     results.push(UpdateApp {
                                         name: app.name.clone(),
                                         status: UpdateStatus::Error,
@@ -330,7 +328,7 @@ async fn main() -> Result<()> {
                                         );
                                     }
                                     
-                                    integrator::rollback(app, &global_config, &new_path, old_path).await;
+                                    integrator::rollback(app, &global_config, &new_path, old_path);
                                 } else {
                                     // Update State
                                     let state_mut = state_manager.get_app_mut(&app.name);
@@ -596,7 +594,7 @@ async fn main() -> Result<()> {
             }
         }
         Commands::SelfUpdate { pre_release } => {
-            self_updater::self_update(&client, *pre_release, color_output).await?;
+            self_updater::self_update(&client, *pre_release, color_output)?;
         }
         Commands::Completion { shell } => {
             let mut cmd = Cli::command();

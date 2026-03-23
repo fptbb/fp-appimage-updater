@@ -1,5 +1,4 @@
 use anyhow::Result;
-use reqwest::Client;
 use std::time::Duration;
 
 pub mod direct;
@@ -17,18 +16,19 @@ pub struct UpdateInfo {
     pub new_last_modified: Option<String>,
 }
 
-pub async fn check_for_updates(app: &AppConfig, state: Option<&AppState>) -> Result<Option<UpdateInfo>> {
-    let client = Client::builder()
-        .timeout(Duration::from_secs(10))
+pub fn check_for_updates(app: &AppConfig, state: Option<&AppState>) -> Result<Option<UpdateInfo>> {
+    let client: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(10)))
         .user_agent("fp-appimage-updater/1.0 (+https://fau.fpt.icu/)")
-        .build()?;
+        .build()
+        .into();
 
     match &app.strategy {
         StrategyConfig::Forge { repository, asset_match } => {
-            forge::resolve(&client, repository, asset_match, state).await
+            forge::resolve(&client, repository, asset_match, state)
         }
         StrategyConfig::Direct { url, check_method } => {
-            direct::resolve(&client, url, check_method, state).await
+            direct::resolve(&client, url, check_method, state)
         }
         StrategyConfig::Script { script_path } => {
             script::resolve(app, script_path, state)

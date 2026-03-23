@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use reqwest::Client;
+use ureq::Agent;
 use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -25,18 +25,15 @@ fn asset_suffix() -> Result<&'static str> {
 ///
 /// When `pre_release` is true, scans the releases list for the first pre-release entry.
 /// Otherwise, uses the /releases/latest shortcut which only returns stable releases.
-async fn resolve_latest_tag(client: &Client, pre_release: bool) -> Result<String> {
+fn resolve_latest_tag(client: &Agent, pre_release: bool) -> Result<String> {
     if pre_release {
         let api_url = format!("https://api.github.com/repos/{}/releases?per_page=1", REPO);
         let releases: serde_json::Value = client
             .get(&api_url)
-            .send()
-            .await
-            .context("Failed to reach GitHub API")?
-            .error_for_status()
-            .context("GitHub API returned an error")?
-            .json()
-            .await
+            .call()
+            .context("Failed to reach GitHub API and parse releases list")?
+            .into_body()
+            .read_json()
             .context("Failed to parse GitHub releases list")?;
 
         let tag = releases
@@ -52,13 +49,10 @@ async fn resolve_latest_tag(client: &Client, pre_release: bool) -> Result<String
         let api_url = format!("https://api.github.com/repos/{}/releases/latest", REPO);
         let resp: serde_json::Value = client
             .get(&api_url)
-            .send()
-            .await
-            .context("Failed to reach GitHub API")?
-            .error_for_status()
-            .context("GitHub API returned an error")?
-            .json()
-            .await
+            .call()
+            .context("Failed to reach GitHub API and parse response")?
+            .into_body()
+            .read_json()
             .context("Failed to parse GitHub API response")?;
 
         resp["tag_name"]
@@ -69,11 +63,11 @@ async fn resolve_latest_tag(client: &Client, pre_release: bool) -> Result<String
 }
 
 /// Check GitHub releases and, if a newer version exists, replace the running binary.
-pub async fn self_update(client: &Client, pre_release: bool, colors: bool) -> Result<()> {
+pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()> {
     let kind = if pre_release { "pre-release" } else { "stable" };
     print_self_update_start(kind, CURRENT_VERSION, colors);
 
-    let latest_tag = resolve_latest_tag(client, pre_release).await?;
+    let latest_tag = resolve_latest_tag(client, pre_release)?;
 
     // Normalise to bare semver for comparison: strip leading 'v' and any '-RC<N>' suffix.
     // CURRENT_VERSION is always plain semver (from Cargo.toml), so both sides must match that form.
@@ -101,13 +95,10 @@ pub async fn self_update(client: &Client, pre_release: bool, colors: bool) -> Re
     print_self_update_download(&download_url, colors);
 
     // 3. Download new binary to a temp file
-    let mut response = client
+    let response = client
         .get(&download_url)
-        .send()
-        .await
-        .context("Failed to download new binary")?
-        .error_for_status()
-        .context("Download URL returned an error")?;
+        .call()
+        .context("Failed to download new binary or URL returned an error")?;
 
     let current_binary = env::current_exe().context("Failed to resolve current executable path")?;
     let tmp_path = current_binary.with_extension("tmp");
@@ -116,10 +107,8 @@ pub async fn self_update(client: &Client, pre_release: bool, colors: bool) -> Re
         let mut tmp_file = fs::File::create(&tmp_path)
             .context("Failed to create temporary file for new binary")?;
 
-        use std::io::Write;
-        while let Some(chunk) = response.chunk().await.context("Error while downloading")? {
-            tmp_file.write_all(&chunk).context("Failed to write chunk to temp file")?;
-        }
+        std::io::copy(&mut response.into_body().into_reader(), &mut tmp_file)
+            .context("Failed to write buffer to temp file")?;
     }
 
     // 4. Make executable, then atomically replace the current binary

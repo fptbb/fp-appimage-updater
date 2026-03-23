@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
-use reqwest::Client;
+use ureq::Agent;
 use std::fs::File;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -10,8 +9,8 @@ use crate::resolvers::UpdateInfo;
 use crate::output::{print_progress, print_warning};
 use crate::state::AppState;
 
-pub async fn download_app(
-    client: &Client,
+pub fn download_app(
+    client: &Agent,
     app: &AppConfig,
     update_info: &UpdateInfo,
     storage_dir: &Path,
@@ -52,7 +51,7 @@ pub async fn download_app(
     }
 
     if !zsync_success {
-        download_http(client, &update_info.download_url, &tmp_path).await?;
+        download_http(client, &update_info.download_url, &tmp_path)?;
     }
 
     // Rename tmp to final
@@ -99,13 +98,11 @@ fn try_zsync(
     }
 }
 
-async fn download_http(client: &Client, url: &str, target_path: &Path) -> Result<()> {
-    let mut response = client.get(url).send().await?.error_for_status()?;
+fn download_http(client: &Agent, url: &str, target_path: &Path) -> Result<()> {
+    let response = client.get(url).call()?;
     let mut file = File::create(target_path)?;
 
-    while let Some(chunk) = response.chunk().await? {
-        file.write_all(&chunk)?;
-    }
+    std::io::copy(&mut response.into_body().into_reader(), &mut file)?;
 
     Ok(())
 }
