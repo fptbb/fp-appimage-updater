@@ -57,7 +57,13 @@ The codebase is split into specific single-responsibility modules under `src/`:
 
 ## Release Process
 
-All releases are published from the GitHub Actions **Build & Release** workflow, triggered manually via `workflow_dispatch`.
+Stable releases are published automatically from the GitHub Actions **Build & Release** workflow whenever a commit lands on `main` with the exact versioning-policy commit message:
+
+```text
+chore: bump version to VERSION_NUMBER in Cargo.toml
+```
+
+The workflow reads the version from `Cargo.toml`, builds the release artifacts, and publishes the GitHub release without manual intervention.
 
 ### Pre-release
 
@@ -83,7 +89,7 @@ With `--pre-release`, it resolves the **most recently published** release (stabl
 ### Stable Release
 
 1. Bump `version` in `Cargo.toml`.
-2. Commit and push to `main`.
-3. Go to **Actions → Build & Release → Run workflow**
+2. Commit with the exact versioning-policy message.
+3. Push to `main` and let the workflow publish the release automatically.
 
 The workflow fails immediately if the version tag already exists - bump the version and retry.

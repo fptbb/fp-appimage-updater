@@ -18,7 +18,7 @@ on:
       show_authors:
         description: 'Show commit authors'
         type: boolean
-        default: true
+        default: false
       auto_publish:
         description: 'Automatically publish the release (undraft) after uploading'
         type: boolean
@@ -37,7 +37,7 @@ jobs:
       attestations: write
     outputs:
       version: ${{ steps.get_version.outputs.version }}
-      tag: ${{ steps.resolve_tag.outputs.tag }}
+      tag: ${{ steps.release_meta.outputs.tag }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -50,40 +50,61 @@ jobs:
           VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/')
           echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve Tag
-        if: github.event_name == 'workflow_dispatch'
-        id: resolve_tag
+      - name: Resolve Release Metadata
+        id: release_meta
+        shell: bash
         run: |
           VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/')
           BASE_TAG="v${VERSION}"
 
-          if [ "${{ inputs.prerelease }}" = "true" ]; then
-            # Refuse to create an RC for a version that is already stable
-            if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
-              echo "::error::Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before creating a new pre-release."
-              exit 1
-            fi
-            # Find the highest existing RC number for this version using git ls-remote
-            HIGHEST=$(git ls-remote --tags origin \
-              | grep -oP "refs/tags/${BASE_TAG}-RC\K[0-9]+" \
-              | sort -n | tail -1)
-            if [ -z "$HIGHEST" ]; then
-              NEXT_RC=1
-            else
-              NEXT_RC=$((HIGHEST + 1))
-            fi
-            TAG="${BASE_TAG}-RC${NEXT_RC}"
-          else
-            TAG="${BASE_TAG}"
-            # For stable releases, ensure the tag doesn't already exist
-            if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
-              echo "::error::Tag ${TAG} already exists. Bump the version in Cargo.toml before releasing."
-              exit 1
-            fi
-          fi
+          if [ "${{ github.event_name }}" = "push" ]; then
+            HEAD_MESSAGE=$(git log -1 --pretty=%s | tr -d '\r')
+            EXPECTED_MESSAGE="chore: bump version to ${VERSION} in Cargo.toml"
 
-          echo "Resolved tag: ${TAG}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            if [ "$HEAD_MESSAGE" = "$EXPECTED_MESSAGE" ]; then
+              if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
+                echo "::error::Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before pushing a new release commit."
+                exit 1
+              fi
+
+              echo "should_release=true" >> "$GITHUB_OUTPUT"
+              echo "tag=${BASE_TAG}" >> "$GITHUB_OUTPUT"
+              echo "draft=false" >> "$GITHUB_OUTPUT"
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "should_release=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            if [ "${{ inputs.prerelease }}" = "true" ]; then
+              # Refuse to create an RC for a version that is already stable
+              if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
+                echo "::error::Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before creating a new pre-release."
+                exit 1
+              fi
+              # Find the highest existing RC number for this version using git ls-remote
+              HIGHEST=$(git ls-remote --tags origin \
+                | grep -oP "refs/tags/${BASE_TAG}-RC\K[0-9]+" \
+                | sort -n | tail -1)
+              if [ -z "$HIGHEST" ]; then
+                NEXT_RC=1
+              else
+                NEXT_RC=$((HIGHEST + 1))
+              fi
+              TAG="${BASE_TAG}-RC${NEXT_RC}"
+            else
+              TAG="${BASE_TAG}"
+              # For stable releases, ensure the tag doesn't already exist
+              if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+                echo "::error::Tag ${TAG} already exists. Bump the version in Cargo.toml before releasing."
+                exit 1
+              fi
+            fi
+
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "draft=true" >> "$GITHUB_OUTPUT"
+            echo "prerelease=${{ inputs.prerelease }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -137,14 +158,14 @@ jobs:
           retention-days: 7
 
       - name: Generate Changelog
-        if: github.event_name == 'workflow_dispatch'
+        if: steps.release_meta.outputs.should_release == 'true'
         id: changelog
         shell: bash
         run: |
           HEAD_SHA=$(git rev-parse --short HEAD)
           
           # Determine previous tag
-          if [ "${{ github.event.inputs.prerelease }}" = "true" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.prerelease }}" = "true" ]; then
             PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           else
             PREV_TAG=$(git tag --sort=-creatordate | grep -v -- '-RC' | head -1)
@@ -201,21 +222,21 @@ jobs:
             echo 'CHANGELOG_EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Create Draft Release and Upload Assets
-        if: github.event_name == 'workflow_dispatch'
+      - name: Create Release and Upload Assets
+        if: steps.release_meta.outputs.should_release == 'true'
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.resolve_tag.outputs.tag }}
-          name: Release ${{ steps.resolve_tag.outputs.tag }}
+          tag_name: ${{ steps.release_meta.outputs.tag }}
+          name: Release ${{ steps.release_meta.outputs.tag }}
           body: ${{ steps.changelog.outputs.notes }}
           files: |
             build/fp-appimage-updater.x64
             build/fp-appimage-updater.ARM
             systemd/fp-appimage-updater.service
             systemd/fp-appimage-updater.timer
-          draft: true
-          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          draft: ${{ steps.release_meta.outputs.draft == 'true' }}
+          prerelease: ${{ steps.release_meta.outputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -224,6 +245,6 @@ jobs:
           github.event_name == 'workflow_dispatch' && 
           github.event.inputs.auto_publish == 'true'
         run: |
-          gh release edit "${{ steps.resolve_tag.outputs.tag }}" --draft=false
+          gh release edit "${{ steps.release_meta.outputs.tag }}" --draft=false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
