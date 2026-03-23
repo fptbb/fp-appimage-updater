@@ -111,6 +111,13 @@ jobs:
           mv target/x86_64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.x64
           mv target/aarch64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.ARM
 
+      - name: Generate Attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            build/fp-appimage-updater.x64
+            build/fp-appimage-updater.ARM
+
       - name: Upload x64 Artifact
         uses: actions/upload-artifact@v4
         with:
