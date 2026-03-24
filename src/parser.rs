@@ -35,11 +35,11 @@ impl ConfigPaths {
             })
             .join(APP_NAME);
 
-        let state_dir = std::env::var_os("XDG_DATA_HOME")
+        let state_dir = std::env::var_os("XDG_STATE_HOME")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
                 let home = std::env::var_os("HOME").expect("HOME not set in environment");
-                PathBuf::from(home).join(".local/share")
+                PathBuf::from(home).join(".local/state")
             })
             .join(APP_NAME);
 
@@ -49,11 +49,11 @@ impl ConfigPaths {
     /// Use an explicit config directory override (from `--config`).
     /// The state directory falls back to the OS default.
     pub fn with_config_dir(config_dir: std::path::PathBuf) -> Result<Self> {
-        let state_dir = std::env::var_os("XDG_DATA_HOME")
+        let state_dir = std::env::var_os("XDG_STATE_HOME")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
                 let home = std::env::var_os("HOME").expect("HOME not set in environment");
-                PathBuf::from(home).join(".local/share")
+                PathBuf::from(home).join(".local/state")
             })
             .join(APP_NAME);
 
