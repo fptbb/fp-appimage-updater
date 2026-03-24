@@ -1,11 +1,15 @@
+%global forgeurl https://github.com/fptbb/fp-appimage-updater
+%global tag 1.1.4
+%forgemeta
+
 Name:           fp-appimage-updater
 Version:        1.1.4
 Release:        1%{?dist}
 Summary:        A lightweight declarative AppImage updater
 
 License:        MIT
-URL:            https://github.com/fptbb/fp-appimage-updater
-Source0:        %{name}-%{version}.tar.gz
+URL:            %{forgeurl}
+Source0:        %{forgesource}
 
 BuildRequires:  cargo
 BuildRequires:  rust
@@ -18,23 +22,20 @@ fp-appimage-updater is a lightweight, strictly declarative AppImage updater
 designed to manage Linux Desktop integration and AppImage binary updates natively.
 
 %prep
-%setup -q
+# resolves and extracts the source from the github tag automatically
+%forgeautosetup
 
 %build
-# We are building for release, but we must respect COPR's network access. 
-# Cargo needs network access to fetch crates unless vendored. 
-# Ensure "Enable network during build" is checked in COPR!
+# requires network access in copr to fetch crates
 cargo build --release
 
-# aggressively shrink the executable
+# shrinks the executable
 upx --best --lzma target/release/fp-appimage-updater
 
 %install
-# Install the binary
 mkdir -p %{buildroot}%{_bindir}
 install -m 755 target/release/fp-appimage-updater %{buildroot}%{_bindir}/fp-appimage-updater
 
-# Install systemd user units
 mkdir -p %{buildroot}%{_userunitdir}
 install -m 644 systemd/fp-appimage-updater.service %{buildroot}%{_userunitdir}/
 install -m 644 systemd/fp-appimage-updater.timer %{buildroot}%{_userunitdir}/
@@ -49,7 +50,6 @@ install -m 644 systemd/fp-appimage-updater.timer %{buildroot}%{_userunitdir}/
 %{_bindir}/fp-appimage-updater
 %{_userunitdir}/fp-appimage-updater.service
 %{_userunitdir}/fp-appimage-updater.timer
-# Assuming a standard README and LICENSE exist
 %doc README.md
 %license LICENSE
 
