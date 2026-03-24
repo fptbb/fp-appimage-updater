@@ -149,14 +149,14 @@ jobs:
             build/fp-appimage-updater.ARM
 
       - name: Upload x64 Artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: fp-appimage-updater-linux-x64
           path: build/fp-appimage-updater.x64
           retention-days: 7
 
       - name: Upload ARM64 Artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: fp-appimage-updater-linux-arm64
           path: build/fp-appimage-updater.ARM
