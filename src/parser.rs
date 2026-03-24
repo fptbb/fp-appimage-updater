@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use directories::ProjectDirs;
 use glob::glob;
 use serde_yaml::Value;
 use std::fs;
@@ -28,13 +27,21 @@ pub struct AppConfigLoadResult {
 impl ConfigPaths {
     /// Resolve paths using the OS-standard project directories.
     pub fn new() -> Result<Self> {
-        let proj_dirs = ProjectDirs::from("", "", APP_NAME)
-            .context("Could not determine project directories")?;
+        let config_dir = std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                let home = std::env::var_os("HOME").expect("HOME not set in environment");
+                PathBuf::from(home).join(".config")
+            })
+            .join(APP_NAME);
 
-        let config_dir = proj_dirs.config_dir().to_path_buf();
-        let state_dir = proj_dirs.state_dir()
-            .unwrap_or_else(|| proj_dirs.data_local_dir())
-            .to_path_buf();
+        let state_dir = std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                let home = std::env::var_os("HOME").expect("HOME not set in environment");
+                PathBuf::from(home).join(".local/share")
+            })
+            .join(APP_NAME);
 
         Ok(Self { config_dir, state_dir })
     }
@@ -42,12 +49,13 @@ impl ConfigPaths {
     /// Use an explicit config directory override (from `--config`).
     /// The state directory falls back to the OS default.
     pub fn with_config_dir(config_dir: std::path::PathBuf) -> Result<Self> {
-        let proj_dirs = ProjectDirs::from("", "", APP_NAME)
-            .context("Could not determine project directories")?;
-
-        let state_dir = proj_dirs.state_dir()
-            .unwrap_or_else(|| proj_dirs.data_local_dir())
-            .to_path_buf();
+        let state_dir = std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                let home = std::env::var_os("HOME").expect("HOME not set in environment");
+                PathBuf::from(home).join(".local/share")
+            })
+            .join(APP_NAME);
 
         Ok(Self { config_dir, state_dir })
     }

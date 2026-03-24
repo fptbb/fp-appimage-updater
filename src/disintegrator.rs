@@ -1,5 +1,4 @@
 use anyhow::Result;
-use directories::UserDirs;
 use std::fs;
 
 use crate::config::{AppConfig, GlobalConfig};
@@ -56,8 +55,8 @@ pub fn remove_app(
 }
 
 fn remove_desktop(app: &AppConfig, state: Option<&AppState>, colors: bool) -> Result<()> {
-    let data_local_dir = UserDirs::new()
-        .and_then(|u| u.document_dir().map(|d| d.parent().unwrap().join(".local/share")))
+    let data_local_dir = std::env::var_os("XDG_DATA_HOME")
+        .map(std::path::PathBuf::from)
         .unwrap_or_else(|| expand_tilde("~/.local/share"));
 
     let apps_dir = data_local_dir.join("applications");

@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use directories::UserDirs;
 use std::fs;
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
@@ -50,8 +49,8 @@ pub fn integrate(
 
 fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
     // Determine data storage directory
-    let data_local_dir = UserDirs::new()
-        .and_then(|u| u.document_dir().map(|d| d.parent().unwrap().join(".local/share")))
+    let data_local_dir = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
         .unwrap_or_else(|| expand_tilde("~/.local/share"));
     let apps_dir = data_local_dir.join("applications");
     fs::create_dir_all(&apps_dir)?;
@@ -168,10 +167,12 @@ fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
 }
 
 pub fn expand_tilde(path: &str) -> PathBuf {
-    if let Some(stripped) = path.strip_prefix("~/") && let Some(user_dirs) = UserDirs::new() {
-        let mut resolved = user_dirs.home_dir().to_path_buf();
-        resolved.push(stripped);
-        return resolved;
+    if let Some(stripped) = path.strip_prefix("~/") {
+        if let Some(home) = std::env::var_os("HOME") {
+            let mut resolved = PathBuf::from(home);
+            resolved.push(stripped);
+            return resolved;
+        }
     }
     PathBuf::from(path)
 }
