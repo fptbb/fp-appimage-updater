@@ -1,15 +1,11 @@
-%global forgeurl https://github.com/fptbb/fp-appimage-updater
-%global tag 1.1.4
-%forgemeta
-
 Name:           fp-appimage-updater
 Version:        1.1.4
 Release:        1%{?dist}
 Summary:        A lightweight declarative AppImage updater
 
 License:        MIT
-URL:            %{forgeurl}
-Source0:        %{forgesource}
+URL:            https://github.com/fptbb/fp-appimage-updater
+Source0:        %{url}/archive/refs/tags/%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires:  cargo
 BuildRequires:  rust
@@ -22,14 +18,11 @@ fp-appimage-updater is a lightweight, strictly declarative AppImage updater
 designed to manage Linux Desktop integration and AppImage binary updates natively.
 
 %prep
-# resolves and extracts the source from the github tag automatically
-%forgeautosetup
+%setup -q
 
 %build
-# requires network access in copr to fetch crates
 cargo build --release
 
-# shrinks the executable
 upx --best --lzma target/release/fp-appimage-updater
 
 %install
@@ -56,3 +49,4 @@ install -m 644 systemd/fp-appimage-updater.timer %{buildroot}%{_userunitdir}/
 %changelog
 * Mon Mar 23 2026 fp-appimage-updater Maintainer - 1.1.4-1
 - Initial COPR release
+
