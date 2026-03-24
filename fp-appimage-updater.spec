@@ -1,3 +1,5 @@
+%global debug_package %{nil}
+
 Name:           fp-appimage-updater
 Version:        1.1.4
 Release:        1%{?dist}
