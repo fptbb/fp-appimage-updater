@@ -9,6 +9,12 @@ _default:
 
 build-all: prepare build-linux-x64 build-linux-arm
 
+sync-version:
+    #!/usr/bin/env bash
+    VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/') ; \
+    echo "Syncing RPM spec to Cargo version: $$VERSION" ; \
+    sed -i -E "s/^Version:(.*)/Version:        $$VERSION/" fp-appimage-updater.spec
+
 prepare:
     #!/usr/bin/env bash
     mkdir -p {{BUILD_DIR}}
