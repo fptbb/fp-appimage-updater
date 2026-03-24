@@ -5,7 +5,7 @@ Summary:        A lightweight declarative AppImage updater
 
 License:        MIT
 URL:            https://github.com/fptbb/fp-appimage-updater
-Source0:        %{url}/archive/refs/tags/%{version}.tar.gz#/%{name}-%{version}.tar.gz
+Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires:  cargo
 BuildRequires:  rust
@@ -47,6 +47,6 @@ install -m 644 systemd/fp-appimage-updater.timer %{buildroot}%{_userunitdir}/
 %license LICENSE
 
 %changelog
-* Mon Mar 23 2026 fp-appimage-updater Maintainer - 1.1.4-1
+* Tue Mar 24 2026 fp-appimage-updater Maintainer - 1.1.4-1
 - Initial COPR release
 
