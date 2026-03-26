@@ -112,7 +112,7 @@ jobs:
           fi
 
       - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
         with:
           targets: x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu
 
