@@ -209,6 +209,24 @@ release:
       else
         echo "GITLAB_API_TOKEN not set, skipping tag protection."
       fi
+
+      COPR_VERSION=$(grep -m1 -E '^Version:' copr.spec | sed -E 's/^Version:[[:space:]]*//' | tr -d '\r')
+      COPR_RELEASE=$(grep -m1 -E '^Release:' copr.spec | sed -E 's/^Release:[[:space:]]*([0-9]+).*/\1/' | tr -d '\r')
+
+      if [ -z "$COPR_VERSION" ] || [ -z "$COPR_RELEASE" ]; then
+        echo "Error: Could not read Version/Release from copr.spec."
+        exit 1
+      fi
+
+      if [ -z "${COPR_WEBHOOK_UUID:-}" ]; then
+        echo "Error: COPR_WEBHOOK_UUID is not set."
+        exit 1
+      fi
+
+      COPR_WEBHOOK_URL="https://copr.fedorainfracloud.org/webhooks/custom-dir/fptbb/fp-appimage-updater:custom:${COPR_VERSION}-${COPR_RELEASE}/${COPR_WEBHOOK_UUID}/fp-appimage-updater/"
+
+      echo "Triggering COPR webhook..."
+      curl --fail --silent --show-error --request POST "${COPR_WEBHOOK_URL}"
       EOF
 
     - bash run_release.sh
