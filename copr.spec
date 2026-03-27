@@ -2,7 +2,7 @@
 
 Name:           fp-appimage-updater
 Version:        1.1.5
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        A lightweight declarative AppImage updater
 
 License:        MIT
@@ -49,6 +49,10 @@ install -m 644 systemd/fp-appimage-updater.timer %{buildroot}%{_userunitdir}/
 %license LICENSE
 
 %changelog
+* Fri Mar 27 2026 fp-appimage-updater Maintainer - 1.1.5-2
+- Update to version 1.1.5
+* Tue Mar 27 2026 fp-appimage-updater Maintainer - 1.1.5-1
+- Update to version 1.1.5
 * Tue Mar 24 2026 fp-appimage-updater Maintainer - 1.1.4-1
 - Initial COPR release
 
