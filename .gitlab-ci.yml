@@ -237,7 +237,7 @@ pages:
   script:
     - mkdir -p public
     - cp install.sh public/install.sh
-    - cp install-gitlab.sh public/install-gitlab.sh
+    - cp install-github.sh public/install-github.sh
     - printf '/ /install.sh 301\n' > public/_redirects
   artifacts:
     paths:

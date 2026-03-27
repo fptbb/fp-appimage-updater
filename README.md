@@ -25,24 +25,24 @@ fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed t
 You can quickly install the latest binary and background systemd service natively utilizing the installation script:
 
 ```bash
-curl -sL https://fau.fpt.icu/install.sh | bash
+curl -sL fau.fpt.icu | bash
 ```
 This will install the binary to `~/.local/bin/` and the systemd service to `~/.config/systemd/user/`. The service will run every 12 hours. If you don't want to install the systemd service, you can use the `--no-systemd` flag:
 
 ```bash
-curl -sL https://fau.fpt.icu/install.sh | bash -s -- --no-systemd
+curl -sL fau.fpt.icu | bash -s -- --no-systemd
 ```
 
 If you are building an immutable/atomic OS image or want to install the binary system-wide to `/usr/bin/` with the systemd service in `/usr/lib/systemd/system/`, use the `--system` flag:
 
 ```bash
-curl -sL https://fau.fpt.icu/install.sh | bash -s -- --system
+curl -sL fau.fpt.icu | bash -s -- --system
 ```
 Note that these flags can work together.
 
 Alternatively, to uninstall it:
 ```bash
-curl -sL https://fau.fpt.icu/install.sh | bash -s -- --uninstall
+curl -sL fau.fpt.icu | bash -s -- --uninstall
 ```
 
 ### Using Pre-built Binaries

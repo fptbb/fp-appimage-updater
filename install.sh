@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-REPO="fptbb/fp-appimage-updater"
+REPO="fpsys/fp-appimage-updater"
 APP_NAME="fp-appimage-updater"
 
 INSTALL_SYSTEMD=true
@@ -103,15 +103,30 @@ case "$ARCH" in
 esac
 
 # fetches release version
+extract_tag_name() {
+    tr -d '\n' | sed -nE 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p'
+}
+
+download_asset() {
+    PRIMARY_URL="$1"
+    FALLBACK_URL="$2"
+    OUTPUT_PATH="$3"
+
+    if ! curl -sL --fail --progress-bar "$PRIMARY_URL" -o "$OUTPUT_PATH"; then
+        echo "Primary asset URL failed, falling back to GitLab job artifact..."
+        curl -sL --fail --progress-bar "$FALLBACK_URL" -o "$OUTPUT_PATH"
+    fi
+}
+
 if [ "$USE_PRERELEASE" = "true" ]; then
-    echo "Fetching latest release version from GitHub (including pre-releases)..."
-    VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases?per_page=1" \
-        | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+    echo "Fetching latest release version from GitLab (including pre-releases)..."
+    VERSION=$(curl -sL "https://gitlab.com/api/v4/projects/${REPO//\//%2F}/releases?per_page=1" \
+        | extract_tag_name)
     RELEASE_KIND="release"
 else
-    echo "Fetching latest stable release version from GitHub..."
-    VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
-        | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+    echo "Fetching latest stable release version from GitLab..."
+    VERSION=$(curl -sL "https://gitlab.com/api/v4/projects/${REPO//\//%2F}/releases/permalink/latest" \
+        | extract_tag_name)
     RELEASE_KIND="release"
 fi
 
@@ -123,11 +138,12 @@ fi
 echo "Found latest ${RELEASE_KIND}: $VERSION"
 
 # downloads binary
-DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.${TARGET_ARCH}"
+DOWNLOAD_URL="https://gitlab.com/${REPO}/-/releases/${VERSION}/downloads/bin/${APP_NAME}.${TARGET_ARCH}"
+FALLBACK_DOWNLOAD_URL="https://gitlab.com/${REPO}/-/jobs/artifacts/main/raw/build/${APP_NAME}.${TARGET_ARCH}?job=build-and-compress"
 echo "Downloading binary for $TARGET_ARCH from $DOWNLOAD_URL..."
 
 mkdir -p "$BIN_DIR"
-curl -sL --fail --progress-bar "$DOWNLOAD_URL" -o "$BIN_DIR/$APP_NAME"
+download_asset "$DOWNLOAD_URL" "$FALLBACK_DOWNLOAD_URL" "$BIN_DIR/$APP_NAME"
 chmod +x "$BIN_DIR/$APP_NAME"
 
 if [ "$INSTALL_SYSTEMD" = true ]; then
@@ -135,11 +151,13 @@ if [ "$INSTALL_SYSTEMD" = true ]; then
     echo "Setting up background systemd services in $SYSTEMD_DIR..."
     mkdir -p "$SYSTEMD_DIR"
 
-    SERVICE_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.service"
-    TIMER_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.timer"
+    SERVICE_URL="https://gitlab.com/${REPO}/-/releases/${VERSION}/downloads/systemd/${APP_NAME}.service"
+    TIMER_URL="https://gitlab.com/${REPO}/-/releases/${VERSION}/downloads/systemd/${APP_NAME}.timer"
+    FALLBACK_SERVICE_URL="https://gitlab.com/${REPO}/-/jobs/artifacts/main/raw/systemd/${APP_NAME}.service?job=build-and-compress"
+    FALLBACK_TIMER_URL="https://gitlab.com/${REPO}/-/jobs/artifacts/main/raw/systemd/${APP_NAME}.timer?job=build-and-compress"
 
-    curl -sL --fail "$SERVICE_URL" -o "$SYSTEMD_DIR/${APP_NAME}.service"
-    curl -sL --fail "$TIMER_URL" -o "$SYSTEMD_DIR/${APP_NAME}.timer"
+    download_asset "$SERVICE_URL" "$FALLBACK_SERVICE_URL" "$SYSTEMD_DIR/${APP_NAME}.service"
+    download_asset "$TIMER_URL" "$FALLBACK_TIMER_URL" "$SYSTEMD_DIR/${APP_NAME}.timer"
 
     # adjusts ExecStart path to match installation directory
     sed -i "s|%h/.local/bin|$BIN_DIR|g" "$SYSTEMD_DIR/${APP_NAME}.service"

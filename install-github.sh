@@ -3,8 +3,6 @@ set -e
 
 REPO="fptbb/fp-appimage-updater"
 APP_NAME="fp-appimage-updater"
-GITLAB_BASE="https://gitlab.com/${REPO}"
-GITLAB_API="https://gitlab.com/api/v4/projects/${REPO//\//%2F}"
 
 INSTALL_SYSTEMD=true
 USE_PRERELEASE=false
@@ -34,7 +32,7 @@ for arg in "$@"; do
         # skips system-wide cleanup entirely on immutable systems or non-root executions
         if [ -w "/usr/bin" ] && [ -w "/usr/lib/systemd/system" ]; then
             systemctl disable --now "${APP_NAME}.timer" 2>/dev/null || true
-
+            
             SYSTEM_PATHS=(
                 "/usr/bin/$APP_NAME"
                 "/usr/local/bin/$APP_NAME"
@@ -49,7 +47,7 @@ for arg in "$@"; do
                     rm -f "$target"
                 fi
             done
-
+            
             systemctl daemon-reload 2>/dev/null || true
         else
             echo "note: skipped system-wide cleanup (read-only filesystem or requires root)"
@@ -106,29 +104,26 @@ esac
 
 # fetches release version
 if [ "$USE_PRERELEASE" = "true" ]; then
-    echo "Fetching latest pre-release version from GitLab..."
-    VERSION=$(curl -sL --fail "${GITLAB_API}/releases?order_by=released_at&sort=desc" \
-        | grep -o '"tag_name":"[^"]*"' \
-        | cut -d'"' -f4 \
-        | grep -- '-RC' \
-        | head -n1)
+    echo "Fetching latest release version from GitHub (including pre-releases)..."
+    VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases?per_page=1" \
+        | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+    RELEASE_KIND="release"
 else
-    echo "Fetching latest stable release version from GitLab..."
-    VERSION=$(curl -sL --fail "${GITLAB_API}/releases/permalink/latest" \
-        | grep -o '"tag_name":"[^"]*"' \
-        | head -n1 \
-        | cut -d'"' -f4)
+    echo "Fetching latest stable release version from GitHub..."
+    VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
+        | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+    RELEASE_KIND="release"
 fi
 
 if [ -z "$VERSION" ]; then
-    echo "Error: Could not determine latest release version."
+    echo "Error: Could not determine latest release version. Maybe API rate limited?"
     exit 1
 fi
 
-echo "Found latest release: $VERSION"
+echo "Found latest ${RELEASE_KIND}: $VERSION"
 
 # downloads binary
-DOWNLOAD_URL="${GITLAB_BASE}/-/releases/${VERSION}/downloads/bin/${APP_NAME}.${TARGET_ARCH}"
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.${TARGET_ARCH}"
 echo "Downloading binary for $TARGET_ARCH from $DOWNLOAD_URL..."
 
 mkdir -p "$BIN_DIR"
@@ -140,8 +135,8 @@ if [ "$INSTALL_SYSTEMD" = true ]; then
     echo "Setting up background systemd services in $SYSTEMD_DIR..."
     mkdir -p "$SYSTEMD_DIR"
 
-    SERVICE_URL="${GITLAB_BASE}/-/releases/${VERSION}/downloads/systemd/${APP_NAME}.service"
-    TIMER_URL="${GITLAB_BASE}/-/releases/${VERSION}/downloads/systemd/${APP_NAME}.timer"
+    SERVICE_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.service"
+    TIMER_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.timer"
 
     curl -sL --fail "$SERVICE_URL" -o "$SYSTEMD_DIR/${APP_NAME}.service"
     curl -sL --fail "$TIMER_URL" -o "$SYSTEMD_DIR/${APP_NAME}.timer"
