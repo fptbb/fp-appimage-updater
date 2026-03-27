@@ -68,11 +68,18 @@ release:
   before_script:
     - apk add --no-cache git bash grep sed awk
   script:
+    # writes the script to a file so it is guaranteed to execute in bash, bypassing alpine sh limits
     - |
+      cat << 'EOF' > run_release.sh
       #!/bin/bash
       set -e
 
-      VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/')
+      VERSION=$(grep -m1 -E '^version\s*=' Cargo.toml | cut -d'"' -f2 || true)
+      if [ -z "$VERSION" ]; then
+        echo "Error: Could not extract version from Cargo.toml"
+        exit 1
+      fi
+
       BASE_TAG="v${VERSION}"
       SHOULD_RELEASE="false"
       
@@ -95,7 +102,6 @@ release:
             exit 1
           fi
           
-          # avoids grep -oP since alpine grep lacks pcre support
           HIGHEST=$(git ls-remote --tags origin | grep -E "refs/tags/${BASE_TAG}-RC[0-9]+" | awk -F'-RC' '{print $2}' | sort -n | tail -1 || true)
           if [ -z "$HIGHEST" ]; then
             NEXT_RC=1
@@ -122,7 +128,6 @@ release:
       if [ "$CI_PIPELINE_SOURCE" = "web" ] && [ "$PRERELEASE" = "true" ]; then
         PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
       else
-        # prevents set -e crash if grep returns 1 when no tags exist
         PREV_TAG=$(git tag --sort=-creatordate | grep -v -- '-RC' | head -1 || true)
       fi
       
@@ -151,7 +156,6 @@ release:
           LOG_CONTENT=""
           declare -A COMMIT_GROUPS
           while IFS= read -r line; do
-            # uses sed group extraction to bypass pcre limitation
             PREFIX=$(echo "$line" | sed -nE 's/^- ([^: ]+):.*/\1/p' | tr '[:upper:]' '[:lower:]')
             if [ -z "$PREFIX" ]; then
               PREFIX="other"
@@ -178,5 +182,8 @@ release:
         --assets-link "{\"name\":\"fp-appimage-updater.ARM\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM?job=build-and-compress\"}" \
         --assets-link "{\"name\":\"fp-appimage-updater.service\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.service?job=build-and-compress\"}" \
         --assets-link "{\"name\":\"fp-appimage-updater.timer\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.timer?job=build-and-compress\"}"
+      EOF
+
+    - bash run_release.sh
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
