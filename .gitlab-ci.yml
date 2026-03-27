@@ -112,7 +112,7 @@ release:
             exit 1
           fi
           
-          HIGHEST=$(git ls-remote --tags origin | grep -E "refs/tags/${BASE_TAG}-RC[0-9]+" | gawk -F'-RC' '{print $2}' | sort -n | tail -1 || true)
+          HIGHEST=$(git ls-remote --tags origin | grep -E "refs/tags/${BASE_TAG}-RC[0-9]+" | awk -F'-RC' '{print $2}' | sort -n | tail -1 || true)
           if [ -z "$HIGHEST" ]; then
             NEXT_RC=1
           else
