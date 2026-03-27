@@ -24,6 +24,7 @@ spec:
 stages:
   - build
   - release
+  - pages
 
 variables:
   GIT_DEPTH: 0
@@ -194,12 +195,12 @@ release:
       
       release-cli create --name "Release $TAG" --description "./release_notes.md" \
         --tag-name "$TAG" --ref "$CI_COMMIT_SHA" \
-        --assets-link "{\"name\":\"fp-appimage-updater.x64\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64?job=build-and-compress\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.x64.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64.bundle?job=build-and-compress\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.ARM\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM?job=build-and-compress\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.ARM.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM.bundle?job=build-and-compress\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.service\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.service?job=build-and-compress\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.timer\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.timer?job=build-and-compress\"}"
+        --assets-link "{\"name\":\"fp-appimage-updater.x64\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.x64\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.x64.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64.bundle?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.x64.bundle\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.ARM\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.ARM\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.ARM.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM.bundle?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.ARM.bundle\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.service\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.service?job=build-and-compress\",\"direct_asset_path\":\"/systemd/fp-appimage-updater.service\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.timer\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.timer?job=build-and-compress\",\"direct_asset_path\":\"/systemd/fp-appimage-updater.timer\"}"
 
       if [ -n "$GITLAB_API_TOKEN" ]; then
         echo "Locking tag $TAG..."
@@ -229,3 +230,17 @@ release:
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main" && $FORCE_RELEASE == "true"
     - if: $CI_COMMIT_MESSAGE =~ /^chore:\s*bump\s*version\s*to\s*.*\s*in\s*Cargo\.toml/ && $CI_COMMIT_BRANCH == "main"
+
+pages:
+  stage: pages
+  image: alpine:latest
+  script:
+    - mkdir -p public
+    - cp install.sh public/install.sh
+    - cp install-gitlab.sh public/install-gitlab.sh
+    - printf '/ /install.sh 301\n' > public/_redirects
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
