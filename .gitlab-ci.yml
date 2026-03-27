@@ -30,7 +30,7 @@ variables:
 
 build-and-compress:
   stage: build
-  image: rust:latest
+  image: rust:latest@sha256:689fa5fdf107a7dab344fafaa12b962a99c278ca3c38b481e5e4e4f58a500b69
   variables:
     CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
   cache:
@@ -61,7 +61,7 @@ build-and-compress:
 
 release:
   stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  image: registry.gitlab.com/gitlab-org/release-cli:latest@sha256:3f52d526f48e8d10625c722fa6d6423ee82aadeae1b1aa91f07b62551d96dacf
   needs:
     - job: build-and-compress
       artifacts: true
