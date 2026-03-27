@@ -1,0 +1,213 @@
+stages:
+  - build
+  - release
+
+variables:
+  GIT_DEPTH: 0
+  PRERELEASE:
+    value: "false"
+    description: "Publish as pre-release (appends -RC<N> to the version tag)"
+  CATEGORIZE:
+    value: "false"
+    description: "Categorize commits by prefix (feat, fix, etc.)"
+  SHOW_AUTHORS:
+    value: "false"
+    description: "Show commit authors"
+
+cache:
+  key:
+    files:
+      - Cargo.lock
+  paths:
+    - .cargo/registry/index/
+    - .cargo/registry/cache/
+    - .cargo/git/db/
+    - target/
+
+build_artifacts:
+  stage: build
+  image: rust:latest
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  before_script:
+    - apt-get update && apt-get install -y upx-ucl gcc-aarch64-linux-gnu
+    - rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+  script:
+    - VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/')
+    - BASE_TAG="v${VERSION}"
+    
+    # resolves pipeline triggers to determine release eligibility
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        echo "SHOULD_RELEASE=false" >> build.env
+      elif [ "$CI_PIPELINE_SOURCE" = "push" ]; then
+        HEAD_MESSAGE=$(git log -1 --pretty=%s | tr -d '\r')
+        EXPECTED_MESSAGE="chore: bump version to ${VERSION} in Cargo.toml"
+
+        if [ "$HEAD_MESSAGE" = "$EXPECTED_MESSAGE" ]; then
+          if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
+            echo "Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before pushing a new release commit."
+            exit 1
+          fi
+          echo "SHOULD_RELEASE=true" >> build.env
+          echo "RELEASE_TAG=${BASE_TAG}" >> build.env
+        else
+          echo "SHOULD_RELEASE=false" >> build.env
+        fi
+      else
+        if [ "$PRERELEASE" = "true" ]; then
+          if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
+            echo "Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before creating a new pre-release."
+            exit 1
+          fi
+          HIGHEST=$(git ls-remote --tags origin | grep -oP "refs/tags/${BASE_TAG}-RC\K[0-9]+" | sort -n | tail -1)
+          if [ -z "$HIGHEST" ]; then
+            NEXT_RC=1
+          else
+            NEXT_RC=$((HIGHEST + 1))
+          fi
+          TAG="${BASE_TAG}-RC${NEXT_RC}"
+        else
+          TAG="${BASE_TAG}"
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+            echo "Tag ${TAG} already exists. Bump the version in Cargo.toml before releasing."
+            exit 1
+          fi
+        fi
+        echo "SHOULD_RELEASE=true" >> build.env
+        echo "RELEASE_TAG=${TAG}" >> build.env
+      fi
+
+    - cargo build --release --target x86_64-unknown-linux-gnu
+    - CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu
+    
+    - upx --best --lzma target/x86_64-unknown-linux-gnu/release/fp-appimage-updater
+    - upx --best --lzma target/aarch64-unknown-linux-gnu/release/fp-appimage-updater
+    
+    - mkdir -p build
+    - mv target/x86_64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.x64
+    - mv target/aarch64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.ARM
+
+    - source build.env
+    
+    # generates changelog formatting and git history ranges
+    - |
+      if [ "$SHOULD_RELEASE" = "true" ]; then
+        HEAD_SHA=$(git rev-parse --short HEAD)
+        
+        if [ "$CI_PIPELINE_SOURCE" = "web" ] && [ "$PRERELEASE" = "true" ]; then
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        else
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v -- '-RC' | head -1)
+        fi
+
+        if [ -z "$PREV_TAG" ]; then
+          BASE_SHA=$(git rev-list --max-parents=0 HEAD --abbrev-commit)
+          COMPARE_URL="${CI_PROJECT_URL}/-/compare/${BASE_SHA}...${HEAD_SHA}"
+          RANGE_SPEC="HEAD"
+        else
+          BASE_SHA=$(git rev-parse --short "${PREV_TAG}")
+          COMPARE_URL="${CI_PROJECT_URL}/-/compare/${PREV_TAG}...${HEAD_SHA}"
+          RANGE_SPEC="${PREV_TAG}..HEAD"
+        fi
+
+        if [ "$SHOW_AUTHORS" = "false" ]; then
+          FORMAT="- %s (%h)"
+        else
+          FORMAT="- %s (%h) by %an"
+        fi
+
+        if [ "$CATEGORIZE" = "true" ]; then
+          LOG_CONTENT=""
+          declare -A COMMIT_GROUPS
+          
+          while IFS= read -r line; do
+            PREFIX=$(echo "$line" | grep -oP "^- \K[^: ]+(?=:)" | tr '[:upper:]' '[:lower:]' || echo "other")
+            COMMIT_GROUPS["$PREFIX"]="${COMMIT_GROUPS["$PREFIX"]}$line"$'\n'
+          done < <(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
+
+          for KEY in "${!COMMIT_GROUPS[@]}"; do
+            HEADER_KEY="$(tr '[:lower:]' '[:upper:]' <<< ${KEY:0:1})${KEY:1}"
+            LOG_CONTENT="${LOG_CONTENT}### $HEADER_KEY"$'\n'"${COMMIT_GROUPS[$KEY]}"$'\n'
+          done
+        else
+          LOG_CONTENT=$(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
+        fi
+
+        echo "## What's Changed" > changelog.md
+        echo "**Full Changelog**: [${BASE_SHA}...${HEAD_SHA}](${COMPARE_URL})" >> changelog.md
+        echo "" >> changelog.md
+        echo "$LOG_CONTENT" >> changelog.md
+        echo "BUILD_JOB_ID=$CI_JOB_ID" >> build.env
+      fi
+  artifacts:
+    paths:
+      - build/
+      - systemd/
+      - changelog.md
+    reports:
+      dotenv: build.env
+    expire_in: 7 days
+
+publish_release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+    - job: build_artifacts
+      artifacts: true
+  rules:
+    - if: $SHOULD_RELEASE == "true"
+  script:
+    - |
+      BASE_URL="${CI_PROJECT_URL}/-/jobs/${BUILD_JOB_ID}/artifacts/raw"
+
+      LINK_X64=$(cat <<EOF
+      {
+        "name": "fp-appimage-updater.x64",
+        "url": "${BASE_URL}/build/fp-appimage-updater.x64",
+        "filepath": "/build/fp-appimage-updater.x64"
+      }
+      EOF
+
+      )
+
+      LINK_ARM=$(cat <<EOF
+      {
+        "name": "fp-appimage-updater.ARM",
+        "url": "${BASE_URL}/build/fp-appimage-updater.ARM",
+        "filepath": "/build/fp-appimage-updater.ARM"
+      }
+      EOF
+
+      )
+
+      LINK_SVC=$(cat <<EOF
+      {
+        "name": "fp-appimage-updater.service",
+        "url": "${BASE_URL}/systemd/fp-appimage-updater.service",
+        "filepath": "/systemd/fp-appimage-updater.service"
+      }
+      EOF
+
+      )
+
+      LINK_TMR=$(cat <<EOF
+      {
+        "name": "fp-appimage-updater.timer",
+        "url": "${BASE_URL}/systemd/fp-appimage-updater.timer",
+        "filepath": "/systemd/fp-appimage-updater.timer"
+      }
+      EOF
+      
+      )
+
+      release-cli create \
+        --name "Release $RELEASE_TAG" \
+        --tag-name "$RELEASE_TAG" \
+        --description "$(cat changelog.md)" \
+        --assets-link "$LINK_X64" \
+        --assets-link "$LINK_ARM" \
+        --assets-link "$LINK_SVC" \
+        --assets-link "$LINK_TMR"
