@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 
 Name:           fp-appimage-updater
-Version:        1.1.4
+Version:        1.1.5
 Release:        1%{?dist}
 Summary:        A lightweight declarative AppImage updater
 
