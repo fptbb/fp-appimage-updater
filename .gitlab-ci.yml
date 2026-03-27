@@ -1,0 +1,217 @@
+spec:
+  inputs:
+    force_release:
+      description: "Force a release on manual trigger"
+      type: boolean
+      default: false
+    prerelease:
+      description: "Publish as pre-release (appends -RC<N> to the version tag)"
+      type: boolean
+      default: false
+    categorize:
+      description: "Categorize commits by prefix (feat, fix, etc.)"
+      type: boolean
+      default: false
+    show_authors:
+      description: "Show commit authors"
+      type: boolean
+      default: false
+    include_commits:
+      description: "Include commit log in release notes"
+      type: boolean
+      default: true
+---
+stages:
+  - build
+  - release
+
+variables:
+  GIT_DEPTH: 0
+  FORCE_RELEASE: "$[[ inputs.force_release ]]"
+  PRERELEASE: "$[[ inputs.prerelease ]]"
+  CATEGORIZE: "$[[ inputs.categorize ]]"
+  SHOW_AUTHORS: "$[[ inputs.show_authors ]]"
+  INCLUDE_COMMITS: "$[[ inputs.include_commits ]]"
+
+build-and-compress:
+  stage: build
+  image: rust:latest
+  variables:
+    CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+    RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - .cargo/registry/index/
+      - .cargo/registry/cache/
+      - .cargo/git/db/
+      - target/
+  before_script:
+    - apt-get update && apt-get install -y upx-ucl gcc-aarch64-linux-gnu jq curl wget
+    - wget -O /usr/local/bin/cosign https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
+    - chmod +x /usr/local/bin/cosign
+    - rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+  script:
+    - cargo build --release --target x86_64-unknown-linux-gnu
+    - cargo build --release --target aarch64-unknown-linux-gnu
+    - upx --best --lzma target/x86_64-unknown-linux-gnu/release/fp-appimage-updater
+    - upx --best --lzma target/aarch64-unknown-linux-gnu/release/fp-appimage-updater
+    - mkdir -p build
+    - mv target/x86_64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.x64
+    - mv target/aarch64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.ARM
+    - cosign sign-blob --yes build/fp-appimage-updater.x64 --bundle build/fp-appimage-updater.x64.bundle
+    - cosign sign-blob --yes build/fp-appimage-updater.ARM --bundle build/fp-appimage-updater.ARM.bundle
+  artifacts:
+    paths:
+      - build/
+      - systemd/
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+    - job: build-and-compress
+      artifacts: true
+  before_script:
+    - apk add --no-cache git bash grep sed gawk curl
+  script:
+    - |
+      cat << 'EOF' > run_release.sh
+      #!/bin/bash
+      set -e
+
+      VERSION=$(grep -m1 -E '^version\s*=' Cargo.toml | cut -d'"' -f2 || true)
+      if [ -z "$VERSION" ]; then
+        echo "Error: Could not extract version from Cargo.toml"
+        exit 1
+      fi
+
+      BASE_TAG="v${VERSION}"
+      SHOULD_RELEASE="false"
+      
+      if [ "$CI_PIPELINE_SOURCE" = "push" ] || [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        HEAD_MESSAGE=$(git log -1 --pretty=%s | tr -d '\r')
+        EXPECTED_MESSAGE="chore: bump version to ${VERSION} in Cargo.toml"
+        
+        if [ "$HEAD_MESSAGE" = "$EXPECTED_MESSAGE" ]; then
+          if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
+            echo "Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before pushing a new release commit."
+            exit 1
+          fi
+          SHOULD_RELEASE="true"
+          TAG="${BASE_TAG}"
+        fi
+      elif [ "$CI_PIPELINE_SOURCE" = "web" ]; then
+        if [ "$FORCE_RELEASE" = "true" ]; then
+          if [ "$PRERELEASE" = "true" ]; then
+            if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
+              echo "Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before creating a pre-release."
+              exit 1
+            fi
+            
+            HIGHEST=$(git ls-remote --tags origin | grep -E "refs/tags/${BASE_TAG}-RC[0-9]+" | awk -F'-RC' '{print $2}' | sort -n | tail -1 || true)
+            if [ -z "$HIGHEST" ]; then
+              NEXT_RC=1
+            else
+              NEXT_RC=$((HIGHEST + 1))
+            fi
+            TAG="${BASE_TAG}-RC${NEXT_RC}"
+          else
+            TAG="${BASE_TAG}"
+            if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+              echo "Tag ${TAG} already exists. Bump the version in Cargo.toml before releasing."
+              exit 1
+            fi
+          fi
+          SHOULD_RELEASE="true"
+        else
+          echo "Manual pipeline run without force_release. Skipping release creation."
+        fi
+      fi
+      
+      if [ "$SHOULD_RELEASE" != "true" ]; then
+        echo "Not a valid release attempt. Exiting."
+        exit 0
+      fi
+      
+      HEAD_SHA=$(git rev-parse --short HEAD)
+      if [ "$CI_PIPELINE_SOURCE" = "web" ] && [ "$PRERELEASE" = "true" ]; then
+        PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+      else
+        PREV_TAG=$(git tag --sort=-creatordate | grep -v -- '-RC' | head -1 || true)
+      fi
+      
+      if [ -z "$PREV_TAG" ]; then
+        BASE_SHA=$(git rev-list --max-parents=0 HEAD --abbrev-commit)
+        COMPARE_URL="${CI_PROJECT_URL}/-/compare/${BASE_SHA}...${HEAD_SHA}"
+        RANGE_SPEC="HEAD"
+      else
+        BASE_SHA=$(git rev-parse --short "${PREV_TAG}")
+        COMPARE_URL="${CI_PROJECT_URL}/-/compare/${PREV_TAG}...${HEAD_SHA}"
+        RANGE_SPEC="${PREV_TAG}..HEAD"
+      fi
+      
+      echo "## What's Changed" > release_notes.md
+      echo "**Full Changelog**: [${BASE_SHA}...${HEAD_SHA}](${COMPARE_URL})" >> release_notes.md
+      echo "" >> release_notes.md
+      
+      if [ "$INCLUDE_COMMITS" = "true" ]; then
+        if [ "$SHOW_AUTHORS" = "false" ]; then
+          FORMAT="- %s (%h)"
+        else
+          FORMAT="- %s (%h) by %an"
+        fi
+        
+        if [ "$CATEGORIZE" = "true" ]; then
+          LOG_CONTENT=""
+          declare -A COMMIT_GROUPS
+          while IFS= read -r line; do
+            PREFIX=$(echo "$line" | sed -nE 's/^- ([^: ]+):.*/\1/p' | tr '[:upper:]' '[:lower:]')
+            if [ -z "$PREFIX" ]; then
+              PREFIX="other"
+            fi
+            COMMIT_GROUPS["$PREFIX"]="${COMMIT_GROUPS["$PREFIX"]}$line"$'\n'
+          done < <(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
+          
+          for KEY in "${!COMMIT_GROUPS[@]}"; do
+            HEADER_KEY="$(tr '[:lower:]' '[:upper:]' <<< ${KEY:0:1})${KEY:1}"
+            LOG_CONTENT="${LOG_CONTENT}### $HEADER_KEY"$'\n'"${COMMIT_GROUPS[$KEY]}"$'\n'
+          done
+        else
+          LOG_CONTENT=$(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
+        fi
+
+        echo "$LOG_CONTENT" >> release_notes.md
+      fi
+      
+      echo "Creating release $TAG..."
+      
+      release-cli create --name "Release $TAG" --description "./release_notes.md" \
+        --tag-name "$TAG" --ref "$CI_COMMIT_SHA" \
+        --assets-link "{\"name\":\"fp-appimage-updater.x64\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64?job=build-and-compress\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.x64.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64.bundle?job=build-and-compress\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.ARM\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM?job=build-and-compress\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.ARM.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM.bundle?job=build-and-compress\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.service\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.service?job=build-and-compress\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.timer\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.timer?job=build-and-compress\"}"
+
+      if [ -n "$GITLAB_API_TOKEN" ]; then
+        echo "Locking tag $TAG..."
+        curl --request POST --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+             --url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/protected_tags" \
+             --data "name=$TAG&create_access_level=40" || echo "Failed to lock tag, check API token permissions."
+      else
+        echo "GITLAB_API_TOKEN not set, skipping tag protection."
+      fi
+      EOF
+
+    - bash run_release.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main" && $FORCE_RELEASE == "true"
+    - if: $CI_COMMIT_MESSAGE =~ /^chore:\s*bump\s*version\s*to\s*.*\s*in\s*Cargo\.toml/ && $CI_COMMIT_BRANCH == "main"
