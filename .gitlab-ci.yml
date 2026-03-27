@@ -15,7 +15,7 @@ spec:
     include_commits:
       description: "Include commit log in release notes"
       type: boolean
-      default: false
+      default: true
 ---
 stages:
   - build
@@ -33,6 +33,12 @@ build-and-compress:
   image: rust:latest
   variables:
     CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+    # generates native gitlab slsa provenance metadata
+    RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
+  # authenticates runner with sigstore
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
   cache:
     key: $CI_COMMIT_REF_SLUG
     paths:
@@ -41,7 +47,9 @@ build-and-compress:
       - .cargo/git/db/
       - target/
   before_script:
-    - apt-get update && apt-get install -y upx-ucl gcc-aarch64-linux-gnu jq curl
+    - apt-get update && apt-get install -y upx-ucl gcc-aarch64-linux-gnu jq curl wget
+    - wget -O /usr/local/bin/cosign https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
+    - chmod +x /usr/local/bin/cosign
     - rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
   script:
     - cargo build --release --target x86_64-unknown-linux-gnu
@@ -51,6 +59,9 @@ build-and-compress:
     - mkdir -p build
     - mv target/x86_64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.x64
     - mv target/aarch64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.ARM
+    # signs binaries and outputs verification bundles
+    - cosign sign-blob --yes build/fp-appimage-updater.x64 --bundle build/fp-appimage-updater.x64.bundle
+    - cosign sign-blob --yes build/fp-appimage-updater.ARM --bundle build/fp-appimage-updater.ARM.bundle
   artifacts:
     paths:
       - build/
@@ -66,9 +77,8 @@ release:
     - job: build-and-compress
       artifacts: true
   before_script:
-    - apk add --no-cache git bash grep sed gawk
+    - apk add --no-cache git bash grep sed gawk curl
   script:
-    # writes the script to a file so it is guaranteed to execute in bash, bypassing alpine sh limits
     - |
       cat << 'EOF' > run_release.sh
       #!/bin/bash
@@ -102,7 +112,7 @@ release:
             exit 1
           fi
           
-          HIGHEST=$(git ls-remote --tags origin | grep -E "refs/tags/${BASE_TAG}-RC[0-9]+" | awk -F'-RC' '{print $2}' | sort -n | tail -1 || true)
+          HIGHEST=$(git ls-remote --tags origin | grep -E "refs/tags/${BASE_TAG}-RC[0-9]+" | gawk -F'-RC' '{print $2}' | sort -n | tail -1 || true)
           if [ -z "$HIGHEST" ]; then
             NEXT_RC=1
           else
@@ -179,9 +189,21 @@ release:
       release-cli create --name "Release $TAG" --description "./release_notes.md" \
         --tag-name "$TAG" --ref "$CI_COMMIT_SHA" \
         --assets-link "{\"name\":\"fp-appimage-updater.x64\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64?job=build-and-compress\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.x64.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64.bundle?job=build-and-compress\"}" \
         --assets-link "{\"name\":\"fp-appimage-updater.ARM\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM?job=build-and-compress\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.ARM.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM.bundle?job=build-and-compress\"}" \
         --assets-link "{\"name\":\"fp-appimage-updater.service\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.service?job=build-and-compress\"}" \
         --assets-link "{\"name\":\"fp-appimage-updater.timer\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.timer?job=build-and-compress\"}"
+
+      # locks tag to prevent modifications
+      if [ -n "$GITLAB_API_TOKEN" ]; then
+        echo "Locking tag $TAG..."
+        curl --request POST --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+             --url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/protected_tags" \
+             --data "name=$TAG&create_access_level=40" || echo "Failed to lock tag, check API token permissions."
+      else
+        echo "GITLAB_API_TOKEN not set, skipping tag protection."
+      fi
       EOF
 
     - bash run_release.sh
