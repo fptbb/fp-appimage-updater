@@ -9,7 +9,8 @@ use crate::output::{
     print_self_update_start, print_self_update_success,
 };
 
-const REPO: &str = "fptbb/fp-appimage-updater";
+const REPO: &str = "fpsys/fp-appimage-updater";
+const REPO_ENCODED: &str = "fpsys%2Ffp-appimage-updater";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Detect the release asset suffix for the running architecture.
@@ -21,39 +22,46 @@ fn asset_suffix() -> Result<&'static str> {
     }
 }
 
-/// 1. Fetch the latest release tag from GitHub.
+/// 1. Fetch the latest release tag from GitLab.
 ///
 /// When `pre_release` is true, scans the releases list for the first pre-release entry.
-/// Otherwise, uses the /releases/latest shortcut which only returns stable releases.
+/// Otherwise, uses the /releases/permalink/latest shortcut which only returns stable releases.
 fn resolve_latest_tag(client: &Agent, pre_release: bool) -> Result<String> {
     if pre_release {
-        let api_url = format!("https://api.github.com/repos/{}/releases?per_page=1", REPO);
+        let api_url = format!(
+            "https://gitlab.com/api/v4/projects/{}/releases?order_by=released_at&sort=desc&per_page=100",
+            REPO_ENCODED
+        );
         let releases: serde_json::Value = client
             .get(&api_url)
             .call()
-            .context("Failed to reach GitHub API and parse releases list")?
+            .context("Failed to reach GitLab API and parse releases list")?
             .into_body()
             .read_json()
-            .context("Failed to parse GitHub releases list")?;
+            .context("Failed to parse GitLab releases list")?;
 
         let tag = releases
             .as_array()
             .context("Expected a JSON array from /releases")?
-            .first()
-            .and_then(|r| r["tag_name"].as_str())
-            .context("No releases found on GitHub")?
+            .iter()
+            .filter_map(|release| release["tag_name"].as_str())
+            .find(|tag| tag.contains("-RC"))
+            .context("No pre-releases found on GitLab")?
             .to_string();
 
         Ok(tag)
     } else {
-        let api_url = format!("https://api.github.com/repos/{}/releases/latest", REPO);
+        let api_url = format!(
+            "https://gitlab.com/api/v4/projects/{}/releases/permalink/latest",
+            REPO_ENCODED
+        );
         let resp: serde_json::Value = client
             .get(&api_url)
             .call()
-            .context("Failed to reach GitHub API and parse response")?
+            .context("Failed to reach GitLab API and parse response")?
             .into_body()
             .read_json()
-            .context("Failed to parse GitHub API response")?;
+            .context("Failed to parse GitLab API response")?;
 
         resp["tag_name"]
             .as_str()
@@ -62,7 +70,7 @@ fn resolve_latest_tag(client: &Agent, pre_release: bool) -> Result<String> {
     }
 }
 
-/// Check GitHub releases and, if a newer version exists, replace the running binary.
+/// Check GitLab releases and, if a newer version exists, replace the running binary.
 pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()> {
     let kind = if pre_release { "pre-release" } else { "stable" };
     print_self_update_start(kind, CURRENT_VERSION, colors);
@@ -88,8 +96,12 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
     let suffix = asset_suffix()?;
     let binary_name = format!("fp-appimage-updater.{}", suffix);
     let download_url = format!(
-        "https://github.com/{}/releases/download/{}/{}",
+        "https://gitlab.com/{}/-/releases/{}/downloads/bin/{}",
         REPO, latest_tag, binary_name
+    );
+    let fallback_download_url = format!(
+        "https://gitlab.com/{}/-/jobs/artifacts/main/raw/build/{}?job=build-and-compress",
+        REPO, binary_name
     );
 
     print_self_update_download(&download_url, colors);
@@ -98,7 +110,12 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
     let response = client
         .get(&download_url)
         .call()
-        .context("Failed to download new binary or URL returned an error")?;
+        .or_else(|_| {
+            client
+                .get(&fallback_download_url)
+                .call()
+                .context("Failed to download new binary from GitLab release asset or fallback artifact")
+        })?;
 
     let current_binary = env::current_exe().context("Failed to resolve current executable path")?;
     let tmp_path = current_binary.with_extension("tmp");

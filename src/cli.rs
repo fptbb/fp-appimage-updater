@@ -63,7 +63,7 @@ pub enum Commands {
         /// Remove all applications
         all: bool,
     },
-    /// Update fp-appimage-updater itself to the latest GitHub release
+    /// Update fp-appimage-updater itself to the latest GitLab release
     SelfUpdate {
         #[arg(long)]
         /// Also consider pre-release (RC) versions
