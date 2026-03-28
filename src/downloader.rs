@@ -13,6 +13,20 @@ use crate::output::{print_progress, print_warning};
 use crate::resolvers::UpdateInfo;
 use crate::state::AppState;
 
+pub fn suspend_for_print<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    if let Ok(mut ui) = progress_ui().lock() {
+        let _ = ui.clear_rendered();
+        let result = f();
+        let _ = ui.draw();
+        result
+    } else {
+        f()
+    }
+}
+
 const MAX_SEGMENTED_WORKERS: usize = 4;
 const DOWNLOAD_BUFFER_SIZE: usize = 64 * 1024;
 
@@ -46,7 +60,6 @@ struct ProgressEntry {
     downloaded: u64,
     last_percent: u64,
     started_at: Instant,
-    finished_summary: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -79,12 +92,12 @@ impl ProgressUi {
             downloaded: 0,
             last_percent: 0,
             started_at: Instant::now(),
-            finished_summary: None,
         });
         Some(ProgressHandle { id })
     }
 
     fn inc(&mut self, id: usize, amount: u64) -> Result<()> {
+        let mut needs_draw = false;
         if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == id) {
             entry.downloaded = entry.downloaded.saturating_add(amount);
             let percent = (entry.downloaded.saturating_mul(100) / entry.total).min(100);
@@ -92,24 +105,52 @@ impl ProgressUi {
                 || self.last_draw.elapsed() >= Duration::from_millis(120)
             {
                 entry.last_percent = percent;
-                self.draw()?;
+                needs_draw = true;
             }
-            Ok(())
-        } else {
-            Ok(())
         }
+        if needs_draw {
+            self.draw()?;
+        }
+        Ok(())
     }
 
     fn finish(&mut self, id: usize, summary: String) -> Result<bool> {
-        if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == id) {
-            entry.downloaded = entry.total;
-            entry.finished_summary = Some(summary);
-            entry.last_percent = 100;
+        let mut found_index = None;
+        for (index, entry) in self.entries.iter().enumerate() {
+            if entry.id == id {
+                found_index = Some(index);
+                break;
+            }
+        }
+
+        if let Some(index) = found_index {
+            self.entries.remove(index);
+            self.clear_rendered()?;
+            
+            if self.enabled {
+                let mut stderr = std::io::stderr();
+                writeln!(stderr, "{}", green(&summary))?;
+                stderr.flush()?;
+            }
+            
             self.draw()?;
             Ok(true)
         } else {
-            return Ok(false);
+            Ok(false)
         }
+    }
+
+    fn clear_rendered(&mut self) -> Result<()> {
+        if self.rendered_lines == 0 || !self.enabled {
+            return Ok(());
+        }
+        let mut stderr = std::io::stderr();
+        for _ in 0..self.rendered_lines {
+            write!(stderr, "\x1b[1A\x1b[2K\r")?; 
+        }
+        stderr.flush()?;
+        self.rendered_lines = 0;
+        Ok(())
     }
 
     fn draw(&mut self) -> Result<()> {
@@ -117,50 +158,15 @@ impl ProgressUi {
             return Ok(());
         }
 
-        let mut stderr = std::io::stderr();
+        self.clear_rendered()?;
+
         if self.entries.is_empty() {
-            if self.rendered_lines > 0 {
-                write!(stderr, "\x1b[{}A", self.rendered_lines)?;
-                for _ in 0..self.rendered_lines {
-                    write!(stderr, "\x1b[2K\r\x1b[1B")?;
-                }
-                write!(stderr, "\x1b[{}A", self.rendered_lines)?;
-            }
-            stderr.flush()?;
-            self.rendered_lines = 0;
-            self.last_draw = Instant::now();
             return Ok(());
         }
 
-        if self.entries.len() == 1 {
-            write!(stderr, "\r\x1b[2K")?;
-            if let Some(summary) = &self.entries[0].finished_summary {
-                writeln!(stderr, "{}", green(summary))?;
-                stderr.flush()?;
-                self.rendered_lines = 1;
-                self.last_draw = Instant::now();
-                return Ok(());
-            } else {
-                write!(stderr, "{}", format_progress_line(&self.entries[0]))?;
-                stderr.flush()?;
-            }
-            self.rendered_lines = 1;
-            self.last_draw = Instant::now();
-            return Ok(());
-        }
-
-        if self.rendered_lines > 0 {
-            write!(stderr, "\x1b[{}A", self.rendered_lines)?;
-        }
-
+        let mut stderr = std::io::stderr();
         for entry in &self.entries {
-            write!(stderr, "\x1b[2K\r")?;
-            if let Some(summary) = &entry.finished_summary {
-                write!(stderr, "{}", green(summary))?;
-            } else {
-                write!(stderr, "{}", format_progress_line(entry))?;
-            }
-            writeln!(stderr)?;
+            writeln!(stderr, "{}", format_progress_line(entry))?;
         }
 
         stderr.flush()?;
@@ -172,7 +178,7 @@ impl ProgressUi {
 
 pub fn finalize_progress_output() -> Result<()> {
     if let Ok(mut ui) = progress_ui().lock() {
-        ui.rendered_lines = 0;
+        ui.clear_rendered()?;
     }
     Ok(())
 }
@@ -478,31 +484,12 @@ fn try_segmented_http_download(
                         )
                     }
                     Err(e) => {
-                        if !quiet {
-                            print_warning(
-                                &format!(
-                                    "Segmented download failed, falling back to full HTTP download. ({:#})",
-                                    e
-                                ),
-                                colors,
-                            );
-                        }
                         (false, segmented_support_from_error(&e).or(Some(true)), false)
                     }
                 };
             }
             Ok(None) => {}
-            Err(e) => {
-                if !quiet {
-                    print_warning(
-                        &format!(
-                            "Segmented download HEAD probe failed, falling back to range probe. ({:#})",
-                            e
-                        ),
-                        colors,
-                    );
-                }
-            }
+            Err(_) => {}
         }
     }
 
@@ -511,27 +498,12 @@ fn try_segmented_http_download(
         Ok(SegmentProbe::Unsupported) => {
             return (false, Some(false), false);
         }
-        Err(e) => {
-            if !quiet {
-                print_warning(
-                    &format!(
-                        "Segmented download probe failed, falling back to full HTTP download. ({:#})",
-                        e
-                    ),
-                    colors,
-                );
-            }
+        Err(_) => {
             return (false, cached_support, false);
         }
     };
 
     if total_len < 2 {
-        if !quiet {
-            print_warning(
-                "Server supports ranges, but the file is too small to benefit. Falling back to full HTTP download.",
-                colors,
-            );
-        }
         return (false, support, false);
     }
 
@@ -544,15 +516,6 @@ fn try_segmented_http_download(
             )
         }
         Err(e) => {
-            if !quiet {
-                print_warning(
-                    &format!(
-                        "Segmented download failed, falling back to full HTTP download. ({:#})",
-                        e
-                    ),
-                    colors,
-                );
-            }
             (false, segmented_support_from_error(&e).or(support), false)
         }
     }

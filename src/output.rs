@@ -363,15 +363,21 @@ pub fn format_rate_limit_retry_text(until: Option<u64>) -> String {
 }
 
 pub fn print_progress(message: &str, colors: bool) {
-    println!("{}", dim(message, colors));
+    crate::downloader::suspend_for_print(|| {
+        println!("{}", dim(message, colors));
+    });
 }
 
 pub fn print_success(message: &str, colors: bool) {
-    println!("{}", colorize(message, Color::Green, colors));
+    crate::downloader::suspend_for_print(|| {
+        println!("{}", colorize(message, Color::Green, colors));
+    });
 }
 
 pub fn print_warning(message: &str, colors: bool) {
-    eprintln!("{}", colorize(message, Color::Yellow, colors));
+    crate::downloader::suspend_for_print(|| {
+        eprintln!("{}", colorize(message, Color::Yellow, colors));
+    });
 }
 
 pub fn print_validate_human(apps: &[ValidateApp], error: Option<&str>, colors: bool) {
