@@ -1,14 +1,16 @@
+use super::{CheckResult, UpdateInfo, dedupe_capabilities};
 use crate::config::AppConfig;
 use crate::state::AppState;
-use anyhow::{anyhow, Context, Result};
-use super::UpdateInfo;
+use anyhow::{Context, Result, anyhow};
 use std::process::Command;
+use ureq::Agent;
 
 pub fn resolve(
+    client: &Agent,
     app: &AppConfig,
     script_path: &str,
     state: Option<&AppState>,
-) -> Result<Option<UpdateInfo>> {
+) -> Result<CheckResult> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(script_path)
@@ -37,13 +39,25 @@ pub fn resolve(
             exit_desc,
             script_path,
             app.config_dir.display(),
-            if stdout.trim().is_empty() { "<empty>" } else { &stdout },
-            if stderr.trim().is_empty() { "<empty>" } else { &stderr },
+            if stdout.trim().is_empty() {
+                "<empty>"
+            } else {
+                &stdout
+            },
+            if stderr.trim().is_empty() {
+                "<empty>"
+            } else {
+                &stderr
+            },
         ));
     }
 
-    let stdout = String::from_utf8(output.stdout)
-        .with_context(|| format!("Resolver script for '{}' did not output valid UTF-8", app.name))?;
+    let stdout = String::from_utf8(output.stdout).with_context(|| {
+        format!(
+            "Resolver script for '{}' did not output valid UTF-8",
+            app.name
+        )
+    })?;
     let mut lines = stdout.lines();
 
     let download_url = lines
@@ -75,22 +89,39 @@ pub fn resolve(
         ));
     }
 
-    if let Some(s) = state && s.local_version.as_deref() == Some(&version) {
-        return Ok(None);
+    let mut capabilities = Vec::new();
+    if let Ok(head_resp) = client.head(&download_url).call()
+        && let Some(range_header) = head_resp
+            .headers()
+            .get("Accept-Ranges")
+            .and_then(|value| value.to_str().ok())
+        && range_header.trim().eq_ignore_ascii_case("bytes")
+    {
+        capabilities.push("segmented_downloads".to_string());
     }
+    dedupe_capabilities(&mut capabilities);
 
-    Ok(Some(UpdateInfo {
-        download_url,
-        version,
-        new_etag: None,
-        new_last_modified: None,
-    }))
+    let update = if state
+        .and_then(|s| s.local_version.as_deref())
+        == Some(version.as_str())
+    {
+        None
+    } else {
+        Some(UpdateInfo {
+            download_url,
+            version,
+            new_etag: None,
+            new_last_modified: None,
+        })
+    };
+
+    Ok(CheckResult { update, capabilities })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{StrategyConfig};
+    use crate::config::StrategyConfig;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -126,14 +157,15 @@ mod tests {
             zsync: None,
             integration: None,
             create_symlink: None,
+            segmented_downloads: None,
             storage_dir: None,
             strategy: StrategyConfig::Script {
                 script_path: "./resolver.sh".to_string(),
             },
         };
+        let client = Agent::new_with_defaults();
 
-        let err = resolve(&app, "./resolver.sh", None)
-            .expect_err("expected script failure");
+        let err = resolve(&client, &app, "./resolver.sh", None).expect_err("expected script failure");
 
         let message = format!("{:#}", err);
         assert!(message.contains("Resolver script for 'broken-script' failed"));

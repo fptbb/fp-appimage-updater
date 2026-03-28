@@ -58,7 +58,7 @@ pub enum Commands {
     Remove {
         /// Application to remove, or none to remove all
         app_name: Option<String>,
-        
+
         #[arg(short, long)]
         /// Remove all applications
         all: bool,

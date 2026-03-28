@@ -32,6 +32,8 @@ pub struct CheckApp {
     pub local_version: Option<String>,
     pub remote_version: Option<String>,
     pub download_url: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -59,6 +61,8 @@ pub struct UpdateApp {
     pub from_version: Option<String>,
     pub to_version: Option<String>,
     pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_seconds: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -160,7 +164,11 @@ pub fn print_list_human(apps: &[ListApp], colors: bool) {
             .as_deref()
             .map(|s| s.to_string())
             .unwrap_or_else(|| "not installed".to_string());
-        let integration = if app.integration { "enabled" } else { "disabled" };
+        let integration = if app.integration {
+            "enabled"
+        } else {
+            "disabled"
+        };
         let symlink = if app.symlink { "enabled" } else { "disabled" };
 
         println!(
@@ -168,8 +176,24 @@ pub fn print_list_human(apps: &[ListApp], colors: bool) {
             bold(&app.name, colors),
             bracketed(&strategy, colors),
             colorize(&version, color_for_version(&version), colors),
-            colorize(integration, if app.integration { Color::Green } else { Color::Red }, colors),
-            colorize(symlink, if app.symlink { Color::Green } else { Color::Red }, colors),
+            colorize(
+                integration,
+                if app.integration {
+                    Color::Green
+                } else {
+                    Color::Red
+                },
+                colors
+            ),
+            colorize(
+                symlink,
+                if app.symlink {
+                    Color::Green
+                } else {
+                    Color::Red
+                },
+                colors
+            ),
         );
     }
 }
@@ -217,6 +241,13 @@ pub fn print_check_human(apps: &[CheckApp], error: Option<&str>, colors: bool) {
                 );
             }
         }
+
+        if !app.capabilities.is_empty() {
+            println!(
+                "  capabilities: {}",
+                dim(&app.capabilities.join(", "), colors)
+            );
+        }
     }
 
     println!(
@@ -231,7 +262,10 @@ pub fn print_check_human(apps: &[CheckApp], error: Option<&str>, colors: bool) {
     );
 
     if let Some(error) = error {
-        println!("{}", colorize(&format!("note: {}", error), Color::Red, colors));
+        println!(
+            "{}",
+            colorize(&format!("note: {}", error), Color::Red, colors)
+        );
     }
 }
 
@@ -274,7 +308,11 @@ pub fn print_self_update_download(url: &str, colors: bool) {
 pub fn print_self_update_success(tag: &str, colors: bool) {
     println!(
         "{}",
-        colorize(&format!("Updated successfully to {}!", tag), Color::Green, colors)
+        colorize(
+            &format!("Updated successfully to {}!", tag),
+            Color::Green,
+            colors
+        )
     );
 }
 
@@ -324,11 +362,17 @@ pub fn print_validate_human(apps: &[ValidateApp], error: Option<&str>, colors: b
 
     println!(
         "{}",
-        dim(&format!("summary: {} valid, {} invalid", valid, invalid), colors)
+        dim(
+            &format!("summary: {} valid, {} invalid", valid, invalid),
+            colors
+        )
     );
 
     if let Some(error) = error {
-        println!("{}", colorize(&format!("note: {}", error), Color::Red, colors));
+        println!(
+            "{}",
+            colorize(&format!("note: {}", error), Color::Red, colors)
+        );
     }
 }
 
@@ -381,7 +425,12 @@ fn print_command_header(command: &str, count: usize, colors: bool) {
     println!(
         "{}",
         bold(
-            &format!("{} results ({} app{})", command, count, if count == 1 { "" } else { "s" }),
+            &format!(
+                "{} results ({} app{})",
+                command,
+                count,
+                if count == 1 { "" } else { "s" }
+            ),
             colors
         )
     );

@@ -43,7 +43,10 @@ impl ConfigPaths {
             })
             .join(APP_NAME);
 
-        Ok(Self { config_dir, state_dir })
+        Ok(Self {
+            config_dir,
+            state_dir,
+        })
     }
 
     /// Use an explicit config directory override (from `--config`).
@@ -57,7 +60,10 @@ impl ConfigPaths {
             })
             .join(APP_NAME);
 
-        Ok(Self { config_dir, state_dir })
+        Ok(Self {
+            config_dir,
+            state_dir,
+        })
     }
 
     pub fn global_config_path(&self) -> PathBuf {
@@ -88,14 +94,15 @@ pub fn load_global_config(paths: &ConfigPaths) -> Result<GlobalConfig> {
     } else {
         let default_config = GlobalConfig::default();
         if let Some(parent) = config_path.parent() {
-            fs::create_dir_all(parent.join("apps"))
-                .with_context(|| format!("Failed to create config directories: {}", parent.display()))?;
+            fs::create_dir_all(parent.join("apps")).with_context(|| {
+                format!("Failed to create config directories: {}", parent.display())
+            })?;
         }
         let content = serde_yaml::to_string(&default_config)
             .with_context(|| "Failed to serialize default global config")?;
         fs::write(&config_path, content)
             .with_context(|| format!("Failed to write default global config: {:?}", config_path))?;
-        
+
         Ok(default_config)
     }
 }
@@ -104,7 +111,7 @@ pub fn load_app_configs(paths: &ConfigPaths) -> Result<AppConfigLoadResult> {
     let mut apps = Vec::new();
     let mut errors = Vec::new();
     let apps_dir = paths.apps_dir();
-    
+
     if !apps_dir.exists() {
         return Ok(AppConfigLoadResult { apps, errors });
     }
@@ -112,16 +119,14 @@ pub fn load_app_configs(paths: &ConfigPaths) -> Result<AppConfigLoadResult> {
     let pattern = format!("{}/**/*.yml", apps_dir.display());
     for entry in glob(&pattern).expect("Failed to read glob pattern") {
         match entry {
-            Ok(path) => {
-                match parse_app_config(&path) {
-                    Ok(app) => apps.push(app),
-                    Err(e) => errors.push(AppConfigLoadError {
-                        app_name: infer_name_from_yaml_path(&path),
-                        path,
-                        message: e.to_string(),
-                    }),
-                }
-            }
+            Ok(path) => match parse_app_config(&path) {
+                Ok(app) => apps.push(app),
+                Err(e) => errors.push(AppConfigLoadError {
+                    app_name: infer_name_from_yaml_path(&path),
+                    path,
+                    message: e.to_string(),
+                }),
+            },
             Err(e) => errors.push(AppConfigLoadError {
                 app_name: None,
                 path: paths.apps_dir(),

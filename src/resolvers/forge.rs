@@ -1,18 +1,22 @@
-use anyhow::{anyhow, Context, Result};
 use crate::state::AppState;
+use anyhow::{Context, Result, anyhow};
 use ureq::Agent;
 
-use super::UpdateInfo;
+use super::{CheckResult, UpdateInfo, dedupe_capabilities};
 
 pub fn resolve(
     client: &Agent,
     repository: &str,
     asset_match: &str,
     state: Option<&AppState>,
-) -> Result<Option<UpdateInfo>> {
+) -> Result<CheckResult> {
     let url = github_release_url(repository)?;
-    let pattern = glob::Pattern::new(asset_match)
-        .with_context(|| format!("Invalid asset_match pattern '{}' for {}", asset_match, repository))?;
+    let pattern = glob::Pattern::new(asset_match).with_context(|| {
+        format!(
+            "Invalid asset_match pattern '{}' for {}",
+            asset_match, repository
+        )
+    })?;
 
     let resp: serde_json::Value = client
         .get(&url)
@@ -24,28 +28,55 @@ pub fn resolve(
 
     let version = resp["tag_name"]
         .as_str()
-        .with_context(|| format!("Release metadata for {} did not contain tag_name", repository))?
+        .with_context(|| {
+            format!(
+                "Release metadata for {} did not contain tag_name",
+                repository
+            )
+        })?
         .to_string();
 
-    if let Some(s) = state && s.local_version.as_deref() == Some(&version) {
-        return Ok(None); // Already up to date
-    }
-
-    let assets = resp["assets"]
-        .as_array()
-        .with_context(|| format!("Release metadata for {} did not contain an assets array", repository))?;
+    let assets = resp["assets"].as_array().with_context(|| {
+        format!(
+            "Release metadata for {} did not contain an assets array",
+            repository
+        )
+    })?;
 
     for asset in assets {
         if let Some(name) = asset["name"].as_str()
             && pattern.matches(name)
             && let Some(download_url) = asset["browser_download_url"].as_str()
         {
-            return Ok(Some(UpdateInfo {
-                download_url: download_url.to_string(),
-                version,
-                new_etag: None,
-                new_last_modified: None,
-            }));
+            let mut capabilities = Vec::new();
+
+            if let Ok(head_resp) = client.head(download_url).call()
+                && let Some(range_header) = head_resp
+                    .headers()
+                    .get("Accept-Ranges")
+                    .and_then(|value| value.to_str().ok())
+                && range_header.trim().eq_ignore_ascii_case("bytes")
+            {
+                capabilities.push("segmented_downloads".to_string());
+            }
+
+            dedupe_capabilities(&mut capabilities);
+
+            let update = if state
+                .and_then(|s| s.local_version.as_deref())
+                == Some(version.as_str())
+            {
+                None
+            } else {
+                Some(UpdateInfo {
+                    download_url: download_url.to_string(),
+                    version: version.clone(),
+                    new_etag: None,
+                    new_last_modified: None,
+                })
+            };
+
+            return Ok(CheckResult { update, capabilities });
         }
     }
 

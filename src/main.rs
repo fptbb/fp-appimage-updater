@@ -5,14 +5,14 @@ use std::time::Duration;
 
 mod cli;
 mod config;
-mod doctor;
 mod disintegrator;
+mod doctor;
 mod downloader;
 mod initializer;
 mod integrator;
 mod lock;
-mod parser;
 mod output;
+mod parser;
 mod resolvers;
 mod self_updater;
 mod state;
@@ -20,19 +20,186 @@ mod validator;
 
 use cli::{Cli, Commands};
 use output::{
-    colors_enabled, print_check_human, print_doctor_human, print_json, print_list_human,
-    print_progress, print_success, print_validate_human, print_warning, CheckApp, CheckResponse,
-    CheckStatus, DoctorCheck, DoctorResponse, DoctorStatus, ListApp, ListResponse, RemoveApp,
-    RemoveResponse, RemoveStatus, UpdateApp, UpdateResponse, UpdateStatus, ValidateApp,
-    ValidateResponse, ValidateStatus,
+    CheckApp, CheckResponse, CheckStatus, DoctorCheck, DoctorResponse, DoctorStatus, ListApp,
+    ListResponse, RemoveApp, RemoveResponse, RemoveStatus, UpdateApp, UpdateResponse, UpdateStatus,
+    ValidateApp, ValidateResponse, ValidateStatus, colors_enabled, print_check_human,
+    print_doctor_human, print_json, print_list_human, print_progress, print_success,
+    print_validate_human, print_warning,
 };
 use parser::ConfigPaths;
 use state::StateManager;
+use std::time::Instant;
+use std::sync::mpsc;
+
+const MAX_CONCURRENT_JOBS: usize = 2;
+
+fn build_http_agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_connect(Some(Duration::from_secs(10)))
+        .user_agent("fp-appimage-updater/1.0")
+        .build()
+        .into()
+}
+
+enum UpdateWorkResult {
+    Updated {
+        app: config::AppConfig,
+        from_version: Option<String>,
+        info: resolvers::UpdateInfo,
+        new_path: std::path::PathBuf,
+        old_path: Option<std::path::PathBuf>,
+        started_at: Instant,
+    },
+    UpToDate {
+        name: String,
+        from_version: Option<String>,
+        path: Option<String>,
+    },
+    Error {
+        stage: UpdateErrorStage,
+        name: String,
+        from_version: Option<String>,
+        to_version: Option<String>,
+        path: Option<String>,
+        error: String,
+    },
+}
+
+enum UpdateErrorStage {
+    Check,
+    Download,
+}
+
+enum CheckWorkResult {
+    Ok(CheckApp),
+    Err(CheckApp),
+}
+
+fn process_check_job(
+    app: config::AppConfig,
+    state: Option<state::AppState>,
+    client: &ureq::Agent,
+) -> CheckWorkResult {
+    let local_version = state.as_ref().and_then(|s| s.local_version.clone());
+
+    match resolvers::check_for_updates(&app, state.as_ref(), client) {
+        Ok(result) => {
+            let mut capabilities = result.capabilities;
+            if matches!(
+                app.zsync,
+                Some(config::ZsyncConfig::Enabled(true)) | Some(config::ZsyncConfig::Url(_))
+            ) {
+                capabilities.push("zsync".to_string());
+            }
+            resolvers::dedupe_capabilities(&mut capabilities);
+
+            match result.update {
+                Some(info) => CheckWorkResult::Ok(CheckApp {
+                    name: app.name,
+                    status: CheckStatus::UpdateAvailable,
+                    local_version,
+                    remote_version: Some(info.version),
+                    download_url: Some(info.download_url),
+                    capabilities,
+                    error: None,
+                }),
+                None => CheckWorkResult::Ok(CheckApp {
+                    name: app.name,
+                    status: CheckStatus::UpToDate,
+                    local_version,
+                    remote_version: None,
+                    download_url: None,
+                    capabilities,
+                    error: None,
+                }),
+            }
+        }
+        Err(e) => CheckWorkResult::Err(CheckApp {
+            name: app.name,
+            status: CheckStatus::Error,
+            local_version,
+            remote_version: None,
+            download_url: None,
+            capabilities: Vec::new(),
+            error: Some(format!("{:#}", e)),
+        }),
+    }
+}
+
+fn process_update_job(
+    client: &ureq::Agent,
+    app: config::AppConfig,
+    state: Option<state::AppState>,
+    storage_dir: std::path::PathBuf,
+    naming_format: String,
+    segmented_downloads: bool,
+    json_output: bool,
+    color_output: bool,
+) -> UpdateWorkResult {
+    let started_at = Instant::now();
+    let app_name = app.name.clone();
+    let from_version = state.as_ref().and_then(|s| s.local_version.clone());
+    let current_path = state.as_ref().and_then(|s| s.file_path.clone());
+
+    match resolvers::check_for_updates(&app, state.as_ref(), &client) {
+        Ok(result) => {
+            let Some(info) = result.update else {
+                return UpdateWorkResult::UpToDate {
+                    name: app_name,
+                    from_version,
+                    path: current_path,
+                };
+            };
+            let to_version = info.version.clone();
+
+            if !json_output {
+                print_progress(&format!("Downloading {}", app_name), color_output);
+            }
+
+            match downloader::download_app(
+                &client,
+                &app,
+                &info,
+                &storage_dir,
+                &naming_format,
+                state.as_ref(),
+                segmented_downloads,
+                json_output,
+                color_output,
+            ) {
+                Ok(new_path) => UpdateWorkResult::Updated {
+                    app,
+                    from_version,
+                    info,
+                    new_path,
+                    old_path: current_path.map(std::path::PathBuf::from),
+                    started_at,
+                },
+                Err(e) => UpdateWorkResult::Error {
+                    stage: UpdateErrorStage::Download,
+                    name: app_name,
+                    from_version,
+                    to_version: Some(to_version),
+                    path: None,
+                    error: format!("Download failed: {:#}", e),
+                },
+            }
+        }
+        Err(e) => UpdateWorkResult::Error {
+            stage: UpdateErrorStage::Check,
+            name: app_name,
+            from_version,
+            to_version: None,
+            path: current_path,
+            error: format!("{:#}", e),
+        },
+    }
+}
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let json_output = cli.json;
-    
+
     let paths = if let Some(config_dir) = cli.config.clone() {
         ConfigPaths::with_config_dir(config_dir)?
     } else {
@@ -73,10 +240,7 @@ fn main() -> Result<()> {
         } else {
             for path in &result.created {
                 print_success(&format!("Created {}", path.display()), color_output);
-                print_progress(
-                    &format!("Edit: {}", path.display()),
-                    color_output,
-                );
+                print_progress(&format!("Edit: {}", path.display()), color_output);
                 print_progress("Then run: fp-appimage-updater validate", color_output);
             }
             for path in &result.skipped {
@@ -101,13 +265,7 @@ fn main() -> Result<()> {
     let app_config_errors = app_load.errors;
     let mut state_manager = StateManager::load(paths.cache_path());
 
-    // Use a connect timeout, but leave the stream timeout unbounded
-    // so large AppImages (e.g., 250MB+) don't timeout mid-download.
-    let client: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_connect(Some(Duration::from_secs(10)))
-        .user_agent("fp-appimage-updater/1.0")
-        .build()
-        .into();
+    let client = build_http_agent();
 
     match &cli.command {
         Commands::Init { .. } => unreachable!("init handled before config loading"),
@@ -132,7 +290,10 @@ fn main() -> Result<()> {
             } else {
                 print_doctor_human(&checks, color_output);
                 if !app_config_errors.is_empty() {
-                    print_progress("Tip: run `fp-appimage-updater validate` for detailed parse errors.", color_output);
+                    print_progress(
+                        "Tip: run `fp-appimage-updater validate` for detailed parse errors.",
+                        color_output,
+                    );
                 }
             }
         }
@@ -170,14 +331,19 @@ fn main() -> Result<()> {
                         name: app.name.clone(),
                         strategy: strategy_label(&app.strategy).to_string(),
                         local_version: state.and_then(|s| s.local_version.clone()),
-                        integration: app.integration.unwrap_or(global_config.manage_desktop_files),
+                        integration: app
+                            .integration
+                            .unwrap_or(global_config.manage_desktop_files),
                         symlink: app.create_symlink.unwrap_or(global_config.create_symlinks),
                     }
                 })
                 .collect::<Vec<_>>();
 
             if json_output {
-                print_json(&ListResponse { command: "list", apps })?;
+                print_json(&ListResponse {
+                    command: "list",
+                    apps,
+                })?;
             } else {
                 print_list_human(&apps, color_output);
             }
@@ -185,44 +351,58 @@ fn main() -> Result<()> {
         Commands::Check { app_name } => {
             let mut found = false;
             let mut results = Vec::new();
+            let mut check_jobs = Vec::new();
+
             for app in &app_configs {
-                if let Some(target) = &app_name && app.name != *target {
+                if let Some(target) = &app_name
+                    && app.name != *target
+                {
                     continue;
                 }
                 found = true;
-                
-                let state = state_manager.get_app(&app.name);
-                match resolvers::check_for_updates(app, state) {
-                    Ok(Some(info)) => {
-                        results.push(CheckApp {
-                            name: app.name.clone(),
-                            status: CheckStatus::UpdateAvailable,
-                            local_version: state.and_then(|s| s.local_version.clone()),
-                            remote_version: Some(info.version),
-                            download_url: Some(info.download_url),
-                            error: None,
-                        });
-                    }
-                    Ok(None) => {
-                        results.push(CheckApp {
-                            name: app.name.clone(),
-                            status: CheckStatus::UpToDate,
-                            local_version: state.and_then(|s| s.local_version.clone()),
-                            remote_version: None,
-                            download_url: None,
-                            error: None,
-                        });
-                    }
-                    Err(e) => {
-                        results.push(CheckApp {
-                            name: app.name.clone(),
-                            status: CheckStatus::Error,
-                            local_version: state.and_then(|s| s.local_version.clone()),
-                            remote_version: None,
-                            download_url: None,
-                            error: Some(format!("{:#}", e)),
-                        });
-                    }
+                check_jobs.push((app.clone(), state_manager.get_app(&app.name).cloned()));
+            }
+
+            let worker_limit = std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(2)
+                .min(MAX_CONCURRENT_JOBS)
+                .max(1);
+
+            let (tx, rx) = mpsc::channel();
+            let mut pending = check_jobs.into_iter();
+            let mut active = 0usize;
+
+            let spawn_check_worker = |app: config::AppConfig,
+                                      state: Option<state::AppState>,
+                                      client: ureq::Agent,
+                                      tx: mpsc::Sender<CheckWorkResult>| {
+                std::thread::spawn(move || {
+                    let _ = tx.send(process_check_job(app, state, &client));
+                });
+            };
+
+            while active < worker_limit {
+                if let Some((app, state)) = pending.next() {
+                    spawn_check_worker(app, state, client.clone(), tx.clone());
+                    active += 1;
+                } else {
+                    break;
+                }
+            }
+
+            while active > 0 {
+                let result = rx.recv().expect("check worker panicked");
+                active -= 1;
+
+                match result {
+                    CheckWorkResult::Ok(app_result) => results.push(app_result),
+                    CheckWorkResult::Err(app_result) => results.push(app_result),
+                }
+
+                if let Some((app, state)) = pending.next() {
+                    spawn_check_worker(app, state, client.clone(), tx.clone());
+                    active += 1;
                 }
             }
 
@@ -240,6 +420,7 @@ fn main() -> Result<()> {
                     local_version: None,
                     remote_version: None,
                     download_url: None,
+                    capabilities: Vec::new(),
                     error: Some(format!(
                         "Failed to parse app config at {}: {}",
                         parse_error.path.display(),
@@ -248,7 +429,9 @@ fn main() -> Result<()> {
                 });
             }
 
-            let error = if let Some(target) = app_name && !found {
+            let error = if let Some(target) = app_name
+                && !found
+            {
                 Some(format!("App '{}' not found in configuration.", target))
             } else {
                 None
@@ -268,151 +451,232 @@ fn main() -> Result<()> {
             let storage_dir = integrator::expand_tilde(&global_config.storage_dir);
             let mut results = Vec::new();
             let mut found = false;
-            
+            let mut update_jobs = Vec::new();
+
             for app in &app_configs {
-                if let Some(target) = app_name && app.name != *target {
+                if let Some(target) = app_name
+                    && app.name != *target
+                {
                     continue;
                 }
                 found = true;
+                update_jobs.push((app.clone(), state_manager.get_app(&app.name).cloned()));
+            }
 
-                let state = state_manager.get_app(&app.name);
-                match resolvers::check_for_updates(app, state) {
-                    Ok(Some(info)) => {
-                        let from_version = state.and_then(|s| s.local_version.clone());
-                        let to_version = info.version.clone();
+            let worker_limit = std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(2)
+                .min(MAX_CONCURRENT_JOBS)
+                .max(1);
 
-                        if !json_output {
-                            print_progress(
-                                &format!(
-                                    "Updating {} from {} to {}",
-                                    app.name,
-                                    from_version.as_deref().unwrap_or("unknown"),
-                                    to_version
-                                ),
-                                color_output,
-                            );
-                        }
-                        
-                        match downloader::download_app(
-                            &client,
+            let (tx, rx) = mpsc::channel();
+            let mut pending = update_jobs.into_iter();
+            let mut active = 0usize;
+
+            let spawn_update_worker = |app: config::AppConfig,
+                                       state: Option<state::AppState>,
+                                       storage_dir: std::path::PathBuf,
+                                       naming_format: String,
+                                       segmented_downloads: bool,
+                                       client: ureq::Agent,
+                                       tx: mpsc::Sender<UpdateWorkResult>,
+                                       json_output: bool,
+                                       color_output: bool| {
+                std::thread::spawn(move || {
+                    let _ = tx.send(process_update_job(
+                        &client,
+                        app,
+                        state,
+                        storage_dir,
+                        naming_format,
+                        segmented_downloads,
+                        json_output,
+                        color_output,
+                    ));
+                });
+            };
+
+            while active < worker_limit {
+                if let Some((app, state)) = pending.next() {
+                    let storage_dir = storage_dir.clone();
+                    let naming_format = global_config.naming_format.clone();
+                    let segmented_downloads = app
+                        .segmented_downloads
+                        .unwrap_or(global_config.segmented_downloads);
+                    spawn_update_worker(
+                        app,
+                        state,
+                        storage_dir,
+                        naming_format,
+                        segmented_downloads,
+                        client.clone(),
+                        tx.clone(),
+                        json_output,
+                        color_output,
+                    );
+                    active += 1;
+                } else {
+                    break;
+                }
+            }
+
+            while active > 0 {
+                let result = rx.recv().expect("update worker panicked");
+                active -= 1;
+
+                match result {
+                        UpdateWorkResult::Updated {
                             app,
-                            &info,
-                            &storage_dir,
-                            &global_config.naming_format,
-                            state,
-                            json_output,
-                            color_output,
-                        )
-                        {
-                            Ok(new_path) => {
-                                let old_path_str = state.and_then(|s| s.file_path.clone());
-                                let old_path = old_path_str.as_ref().map(std::path::Path::new);
-                                
-                                if let Err(e) = integrator::integrate(app, &global_config, &new_path, old_path) {
-                                    results.push(UpdateApp {
-                                        name: app.name.clone(),
-                                        status: UpdateStatus::Error,
-                                        from_version: from_version.clone(),
-                                        to_version: Some(to_version.clone()),
-                                        path: Some(new_path.to_string_lossy().to_string()),
-                                        error: Some(format!("Integration failed: {:#}", e)),
-                                    });
-                                    if !json_output {
-                                        print_warning(
-                                            &format!("Integration failed for {}: {:#}", app.name, e),
-                                            color_output,
-                                        );
-                                        print_warning(
-                                            &format!("Rolling back {} to its previous state...", app.name),
-                                            color_output,
-                                        );
-                                    }
-                                    
-                                    integrator::rollback(app, &global_config, &new_path, old_path);
-                                } else {
-                                    // Update State
-                                    let state_mut = state_manager.get_app_mut(&app.name);
-                                    state_mut.local_version = Some(to_version.clone());
-                                    if let Some(etag) = info.new_etag {
-                                        state_mut.etag = Some(etag);
-                                    }
-                                    if let Some(lm) = info.new_last_modified {
-                                        state_mut.last_modified = Some(lm);
-                                    }
-                                    state_mut.file_path = Some(new_path.to_string_lossy().to_string());
-                                    
-                                    results.push(UpdateApp {
-                                        name: app.name.clone(),
-                                        status: UpdateStatus::Updated,
-                                        from_version,
-                                        to_version: Some(to_version.clone()),
-                                        path: Some(new_path.to_string_lossy().to_string()),
-                                        error: None,
-                                    });
-                                    if !json_output {
-                                        print_success(
-                                            &format!("{} updated to {}", app.name, to_version),
-                                            color_output,
-                                        );
-                                    }
-                                }
-                            }
-                            Err(e) => {
+                            from_version,
+                            info,
+                            new_path,
+                            old_path,
+                            started_at,
+                        } => {
+                            let app_name = app.name.clone();
+                            let to_version = info.version.clone();
+                            let old_path_ref = old_path.as_deref();
+                            let was_update = from_version.is_some();
+
+                            if let Err(e) =
+                                integrator::integrate(&app, &global_config, &new_path, old_path_ref)
+                            {
                                 results.push(UpdateApp {
-                                    name: app.name.clone(),
+                                    name: app_name.clone(),
                                     status: UpdateStatus::Error,
-                                    from_version,
-                                    to_version: Some(to_version),
-                                    path: None,
-                                    error: Some(format!("Download failed: {:#}", e)),
+                                    from_version: from_version.clone(),
+                                    to_version: Some(to_version.clone()),
+                                    path: Some(new_path.to_string_lossy().to_string()),
+                                    duration_seconds: None,
+                                    error: Some(format!("Integration failed: {:#}", e)),
                                 });
                                 if !json_output {
                                     print_warning(
-                                        &format!("Download failed for {}: {:#}", app.name, e),
+                                        &format!("Integration failed for {}: {:#}", app_name, e),
+                                        color_output,
+                                    );
+                                    print_warning(
+                                        &format!(
+                                            "Rolling back {} to its previous state...",
+                                            app_name
+                                        ),
+                                        color_output,
+                                    );
+                                }
+
+                                integrator::rollback(&app, &global_config, &new_path, old_path_ref);
+                            } else {
+                                let duration_seconds = started_at.elapsed().as_secs_f64();
+                                let state_mut = state_manager.get_app_mut(&app_name);
+                                state_mut.local_version = Some(to_version.clone());
+                                if let Some(etag) = info.new_etag {
+                                    state_mut.etag = Some(etag);
+                                }
+                                if let Some(lm) = info.new_last_modified {
+                                    state_mut.last_modified = Some(lm);
+                                }
+                                state_mut.file_path = Some(new_path.to_string_lossy().to_string());
+
+                                results.push(UpdateApp {
+                                    name: app_name.clone(),
+                                    status: UpdateStatus::Updated,
+                                    from_version,
+                                    to_version: Some(to_version.clone()),
+                                    path: Some(new_path.to_string_lossy().to_string()),
+                                    duration_seconds: Some(duration_seconds),
+                                    error: None,
+                                });
+                                if !json_output {
+                                    let action = if was_update {
+                                        "updated to"
+                                    } else {
+                                        "installed"
+                                    };
+                                    print_success(
+                                        &format!(
+                                            "{} {} {} in {:.2}s",
+                                            app_name, action, to_version, duration_seconds
+                                        ),
                                         color_output,
                                     );
                                 }
                             }
                         }
-                    }
-                    Ok(None) => {
-                        results.push(UpdateApp {
-                            name: app.name.clone(),
-                            status: UpdateStatus::UpToDate,
-                            from_version: state.and_then(|s| s.local_version.clone()),
-                            to_version: None,
-                            path: state.and_then(|s| s.file_path.clone()),
-                            error: None,
-                        });
-                        if !json_output {
-                            print_progress(
-                                &format!(
-                                    "{} is already up to date ({})",
-                                    app.name,
-                                    state
-                                        .and_then(|s| s.local_version.clone())
-                                        .unwrap_or_else(|| "unknown".to_string())
-                                ),
-                                color_output,
-                            );
+                        UpdateWorkResult::UpToDate {
+                            name,
+                            from_version,
+                            path,
+                        } => {
+                            results.push(UpdateApp {
+                                name: name.clone(),
+                                status: UpdateStatus::UpToDate,
+                                from_version: from_version.clone(),
+                                to_version: None,
+                                path,
+                                duration_seconds: None,
+                                error: None,
+                            });
+                            if !json_output {
+                                print_progress(
+                                    &format!(
+                                        "{} is already up to date ({})",
+                                        name,
+                                        from_version.unwrap_or_else(|| "unknown".to_string())
+                                    ),
+                                    color_output,
+                                );
+                            }
+                        }
+                        UpdateWorkResult::Error {
+                            stage,
+                            name,
+                            from_version,
+                            to_version,
+                            path,
+                            error,
+                        } => {
+                            results.push(UpdateApp {
+                                name: name.clone(),
+                                status: UpdateStatus::Error,
+                                from_version,
+                                to_version,
+                                path,
+                                duration_seconds: None,
+                                error: Some(error.clone()),
+                            });
+                            if !json_output {
+                                match stage {
+                                    UpdateErrorStage::Check => print_warning(
+                                        &format!("Error checking updates for {}: {}", name, error),
+                                        color_output,
+                                    ),
+                                    UpdateErrorStage::Download => print_warning(
+                                        &format!("Download failed for {}: {}", name, error),
+                                        color_output,
+                                    ),
+                                }
+                            }
                         }
                     }
-                    Err(e) => {
-                        results.push(UpdateApp {
-                            name: app.name.clone(),
-                            status: UpdateStatus::Error,
-                            from_version: state.and_then(|s| s.local_version.clone()),
-                            to_version: None,
-                            path: state.and_then(|s| s.file_path.clone()),
-                            error: Some(format!("{:#}", e)),
-                        });
-                        if !json_output {
-                            print_warning(
-                                &format!("Error checking updates for {}: {:#}", app.name, e),
-                                color_output,
-                            );
-                        }
-                    }
+
+                if let Some((app, state)) = pending.next() {
+                    let storage_dir = storage_dir.clone();
+                    let naming_format = global_config.naming_format.clone();
+                    let segmented_downloads = app
+                        .segmented_downloads
+                        .unwrap_or(global_config.segmented_downloads);
+                    spawn_update_worker(
+                        app,
+                        state,
+                        storage_dir,
+                        naming_format,
+                        segmented_downloads,
+                        client.clone(),
+                        tx.clone(),
+                        json_output,
+                        color_output,
+                    );
+                    active += 1;
                 }
             }
 
@@ -435,6 +699,7 @@ fn main() -> Result<()> {
                     from_version: None,
                     to_version: None,
                     path: None,
+                    duration_seconds: None,
                     error: Some(parse_error_message.clone()),
                 });
                 if !json_output {
@@ -443,7 +708,9 @@ fn main() -> Result<()> {
             }
 
             if json_output {
-                let error = if let Some(target) = app_name && !found {
+                let error = if let Some(target) = app_name
+                    && !found
+                {
                     Some(format!("App '{}' not found in configuration.", target))
                 } else {
                     None
@@ -492,7 +759,10 @@ fn main() -> Result<()> {
                     print_json(&RemoveResponse {
                         command: "remove",
                         apps: Vec::new(),
-                        error: Some("Please provide an application name to remove, or use --all.".to_string()),
+                        error: Some(
+                            "Please provide an application name to remove, or use --all."
+                                .to_string(),
+                        ),
                     })?;
                 } else {
                     print_warning(
@@ -508,7 +778,7 @@ fn main() -> Result<()> {
                     if app.name == target_name {
                         found = true;
                         let state = state_manager.get_app(&app.name);
-                        
+
                         if let Err(e) = disintegrator::remove_app(
                             app,
                             &global_config,
@@ -529,7 +799,6 @@ fn main() -> Result<()> {
                                 );
                             }
                         } else {
-                            // After successful removal, clear from state cache
                             state_manager.state.apps.remove(&app.name);
                             if json_output {
                                 results.push(RemoveApp {
@@ -550,7 +819,7 @@ fn main() -> Result<()> {
                     });
                 }
             }
-            
+
             if json_output {
                 let error = if !found && !*all {
                     app_name

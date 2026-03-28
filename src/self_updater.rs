@@ -1,8 +1,8 @@
 use anyhow::{Context, Result, bail};
-use ureq::Agent;
 use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use ureq::Agent;
 
 use crate::output::{
     print_self_update_available, print_self_update_current, print_self_update_download,
@@ -13,7 +13,6 @@ const REPO: &str = "fpsys/fp-appimage-updater";
 const REPO_ENCODED: &str = "fpsys%2Ffp-appimage-updater";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Detect the release asset suffix for the running architecture.
 fn asset_suffix() -> Result<&'static str> {
     match std::env::consts::ARCH {
         "x86_64" => Ok("x64"),
@@ -22,10 +21,6 @@ fn asset_suffix() -> Result<&'static str> {
     }
 }
 
-/// 1. Fetch the latest release tag from GitLab.
-///
-/// When `pre_release` is true, scans the releases list for the first pre-release entry.
-/// Otherwise, uses the /releases/permalink/latest shortcut which only returns stable releases.
 fn resolve_latest_tag(client: &Agent, pre_release: bool) -> Result<String> {
     if pre_release {
         let api_url = format!(
@@ -70,15 +65,12 @@ fn resolve_latest_tag(client: &Agent, pre_release: bool) -> Result<String> {
     }
 }
 
-/// Check GitLab releases and, if a newer version exists, replace the running binary.
 pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()> {
     let kind = if pre_release { "pre-release" } else { "stable" };
     print_self_update_start(kind, CURRENT_VERSION, colors);
 
     let latest_tag = resolve_latest_tag(client, pre_release)?;
 
-    // Normalise to bare semver for comparison: strip leading 'v' and any '-RC<N>' suffix.
-    // CURRENT_VERSION is always plain semver (from Cargo.toml), so both sides must match that form.
     let latest_semver = latest_tag
         .trim_start_matches('v')
         .split('-')
@@ -92,7 +84,6 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
 
     print_self_update_available(CURRENT_VERSION, &latest_tag, colors);
 
-    // 2. Resolve download URL
     let suffix = asset_suffix()?;
     let binary_name = format!("fp-appimage-updater.{}", suffix);
     let download_url = format!(
@@ -106,16 +97,12 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
 
     print_self_update_download(&download_url, colors);
 
-    // 3. Download new binary to a temp file
-    let response = client
-        .get(&download_url)
-        .call()
-        .or_else(|_| {
-            client
-                .get(&fallback_download_url)
-                .call()
-                .context("Failed to download new binary from GitLab release asset or fallback artifact")
-        })?;
+    let response = client.get(&download_url).call().or_else(|_| {
+        client
+            .get(&fallback_download_url)
+            .call()
+            .context("Failed to download new binary from GitLab release asset or fallback artifact")
+    })?;
 
     let current_binary = env::current_exe().context("Failed to resolve current executable path")?;
     let tmp_path = current_binary.with_extension("tmp");
@@ -128,7 +115,6 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
             .context("Failed to write buffer to temp file")?;
     }
 
-    // 4. Make executable, then atomically replace the current binary
     let mut perms = fs::metadata(&tmp_path)?.permissions();
     perms.set_mode(0o755);
     fs::set_permissions(&tmp_path, perms)?;

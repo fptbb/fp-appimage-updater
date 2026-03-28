@@ -8,6 +8,8 @@ fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed t
 - **Data-Driven:** All apps and their update strategies are defined in YAML files.
 - **Update Resolvers:** Fetch the latest version via Forge Releases (GitHub/GitLab), Direct Links (ETag/Last-Modified HTTP Headers), or Custom Shell Scripts.
 - **Delta Updates:** Uses `zsync` when available to download only modified bytes.
+- **Segmented Downloads:** Split large direct downloads into HTTP ranges when the server supports them. Enabled by default.
+- **Parallel Operations:** `check` and `update` run multiple apps concurrently to keep large batches fast.
 - **Desktop Integration:** Extracts exact `.desktop` manifests and icons directly from the AppImage using `--appimage-extract` and seamlessly inserts them into your `.local/share/applications` application menu.
 - **Local Health Checks:** `doctor` checks the local configuration, required directories, and optional tooling like `zsync`.
 - **Global & Local Configs:** Override storage paths, integration behaviors, and symlinking easily per-app or globally.
@@ -75,6 +77,7 @@ symlink_dir: ~/.local/bin
 naming_format: "{name}.AppImage"
 manage_desktop_files: true
 create_symlinks: false
+segmented_downloads: true
 ```
 
 ### App Recipe Example (`apps/whatpulse.yml`)
@@ -107,6 +110,7 @@ strategy:
 Used when the application provides a direct download URL that always points to the latest version.
 - `url`: The static download URL.
 - `check_method`: How to detect if the remote file has changed. Use either `etag` or `last_modified`.
+- `segmented_downloads`: Optional per-app override for HTTP range downloads. When unset, the global `segmented_downloads` flag is used and defaults to `true`.
 
 **Example:**
 ```yaml
@@ -114,6 +118,7 @@ strategy:
   strategy: direct
   url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
   check_method: etag
+segmented_downloads: true
 ```
 
 #### 3. script
@@ -125,6 +130,7 @@ Used for complex scenarios where you need to run a custom bash script to determi
 strategy:
   strategy: script
   script_path: ./resolver.sh
+segmented_downloads: true
 ```
 
 More examples in [examples/apps/](examples/apps/) folder.
@@ -210,6 +216,8 @@ Check a single app:
 fp-appimage-updater check whatpulse
 ```
 
+The `check` output now also reports support hints when they are available, such as direct-download range support for segmented downloads and the resolver metadata it used to compare versions.
+
 ### Update Applications
 Install or update a single AppImage:
 ```bash
@@ -220,6 +228,8 @@ Update all configurations at once:
 ```bash
 fp-appimage-updater update
 ```
+
+Successful updates now include the elapsed time in seconds so you can see how long each app took to install or update.
 
 ### List Installed Apps
 Review the current integration and local versions of your defined applications:

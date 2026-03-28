@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::time::Duration;
+use ureq::Agent;
 
 pub mod direct;
 pub mod forge;
@@ -16,22 +16,39 @@ pub struct UpdateInfo {
     pub new_last_modified: Option<String>,
 }
 
-pub fn check_for_updates(app: &AppConfig, state: Option<&AppState>) -> Result<Option<UpdateInfo>> {
-    let client: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(10)))
-        .user_agent("fp-appimage-updater/1.0 (+https://fau.fpt.icu/)")
-        .build()
-        .into();
+#[derive(Debug, Default)]
+pub struct CheckResult {
+    pub update: Option<UpdateInfo>,
+    pub capabilities: Vec<String>,
+}
 
+pub fn check_for_updates(
+    app: &AppConfig,
+    state: Option<&AppState>,
+    client: &Agent,
+) -> Result<CheckResult> {
     match &app.strategy {
-        StrategyConfig::Forge { repository, asset_match } => {
-            forge::resolve(&client, repository, asset_match, state)
-        }
+        StrategyConfig::Forge {
+            repository,
+            asset_match,
+        } => forge::resolve(&client, repository, asset_match, state),
         StrategyConfig::Direct { url, check_method } => {
             direct::resolve(&client, url, check_method, state)
         }
-        StrategyConfig::Script { script_path } => {
-            script::resolve(app, script_path, state)
-        }
+        StrategyConfig::Script { script_path } => script::resolve(client, app, script_path, state),
     }
+}
+
+pub fn capability_from_header_value(name: &str, value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    if value.eq_ignore_ascii_case("bytes") {
+        Some(name.to_string())
+    } else {
+        None
+    }
+}
+
+pub fn dedupe_capabilities(capabilities: &mut Vec<String>) {
+    capabilities.sort();
+    capabilities.dedup();
 }

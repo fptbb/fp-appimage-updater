@@ -23,3 +23,6 @@ When adding a new way to check for AppImage updates:
 
 ## Versioning policy
 When version changes in the Cargo.toml, the commit message should be always exactly chore: bump version to VERSION_NUMBER in Cargo.toml just replacing the version number.
+
+## Comment policy
+Only add comments when the code is genuinely complex or non-obvious. Prefer clear code and small helper names over narration. Keep comments short and specific, and remove step-by-step or redundant comments during cleanup passes.

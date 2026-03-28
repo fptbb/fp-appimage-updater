@@ -36,9 +36,8 @@ pub fn validate_app_configs(
 
     for file in files {
         let result = validate_file(&file);
-        let matches_target = target_app.is_some_and(|target| {
-            result.app_name.as_deref() == Some(target)
-        });
+        let matches_target =
+            target_app.is_some_and(|target| result.app_name.as_deref() == Some(target));
 
         if target_app.is_some() {
             if matches_target {

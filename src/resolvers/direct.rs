@@ -1,16 +1,26 @@
-use anyhow::{anyhow, Result};
-use ureq::Agent;
+use super::{CheckResult, UpdateInfo, capability_from_header_value, dedupe_capabilities};
 use crate::config::CheckMethod;
 use crate::state::AppState;
-use super::UpdateInfo;
+use anyhow::{Result, anyhow};
+use ureq::Agent;
 
 pub fn resolve(
     client: &Agent,
     url: &str,
     check_method: &CheckMethod,
     state: Option<&AppState>,
-) -> Result<Option<UpdateInfo>> {
+) -> Result<CheckResult> {
     let resp = client.head(url).call()?;
+    let mut capabilities = Vec::new();
+
+    if let Some(capability) = capability_from_header_value(
+        "segmented_downloads",
+        resp.headers()
+            .get("Accept-Ranges")
+            .and_then(|value| value.to_str().ok()),
+    ) {
+        capabilities.push(capability);
+    }
 
     let (mut new_etag, mut new_last_modified) = (None, None);
     let mut is_new = false;
@@ -23,8 +33,11 @@ pub fn resolve(
                 if state.and_then(|s| s.etag.as_ref()) != Some(&etag_str) {
                     is_new = true;
                 }
+                capabilities.push("etag".to_string());
             } else {
-                return Err(anyhow!("ETag check requested but server did not return ETag"));
+                return Err(anyhow!(
+                    "ETag check requested but server did not return ETag"
+                ));
             }
         }
         CheckMethod::LastModified => {
@@ -34,6 +47,7 @@ pub fn resolve(
                 if state.and_then(|s| s.last_modified.as_ref()) != Some(&lm_str) {
                     is_new = true;
                 }
+                capabilities.push("last_modified".to_string());
             } else {
                 return Err(anyhow!("Last-Modified check requested but missing"));
             }
@@ -46,13 +60,23 @@ pub fn resolve(
             CheckMethod::LastModified => new_last_modified.clone().unwrap(),
         };
 
-        Ok(Some(UpdateInfo {
-            download_url: url.to_string(),
-            version: pseudo_version,
-            new_etag,
-            new_last_modified,
-        }))
+        dedupe_capabilities(&mut capabilities);
+
+        Ok(CheckResult {
+            update: Some(UpdateInfo {
+                download_url: url.to_string(),
+                version: pseudo_version,
+                new_etag,
+                new_last_modified,
+            }),
+            capabilities,
+        })
     } else {
-        Ok(None)
+        dedupe_capabilities(&mut capabilities);
+
+        Ok(CheckResult {
+            update: None,
+            capabilities,
+        })
     }
 }

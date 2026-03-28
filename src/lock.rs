@@ -12,8 +12,9 @@ impl FileLock {
         let path = path.as_ref().to_path_buf();
 
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create lock directory: {}", parent.display()))?;
+            fs::create_dir_all(parent).with_context(|| {
+                format!("Failed to create lock directory: {}", parent.display())
+            })?;
         }
 
         match OpenOptions::new().write(true).create_new(true).open(&path) {
@@ -24,9 +25,8 @@ impl FileLock {
                     path.display()
                 );
             }
-            Err(err) => Err(err).with_context(|| {
-                format!("Failed to acquire process lock at {}", path.display())
-            }),
+            Err(err) => Err(err)
+                .with_context(|| format!("Failed to acquire process lock at {}", path.display())),
         }
     }
 }

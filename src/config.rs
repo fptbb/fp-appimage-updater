@@ -8,6 +8,8 @@ pub struct GlobalConfig {
     pub naming_format: String,
     pub manage_desktop_files: bool,
     pub create_symlinks: bool,
+    #[serde(default)]
+    pub segmented_downloads: bool,
 }
 
 impl Default for GlobalConfig {
@@ -18,6 +20,7 @@ impl Default for GlobalConfig {
             naming_format: "{name}.AppImage".to_string(),
             manage_desktop_files: true,
             create_symlinks: false,
+            segmented_downloads: true,
         }
     }
 }
@@ -26,11 +29,12 @@ impl Default for GlobalConfig {
 pub struct AppConfig {
     #[serde(skip)]
     pub config_dir: PathBuf,
-    
+
     pub name: String,
     pub zsync: Option<ZsyncConfig>,
     pub integration: Option<bool>,
     pub create_symlink: Option<bool>,
+    pub segmented_downloads: Option<bool>,
     pub storage_dir: Option<String>,
     pub strategy: StrategyConfig,
 }
