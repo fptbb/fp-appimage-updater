@@ -135,10 +135,9 @@ impl ProgressUi {
         if self.entries.len() == 1 {
             write!(stderr, "\r\x1b[2K")?;
             if let Some(summary) = &self.entries[0].finished_summary {
-                let _ = summary;
+                writeln!(stderr, "{}", green(summary))?;
                 stderr.flush()?;
-                self.entries.clear();
-                self.rendered_lines = 0;
+                self.rendered_lines = 1;
                 self.last_draw = Instant::now();
                 return Ok(());
             } else {
@@ -157,7 +156,7 @@ impl ProgressUi {
         for entry in &self.entries {
             write!(stderr, "\x1b[2K\r")?;
             if let Some(summary) = &entry.finished_summary {
-                write!(stderr, "{}", summary)?;
+                write!(stderr, "{}", green(summary))?;
             } else {
                 write!(stderr, "{}", format_progress_line(entry))?;
             }
@@ -251,6 +250,10 @@ fn format_finished_line(name: &str, version: &str, bytes: u64, elapsed: Duration
         human_bytes(bytes),
         human_rate(speed)
     )
+}
+
+fn green(text: &str) -> String {
+    format!("\x1b[32m{}\x1b[0m", text)
 }
 
 fn progress_ui() -> &'static Mutex<ProgressUi> {
