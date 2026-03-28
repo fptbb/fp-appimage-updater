@@ -26,6 +26,50 @@ pub struct ProgressHandle {
     pub id: usize,
 }
 
+pub struct ProgressGuard {
+    pub handle: Option<ProgressHandle>,
+    pub app_name: String,
+    pub version: String,
+    finished: bool,
+}
+
+impl ProgressGuard {
+    pub fn new(handle: Option<ProgressHandle>, app_name: &str, version: &str) -> Self {
+        Self {
+            handle,
+            app_name: app_name.to_string(),
+            version: version.to_string(),
+            finished: false,
+        }
+    }
+
+    pub fn finish(&mut self, bytes: u64, elapsed: Duration) -> Result<bool> {
+        if self.finished {
+            return Ok(false);
+        }
+        self.finished = true;
+        if let Some(handle) = self.handle {
+            let summary = format_finished_line(&self.app_name, &self.version, bytes, elapsed);
+            if let Ok(mut ui) = progress_ui().lock() {
+                return ui.finish(handle.id, summary);
+            }
+        }
+        Ok(false)
+    }
+}
+
+impl Drop for ProgressGuard {
+    fn drop(&mut self) {
+        if !self.finished {
+            if let Some(handle) = self.handle {
+                if let Ok(mut ui) = progress_ui().lock() {
+                    let _ = ui.abandon(handle.id);
+                }
+            }
+        }
+    }
+}
+
 impl ProgressUi {
     pub fn new(enabled: bool) -> Self {
         Self {
@@ -74,15 +118,7 @@ impl ProgressUi {
     }
 
     pub fn finish(&mut self, id: usize, summary: String) -> Result<bool> {
-        let mut found_index = None;
-        for (index, entry) in self.entries.iter().enumerate() {
-            if entry.id == id {
-                found_index = Some(index);
-                break;
-            }
-        }
-
-        if let Some(index) = found_index {
+        if let Some(index) = self.entries.iter().position(|e| e.id == id) {
             self.entries.remove(index);
             self.clear_rendered()?;
             
@@ -92,6 +128,17 @@ impl ProgressUi {
                 stderr.flush()?;
             }
             
+            self.draw()?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn abandon(&mut self, id: usize) -> Result<bool> {
+        if let Some(index) = self.entries.iter().position(|e| e.id == id) {
+            self.entries.remove(index);
+            self.clear_rendered()?;
             self.draw()?;
             Ok(true)
         } else {
@@ -109,6 +156,12 @@ impl ProgressUi {
         }
         stderr.flush()?;
         self.rendered_lines = 0;
+        Ok(())
+    }
+
+    pub fn clear_all(&mut self) -> Result<()> {
+        self.clear_rendered()?;
+        self.entries.clear();
         Ok(())
     }
 

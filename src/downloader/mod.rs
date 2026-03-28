@@ -39,7 +39,7 @@ where
 
 pub fn finalize_progress_output() -> Result<()> {
     if let Ok(mut ui) = progress_ui().lock() {
-        ui.clear_rendered()?;
+        ui.clear_all()?;
     }
     Ok(())
 }

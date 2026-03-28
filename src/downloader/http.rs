@@ -4,7 +4,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::process::Command;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use ureq::Agent;
 
 use crate::downloader::progress::*;
@@ -224,8 +224,12 @@ pub fn segmented_http_download(
     drop(file);
 
     let mut results = Vec::with_capacity(segment_count);
-    let progress = new_progress_bar(total_len, app_name, quiet);
-    let progress_displayed = progress.is_some();
+    let mut progress = ProgressGuard::new(
+        new_progress_bar(total_len, app_name, quiet),
+        app_name,
+        version,
+    );
+    let progress_displayed = progress.handle.is_some();
 
     thread::scope(|scope| {
         let mut handles = Vec::with_capacity(segment_count);
@@ -234,7 +238,7 @@ pub fn segmented_http_download(
             let client = client.clone();
             let url = url.to_string();
             let target_path = target_path.to_path_buf();
-            let progress = progress;
+            let handle = progress.handle;
             let start = index as u64 * chunk_size;
             let mut end = start + chunk_size - 1;
             if end >= total_len {
@@ -253,7 +257,7 @@ pub fn segmented_http_download(
                         &target_path,
                         start,
                         end,
-                        &progress,
+                        &handle,
                     );
                     result
                 }));
@@ -271,7 +275,7 @@ pub fn segmented_http_download(
     if progress_displayed {
         let bytes = fs::metadata(target_path).map(|meta| meta.len()).unwrap_or(total_len);
         let completion_rendered =
-            progress_finish(progress, app_name, version, bytes, started_at.elapsed())?;
+            progress.finish(bytes, started_at.elapsed())?;
         return Ok((progress_displayed, completion_rendered));
     }
 
@@ -284,7 +288,7 @@ fn download_range(
     target_path: &Path,
     start: u64,
     end: u64,
-    progress: &Option<ProgressHandle>,
+    handle: &Option<ProgressHandle>,
 ) -> Result<()> {
     let range_header = format!("bytes={}-{}", start, end);
     let response = client
@@ -320,7 +324,7 @@ fn download_range(
             break;
         }
         file.write_all(&buffer[..bytes_read])?;
-        progress_update(*progress, bytes_read as u64)?;
+        progress_update(*handle, bytes_read as u64)?;
     }
     Ok(())
 }
@@ -342,8 +346,12 @@ pub fn download_http(
         .and_then(|value| value.parse::<u64>().ok());
 
     let mut file = File::create(target_path)?;
-    let progress = new_progress_bar(total_len.unwrap_or(0), app_name, quiet);
-    let progress_displayed = progress.is_some();
+    let mut progress = ProgressGuard::new(
+        new_progress_bar(total_len.unwrap_or(0), app_name, quiet),
+        app_name,
+        version,
+    );
+    let progress_displayed = progress.handle.is_some();
     let started_at = Instant::now();
 
     if let Some(_total_len) = total_len {
@@ -356,7 +364,7 @@ pub fn download_http(
                 break;
             }
             file.write_all(&buffer[..bytes_read])?;
-            progress_update(progress, bytes_read as u64)?;
+            progress_update(progress.handle, bytes_read as u64)?;
         }
     } else {
         std::io::copy(&mut response.into_body().into_reader(), &mut file)?;
@@ -364,7 +372,7 @@ pub fn download_http(
 
     if progress_displayed {
         let bytes = fs::metadata(target_path).map(|meta| meta.len()).unwrap_or(0);
-        let completion_rendered = progress_finish(progress, app_name, version, bytes, started_at.elapsed())?;
+        let completion_rendered = progress.finish(bytes, started_at.elapsed())?;
         return Ok((progress_displayed, completion_rendered));
     }
 
@@ -387,20 +395,4 @@ fn progress_update(handle: Option<ProgressHandle>, amount: u64) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn progress_finish(
-    handle: Option<ProgressHandle>,
-    name: &str,
-    version: &str,
-    bytes: u64,
-    elapsed: Duration,
-) -> Result<bool> {
-    if let Some(handle) = handle {
-        let summary = format_finished_line(name, version, bytes, elapsed);
-        if let Ok(mut ui) = progress_ui().lock() {
-            return ui.finish(handle.id, summary);
-        }
-    }
-    Ok(false)
 }
