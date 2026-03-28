@@ -90,14 +90,18 @@ pub fn resolve(
     }
 
     let mut capabilities = Vec::new();
-    if let Ok(head_resp) = client.head(&download_url).call()
-        && let Some(range_header) = head_resp
+    let mut segmented_downloads = None;
+    if let Ok(head_resp) = client.head(&download_url).call() {
+        segmented_downloads = Some(false);
+        if let Some(range_header) = head_resp
             .headers()
             .get("Accept-Ranges")
             .and_then(|value| value.to_str().ok())
-        && range_header.trim().eq_ignore_ascii_case("bytes")
-    {
-        capabilities.push("segmented_downloads".to_string());
+            && range_header.trim().eq_ignore_ascii_case("bytes")
+        {
+            capabilities.push("segmented_downloads".to_string());
+            segmented_downloads = Some(true);
+        }
     }
     dedupe_capabilities(&mut capabilities);
 
@@ -115,7 +119,11 @@ pub fn resolve(
         })
     };
 
-    Ok(CheckResult { update, capabilities })
+    Ok(CheckResult {
+        update,
+        capabilities,
+        segmented_downloads,
+    })
 }
 
 #[cfg(test)]
@@ -158,6 +166,9 @@ mod tests {
             integration: None,
             create_symlink: None,
             segmented_downloads: None,
+            github_proxy: None,
+            github_proxy_prefix: None,
+            respect_rate_limits: None,
             storage_dir: None,
             strategy: StrategyConfig::Script {
                 script_path: "./resolver.sh".to_string(),

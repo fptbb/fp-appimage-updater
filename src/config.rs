@@ -10,6 +10,12 @@ pub struct GlobalConfig {
     pub create_symlinks: bool,
     #[serde(default)]
     pub segmented_downloads: bool,
+    #[serde(default = "default_respect_rate_limits")]
+    pub respect_rate_limits: bool,
+    #[serde(default)]
+    pub github_proxy: bool,
+    #[serde(default = "default_github_proxy_prefix")]
+    pub github_proxy_prefix: String,
 }
 
 impl Default for GlobalConfig {
@@ -21,8 +27,19 @@ impl Default for GlobalConfig {
             manage_desktop_files: true,
             create_symlinks: false,
             segmented_downloads: true,
+            respect_rate_limits: true,
+            github_proxy: false,
+            github_proxy_prefix: "https://gh-proxy.com/".to_string(),
         }
     }
+}
+
+fn default_respect_rate_limits() -> bool {
+    true
+}
+
+fn default_github_proxy_prefix() -> String {
+    "https://gh-proxy.com/".to_string()
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -35,6 +52,9 @@ pub struct AppConfig {
     pub integration: Option<bool>,
     pub create_symlink: Option<bool>,
     pub segmented_downloads: Option<bool>,
+    pub respect_rate_limits: Option<bool>,
+    pub github_proxy: Option<bool>,
+    pub github_proxy_prefix: Option<String>,
     pub storage_dir: Option<String>,
     pub strategy: StrategyConfig,
 }

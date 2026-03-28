@@ -1,4 +1,7 @@
-use super::{CheckResult, UpdateInfo, capability_from_header_value, dedupe_capabilities};
+use super::{
+    CheckResult, UpdateInfo, capability_from_header_value, dedupe_capabilities,
+    rate_limit_info_from_headers,
+};
 use crate::config::CheckMethod;
 use crate::state::AppState;
 use anyhow::{Result, anyhow};
@@ -10,8 +13,24 @@ pub fn resolve(
     check_method: &CheckMethod,
     state: Option<&AppState>,
 ) -> Result<CheckResult> {
-    let resp = client.head(url).call()?;
+    let resp = client
+        .head(url)
+        .config()
+        .http_status_as_error(false)
+        .build()
+        .call()?;
+    let status = resp.status().as_u16();
+    if status == 403 || status == 429 {
+        if let Some(rate_limit) = rate_limit_info_from_headers(resp.headers()) {
+            return Err(anyhow!(rate_limit));
+        }
+        return Err(anyhow!(
+            "Rate limited by {} but no rate-limit headers were returned",
+            url
+        ));
+    }
     let mut capabilities = Vec::new();
+    let mut segmented_downloads = Some(false);
 
     if let Some(capability) = capability_from_header_value(
         "segmented_downloads",
@@ -20,6 +39,7 @@ pub fn resolve(
             .and_then(|value| value.to_str().ok()),
     ) {
         capabilities.push(capability);
+        segmented_downloads = Some(true);
     }
 
     let (mut new_etag, mut new_last_modified) = (None, None);
@@ -70,6 +90,7 @@ pub fn resolve(
                 new_last_modified,
             }),
             capabilities,
+            segmented_downloads,
         })
     } else {
         dedupe_capabilities(&mut capabilities);
@@ -77,6 +98,7 @@ pub fn resolve(
         Ok(CheckResult {
             update: None,
             capabilities,
+            segmented_downloads,
         })
     }
 }

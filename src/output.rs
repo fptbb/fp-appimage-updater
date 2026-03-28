@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde::Serialize;
 use std::io::IsTerminal;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Serialize)]
 pub struct ListResponse {
@@ -32,6 +33,8 @@ pub struct CheckApp {
     pub local_version: Option<String>,
     pub remote_version: Option<String>,
     pub download_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limited_until: Option<u64>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -43,6 +46,7 @@ pub struct CheckApp {
 pub enum CheckStatus {
     UpToDate,
     UpdateAvailable,
+    RateLimited,
     Error,
 }
 
@@ -62,6 +66,8 @@ pub struct UpdateApp {
     pub to_version: Option<String>,
     pub path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limited_until: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_seconds: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
@@ -72,6 +78,7 @@ pub struct UpdateApp {
 pub enum UpdateStatus {
     Updated,
     UpToDate,
+    RateLimited,
     Error,
 }
 
@@ -198,10 +205,16 @@ pub fn print_list_human(apps: &[ListApp], colors: bool) {
     }
 }
 
-pub fn print_check_human(apps: &[CheckApp], error: Option<&str>, colors: bool) {
+pub fn print_check_human(
+    apps: &[CheckApp],
+    error: Option<&str>,
+    rate_limit_note: Option<&str>,
+    colors: bool,
+) {
     print_command_header("check", apps.len(), colors);
     let mut available = 0usize;
     let mut current = 0usize;
+    let mut rate_limited = 0usize;
     let mut failed = 0usize;
 
     for app in apps {
@@ -231,6 +244,15 @@ pub fn print_check_human(apps: &[CheckApp], error: Option<&str>, colors: bool) {
                     colorize(local, Color::Blue, colors),
                 );
             }
+            CheckStatus::RateLimited => {
+                rate_limited += 1;
+                println!(
+                    "- {} {} {}",
+                    bold(&app.name, colors),
+                    bracketed(&status_text("rate limited", Color::Yellow), colors),
+                    format_rate_limit_retry_text(app.rate_limited_until),
+                );
+            }
             CheckStatus::Error => {
                 failed += 1;
                 println!(
@@ -254,8 +276,8 @@ pub fn print_check_human(apps: &[CheckApp], error: Option<&str>, colors: bool) {
         "{}",
         dim(
             &format!(
-                "summary: {} available, {} current, {} failed",
-                available, current, failed
+                "summary: {} available, {} current, {} rate limited, {} failed",
+                available, current, rate_limited, failed
             ),
             colors
         )
@@ -266,6 +288,10 @@ pub fn print_check_human(apps: &[CheckApp], error: Option<&str>, colors: bool) {
             "{}",
             colorize(&format!("note: {}", error), Color::Red, colors)
         );
+    }
+
+    if let Some(note) = rate_limit_note {
+        println!("{}", colorize(&format!("note: {}", note), Color::Yellow, colors));
     }
 }
 
@@ -314,6 +340,26 @@ pub fn print_self_update_success(tag: &str, colors: bool) {
             colors
         )
     );
+}
+
+pub fn format_rate_limit_retry_text(until: Option<u64>) -> String {
+    match until {
+        Some(until) => {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let secs = until.saturating_sub(now);
+            if secs < 60 {
+                format!("retry in {}s", secs)
+            } else if secs < 3600 {
+                format!("retry in {}m", secs / 60)
+            } else {
+                format!("retry in {}h {}m", secs / 3600, (secs % 3600) / 60)
+            }
+        }
+        None => "retry later".to_string(),
+    }
 }
 
 pub fn print_progress(message: &str, colors: bool) {

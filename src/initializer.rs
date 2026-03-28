@@ -99,5 +99,5 @@ fn app_template(name: &str, strategy: InitStrategy) -> String {
 }
 
 fn script_template() -> &'static str {
-    "#!/usr/bin/env bash\nset -euo pipefail\n\n# Print two lines:\n# 1) download URL\n# 2) version string\n\necho \"https://example.org/my-app.AppImage\"\necho \"1.0.0\"\n"
+    "#!/usr/bin/env bash\nset -euo pipefail\n\necho \"https://example.org/my-app.AppImage\"\necho \"1.0.0\"\n"
 }

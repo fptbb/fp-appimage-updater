@@ -4,3 +4,6 @@ naming_format: '{name}.AppImage'
 manage_desktop_files: true
 create_symlinks: false
 segmented_downloads: true
+respect_rate_limits: true
+github_proxy: true
+github_proxy_prefix: https://gh-proxy.com/

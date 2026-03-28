@@ -19,10 +19,12 @@ mod state;
 mod validator;
 
 use cli::{Cli, Commands};
+use std::collections::{HashMap, VecDeque};
 use output::{
     CheckApp, CheckResponse, CheckStatus, DoctorCheck, DoctorResponse, DoctorStatus, ListApp,
     ListResponse, RemoveApp, RemoveResponse, RemoveStatus, UpdateApp, UpdateResponse, UpdateStatus,
-    ValidateApp, ValidateResponse, ValidateStatus, colors_enabled, print_check_human,
+    ValidateApp, ValidateResponse, ValidateStatus, colors_enabled, format_rate_limit_retry_text,
+    print_check_human,
     print_doctor_human, print_json, print_list_human, print_progress, print_success,
     print_validate_human, print_warning,
 };
@@ -31,7 +33,12 @@ use state::StateManager;
 use std::time::Instant;
 use std::sync::mpsc;
 
-const MAX_CONCURRENT_JOBS: usize = 2;
+const MAX_CONCURRENT_CHECK_JOBS: usize = 3;
+const MAX_CONCURRENT_DOWNLOADS: usize = 6;
+const FAST_JOB_SECONDS: f64 = 2.0;
+const SLOW_JOB_SECONDS: f64 = 15.0;
+const FAST_DOWNLOAD_BPS: f64 = 40.0 * 1024.0 * 1024.0;
+const SLOW_DOWNLOAD_BPS: f64 = 10.0 * 1024.0 * 1024.0;
 
 fn build_http_agent() -> ureq::Agent {
     ureq::Agent::config_builder()
@@ -42,18 +49,43 @@ fn build_http_agent() -> ureq::Agent {
 }
 
 enum UpdateWorkResult {
+    ReadyToDownload {
+        app: config::AppConfig,
+        state: state::AppState,
+        from_version: Option<String>,
+        current_path: Option<String>,
+        info: resolvers::UpdateInfo,
+        elapsed: Duration,
+        capabilities: Vec<String>,
+        segmented_downloads: Option<bool>,
+    },
     Updated {
         app: config::AppConfig,
         from_version: Option<String>,
         info: resolvers::UpdateInfo,
         new_path: std::path::PathBuf,
         old_path: Option<std::path::PathBuf>,
-        started_at: Instant,
+        elapsed: Duration,
+        downloaded_bytes: u64,
+        download_elapsed: Option<Duration>,
+        capabilities: Vec<String>,
+        segmented_downloads: Option<bool>,
+        progress_completion_rendered: bool,
     },
     UpToDate {
         name: String,
         from_version: Option<String>,
         path: Option<String>,
+        elapsed: Duration,
+        capabilities: Vec<String>,
+        segmented_downloads: Option<bool>,
+    },
+    RateLimited {
+        name: String,
+        from_version: Option<String>,
+        path: Option<String>,
+        elapsed: Duration,
+        rate_limited_until: Option<u64>,
     },
     Error {
         stage: UpdateErrorStage,
@@ -61,8 +93,82 @@ enum UpdateWorkResult {
         from_version: Option<String>,
         to_version: Option<String>,
         path: Option<String>,
+        elapsed: Duration,
+        capabilities: Vec<String>,
+        segmented_downloads: Option<bool>,
+        rate_limited_until: Option<u64>,
         error: String,
     },
+}
+
+enum UpdateEvent {
+    Check(UpdateWorkResult),
+    Download {
+        provider: String,
+        result: UpdateWorkResult,
+    },
+}
+
+struct UpdateDownloadJob {
+    app: config::AppConfig,
+    state: state::AppState,
+    from_version: Option<String>,
+    current_path: Option<String>,
+    info: resolvers::UpdateInfo,
+    capabilities: Vec<String>,
+    segmented_downloads: Option<bool>,
+    provider: String,
+}
+
+struct ProviderDownloadScheduler {
+    active_global: usize,
+    active_by_provider: HashMap<String, usize>,
+}
+
+impl ProviderDownloadScheduler {
+    fn new() -> Self {
+        Self {
+            active_global: 0,
+            active_by_provider: HashMap::new(),
+        }
+    }
+
+    fn provider_limit(provider: &str) -> usize {
+        if provider == "github" {
+            3
+        } else {
+            2
+        }
+    }
+
+    fn try_acquire(&mut self, provider: &str, global_limit: usize) -> bool {
+        if self.active_global >= global_limit {
+            return false;
+        }
+
+        let provider_limit = Self::provider_limit(provider);
+        let active_for_provider = *self.active_by_provider.get(provider).unwrap_or(&0);
+        if active_for_provider >= provider_limit {
+            return false;
+        }
+
+        self.active_global += 1;
+        *self.active_by_provider.entry(provider.to_string()).or_insert(0) += 1;
+        true
+    }
+
+    fn release(&mut self, provider: &str) {
+        if self.active_global > 0 {
+            self.active_global -= 1;
+        }
+        if let Some(active_for_provider) = self.active_by_provider.get_mut(provider) {
+            if *active_for_provider > 1 {
+                *active_for_provider -= 1;
+            } else {
+                self.active_by_provider.remove(provider);
+            }
+        }
+    }
 }
 
 enum UpdateErrorStage {
@@ -71,20 +177,172 @@ enum UpdateErrorStage {
 }
 
 enum CheckWorkResult {
-    Ok(CheckApp),
-    Err(CheckApp),
+    Ok {
+        app: CheckApp,
+        elapsed: Duration,
+        cache_capabilities: Vec<String>,
+        segmented_downloads: Option<bool>,
+    },
+    RateLimited {
+        app: CheckApp,
+        elapsed: Duration,
+        rate_limited_until: Option<u64>,
+    },
+    Err {
+        app: CheckApp,
+        elapsed: Duration,
+    },
+}
+
+fn cache_app_metadata(
+    state: &mut state::AppState,
+    capabilities: Vec<String>,
+    segmented_downloads: Option<bool>,
+) {
+    let mut capabilities = capabilities;
+    resolvers::dedupe_capabilities(&mut capabilities);
+    state.capabilities = capabilities;
+    if let Some(segmented_downloads) = segmented_downloads {
+        state.segmented_downloads = Some(segmented_downloads);
+    }
+}
+
+fn adapt_worker_limit(
+    current: usize,
+    elapsed: Duration,
+    pending: usize,
+    hard_max: usize,
+) -> usize {
+    let mut next = current;
+    let elapsed_secs = elapsed.as_secs_f64();
+
+    if elapsed_secs <= FAST_JOB_SECONDS && pending > current && next < hard_max {
+        next += 1;
+    } else if elapsed_secs >= SLOW_JOB_SECONDS && next > 1 {
+        next -= 1;
+    }
+
+    next.clamp(1, hard_max)
+}
+
+fn adapt_worker_limit_for_speed(
+    current: usize,
+    download_bps: Option<f64>,
+    pending: usize,
+    hard_max: usize,
+) -> usize {
+    let mut next = current;
+
+    if let Some(bps) = download_bps {
+        if bps >= FAST_DOWNLOAD_BPS && pending > current && next < hard_max {
+            next += 1;
+        } else if bps <= SLOW_DOWNLOAD_BPS && next > 1 {
+            next -= 1;
+        }
+    }
+
+    next.clamp(1, hard_max)
+}
+
+fn update_work_elapsed(result: &UpdateWorkResult) -> Duration {
+    match result {
+        UpdateWorkResult::ReadyToDownload { elapsed, .. } => *elapsed,
+        UpdateWorkResult::Updated { elapsed, .. }
+        | UpdateWorkResult::UpToDate { elapsed, .. }
+        | UpdateWorkResult::Error { elapsed, .. }
+        | UpdateWorkResult::RateLimited { elapsed, .. } => *elapsed,
+    }
+}
+
+fn download_provider_key(url: &str) -> String {
+    let host = url
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(url)
+        .split('/')
+        .next()
+        .unwrap_or(url)
+        .to_ascii_lowercase();
+
+    if host.ends_with("github.com") || host.ends_with("githubusercontent.com") {
+        "github".to_string()
+    } else {
+        host
+    }
+}
+
+fn now_epoch_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+fn rate_limit_enabled(app: &config::AppConfig, global: &config::GlobalConfig) -> bool {
+    app.respect_rate_limits.unwrap_or(global.respect_rate_limits)
+}
+
+fn github_proxy_enabled(app: &config::AppConfig, global: &config::GlobalConfig) -> bool {
+    app.github_proxy.unwrap_or(global.github_proxy)
+}
+
+fn github_proxy_prefix(app: &config::AppConfig, global: &config::GlobalConfig) -> String {
+    app.github_proxy_prefix
+        .clone()
+        .unwrap_or_else(|| global.github_proxy_prefix.clone())
+}
+
+fn app_uses_github_forge(app: &config::AppConfig) -> bool {
+    matches!(
+        &app.strategy,
+        config::StrategyConfig::Forge { repository, .. } if repository.starts_with("https://github.com/")
+    )
+}
+
+fn clear_expired_rate_limit(state: &mut state::AppState, now: u64) {
+    if matches!(state.rate_limited_until, Some(until) if until <= now) {
+        state.rate_limited_until = None;
+    }
+}
+
+fn snapshot_app_state(
+    state_manager: &mut StateManager,
+    app_name: &str,
+    now: u64,
+) -> state::AppState {
+    let state = state_manager.get_app_mut(app_name);
+    clear_expired_rate_limit(state, now);
+    state.clone()
+}
+
+fn rate_limit_note() -> &'static str {
+    "Rate limit hit. Set respect_rate_limits: false globally or per app to keep trying."
+}
+
+fn rate_limit_from_error(error: &anyhow::Error) -> Option<resolvers::RateLimitInfo> {
+    error.downcast_ref::<resolvers::RateLimitInfo>().cloned()
 }
 
 fn process_check_job(
     app: config::AppConfig,
     state: Option<state::AppState>,
     client: &ureq::Agent,
+    github_proxy: bool,
+    github_proxy_prefix: String,
 ) -> CheckWorkResult {
+    let started_at = Instant::now();
     let local_version = state.as_ref().and_then(|s| s.local_version.clone());
 
-    match resolvers::check_for_updates(&app, state.as_ref(), client) {
+    match resolvers::check_for_updates(
+        &app,
+        state.as_ref(),
+        client,
+        github_proxy,
+        &github_proxy_prefix,
+    ) {
         Ok(result) => {
             let mut capabilities = result.capabilities;
+            let cache_capabilities = capabilities.clone();
             if matches!(
                 app.zsync,
                 Some(config::ZsyncConfig::Enabled(true)) | Some(config::ZsyncConfig::Url(_))
@@ -92,44 +350,156 @@ fn process_check_job(
                 capabilities.push("zsync".to_string());
             }
             resolvers::dedupe_capabilities(&mut capabilities);
+            let elapsed = started_at.elapsed();
 
             match result.update {
-                Some(info) => CheckWorkResult::Ok(CheckApp {
-                    name: app.name,
-                    status: CheckStatus::UpdateAvailable,
-                    local_version,
-                    remote_version: Some(info.version),
-                    download_url: Some(info.download_url),
-                    capabilities,
-                    error: None,
-                }),
-                None => CheckWorkResult::Ok(CheckApp {
-                    name: app.name,
-                    status: CheckStatus::UpToDate,
-                    local_version,
-                    remote_version: None,
-                    download_url: None,
-                    capabilities,
-                    error: None,
-                }),
+                Some(info) => CheckWorkResult::Ok {
+                    app: CheckApp {
+                        name: app.name,
+                        status: CheckStatus::UpdateAvailable,
+                        local_version,
+                        remote_version: Some(info.version),
+                        download_url: Some(info.download_url),
+                        rate_limited_until: None,
+                        capabilities,
+                        error: None,
+                    },
+                    elapsed,
+                    cache_capabilities,
+                    segmented_downloads: result.segmented_downloads,
+                },
+                None => CheckWorkResult::Ok {
+                    app: CheckApp {
+                        name: app.name,
+                        status: CheckStatus::UpToDate,
+                        local_version,
+                        remote_version: None,
+                        download_url: None,
+                        rate_limited_until: None,
+                        capabilities,
+                        error: None,
+                    },
+                    elapsed,
+                    cache_capabilities,
+                    segmented_downloads: result.segmented_downloads,
+                },
             }
         }
-        Err(e) => CheckWorkResult::Err(CheckApp {
-            name: app.name,
-            status: CheckStatus::Error,
-            local_version,
-            remote_version: None,
-            download_url: None,
-            capabilities: Vec::new(),
-            error: Some(format!("{:#}", e)),
-        }),
+        Err(e) => {
+            let elapsed = started_at.elapsed();
+            let rate_limited_until =
+                rate_limit_from_error(&e).and_then(|info| info.until_epoch_seconds());
+
+            if rate_limited_until.is_some() {
+                CheckWorkResult::RateLimited {
+                    app: CheckApp {
+                        name: app.name,
+                        status: CheckStatus::RateLimited,
+                        local_version,
+                        remote_version: None,
+                        download_url: None,
+                        rate_limited_until,
+                        capabilities: Vec::new(),
+                        error: None,
+                    },
+                    elapsed,
+                    rate_limited_until,
+                }
+            } else {
+                CheckWorkResult::Err {
+                    app: CheckApp {
+                        name: app.name,
+                        status: CheckStatus::Error,
+                        local_version,
+                        remote_version: None,
+                        download_url: None,
+                        rate_limited_until: None,
+                        capabilities: Vec::new(),
+                        error: Some(format!("{:#}", e)),
+                    },
+                    elapsed,
+                }
+            }
+        }
     }
 }
 
-fn process_update_job(
+fn process_update_check_job(
     client: &ureq::Agent,
     app: config::AppConfig,
     state: Option<state::AppState>,
+    github_proxy: bool,
+    github_proxy_prefix: String,
+) -> UpdateWorkResult {
+    let started_at = Instant::now();
+    let app_name = app.name.clone();
+    let from_version = state.as_ref().and_then(|s| s.local_version.clone());
+    let current_path = state.as_ref().and_then(|s| s.file_path.clone());
+
+    match resolvers::check_for_updates(
+        &app,
+        state.as_ref(),
+        &client,
+        github_proxy,
+        &github_proxy_prefix,
+    ) {
+        Ok(result) => {
+            let capabilities = result.capabilities;
+            let segmented_support = result.segmented_downloads;
+            let Some(info) = result.update else {
+                return UpdateWorkResult::UpToDate {
+                    name: app_name,
+                    from_version,
+                    path: current_path,
+                    elapsed: started_at.elapsed(),
+                    capabilities,
+                    segmented_downloads: segmented_support,
+                };
+            };
+            UpdateWorkResult::ReadyToDownload {
+                app,
+                state: state.unwrap_or_default(),
+                from_version,
+                current_path,
+                info,
+                elapsed: started_at.elapsed(),
+                capabilities,
+                segmented_downloads: segmented_support,
+            }
+        }
+        Err(e) => {
+            let elapsed = started_at.elapsed();
+            let rate_limited_until =
+                rate_limit_from_error(&e).and_then(|info| info.until_epoch_seconds());
+            if rate_limited_until.is_some() {
+                UpdateWorkResult::RateLimited {
+                    name: app_name,
+                    from_version,
+                    path: current_path,
+                    elapsed,
+                    rate_limited_until,
+                }
+            } else {
+                UpdateWorkResult::Error {
+                    stage: UpdateErrorStage::Check,
+                    name: app_name,
+                    from_version,
+                    to_version: None,
+                    path: current_path,
+                    elapsed,
+                    capabilities: Vec::new(),
+                    segmented_downloads: None,
+                    rate_limited_until: None,
+                    error: format!("{:#}", e),
+                }
+            }
+        }
+    }
+}
+
+fn process_update_download_job(
+    client: &ureq::Agent,
+    job: UpdateDownloadJob,
     storage_dir: std::path::PathBuf,
     naming_format: String,
     segmented_downloads: bool,
@@ -137,61 +507,54 @@ fn process_update_job(
     color_output: bool,
 ) -> UpdateWorkResult {
     let started_at = Instant::now();
+    let UpdateDownloadJob {
+        app,
+        state,
+        from_version,
+        current_path,
+        info,
+        capabilities,
+        segmented_downloads: segmented_support,
+        provider: _,
+    } = job;
     let app_name = app.name.clone();
-    let from_version = state.as_ref().and_then(|s| s.local_version.clone());
-    let current_path = state.as_ref().and_then(|s| s.file_path.clone());
+    let to_version = info.version.clone();
 
-    match resolvers::check_for_updates(&app, state.as_ref(), &client) {
-        Ok(result) => {
-            let Some(info) = result.update else {
-                return UpdateWorkResult::UpToDate {
-                    name: app_name,
-                    from_version,
-                    path: current_path,
-                };
-            };
-            let to_version = info.version.clone();
-
-            if !json_output {
-                print_progress(&format!("Downloading {}", app_name), color_output);
-            }
-
-            match downloader::download_app(
-                &client,
-                &app,
-                &info,
-                &storage_dir,
-                &naming_format,
-                state.as_ref(),
-                segmented_downloads,
-                json_output,
-                color_output,
-            ) {
-                Ok(new_path) => UpdateWorkResult::Updated {
-                    app,
-                    from_version,
-                    info,
-                    new_path,
-                    old_path: current_path.map(std::path::PathBuf::from),
-                    started_at,
-                },
-                Err(e) => UpdateWorkResult::Error {
-                    stage: UpdateErrorStage::Download,
-                    name: app_name,
-                    from_version,
-                    to_version: Some(to_version),
-                    path: None,
-                    error: format!("Download failed: {:#}", e),
-                },
-            }
-        }
+    match downloader::download_app(
+        client,
+        &app,
+        &info,
+        &storage_dir,
+        &naming_format,
+        Some(&state),
+        segmented_downloads,
+        json_output,
+        color_output,
+    ) {
+        Ok(download_result) => UpdateWorkResult::Updated {
+            app,
+            from_version,
+            info,
+            new_path: download_result.path,
+            old_path: current_path.map(std::path::PathBuf::from),
+            elapsed: started_at.elapsed(),
+            downloaded_bytes: download_result.downloaded_bytes,
+            download_elapsed: download_result.download_elapsed,
+            capabilities,
+            segmented_downloads: download_result.segmented_downloads.or(segmented_support),
+            progress_completion_rendered: download_result.progress_completion_rendered,
+        },
         Err(e) => UpdateWorkResult::Error {
-            stage: UpdateErrorStage::Check,
+            stage: UpdateErrorStage::Download,
             name: app_name,
             from_version,
-            to_version: None,
-            path: current_path,
-            error: format!("{:#}", e),
+            to_version: Some(to_version),
+            path: None,
+            elapsed: started_at.elapsed(),
+            capabilities,
+            segmented_downloads: segmented_support,
+            rate_limited_until: None,
+            error: format!("Download failed: {:#}", e),
         },
     }
 }
@@ -352,6 +715,8 @@ fn main() -> Result<()> {
             let mut found = false;
             let mut results = Vec::new();
             let mut check_jobs = Vec::new();
+            let mut rate_limit_note_needed = false;
+            let now = now_epoch_seconds();
 
             for app in &app_configs {
                 if let Some(target) = &app_name
@@ -360,14 +725,35 @@ fn main() -> Result<()> {
                     continue;
                 }
                 found = true;
-                check_jobs.push((app.clone(), state_manager.get_app(&app.name).cloned()));
+                let state = snapshot_app_state(&mut state_manager, &app.name, now);
+                let rate_limited_until = state.rate_limited_until;
+                let github_proxy = github_proxy_enabled(app, &global_config);
+                if rate_limit_enabled(app, &global_config)
+                    && !(github_proxy && app_uses_github_forge(app))
+                    && matches!(rate_limited_until, Some(until) if until > now)
+                {
+                    rate_limit_note_needed = true;
+                    results.push(CheckApp {
+                        name: app.name.clone(),
+                        status: CheckStatus::RateLimited,
+                        local_version: state.local_version.clone(),
+                        remote_version: None,
+                        download_url: None,
+                        rate_limited_until,
+                        capabilities: state.capabilities.clone(),
+                        error: None,
+                    });
+                    continue;
+                }
+                check_jobs.push((app.clone(), Some(state)));
             }
 
-            let worker_limit = std::thread::available_parallelism()
+            let hard_max = std::thread::available_parallelism()
                 .map(|n| n.get())
                 .unwrap_or(2)
-                .min(MAX_CONCURRENT_JOBS)
+                .min(MAX_CONCURRENT_CHECK_JOBS)
                 .max(1);
+            let mut worker_limit = hard_max;
 
             let (tx, rx) = mpsc::channel();
             let mut pending = check_jobs.into_iter();
@@ -376,15 +762,32 @@ fn main() -> Result<()> {
             let spawn_check_worker = |app: config::AppConfig,
                                       state: Option<state::AppState>,
                                       client: ureq::Agent,
+                                      github_proxy: bool,
+                                      github_proxy_prefix: String,
                                       tx: mpsc::Sender<CheckWorkResult>| {
                 std::thread::spawn(move || {
-                    let _ = tx.send(process_check_job(app, state, &client));
+                    let _ = tx.send(process_check_job(
+                        app,
+                        state,
+                        &client,
+                        github_proxy,
+                        github_proxy_prefix,
+                    ));
                 });
             };
 
             while active < worker_limit {
                 if let Some((app, state)) = pending.next() {
-                    spawn_check_worker(app, state, client.clone(), tx.clone());
+                    let github_proxy = github_proxy_enabled(&app, &global_config);
+                    let github_proxy_prefix = github_proxy_prefix(&app, &global_config);
+                    spawn_check_worker(
+                        app,
+                        state,
+                        client.clone(),
+                        github_proxy,
+                        github_proxy_prefix,
+                        tx.clone(),
+                    );
                     active += 1;
                 } else {
                     break;
@@ -396,12 +799,53 @@ fn main() -> Result<()> {
                 active -= 1;
 
                 match result {
-                    CheckWorkResult::Ok(app_result) => results.push(app_result),
-                    CheckWorkResult::Err(app_result) => results.push(app_result),
+                    CheckWorkResult::Ok {
+                        app: app_result,
+                        elapsed,
+                        cache_capabilities,
+                        segmented_downloads,
+                    } => {
+                        let state = state_manager.get_app_mut(&app_result.name);
+                        cache_app_metadata(state, cache_capabilities, segmented_downloads);
+                        results.push(app_result);
+                        worker_limit =
+                            adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
+                    }
+                    CheckWorkResult::RateLimited {
+                        app: app_result,
+                        elapsed,
+                        rate_limited_until,
+                    } => {
+                        let state = state_manager.get_app_mut(&app_result.name);
+                        if let Some(until) = rate_limited_until {
+                            state.rate_limited_until = Some(until);
+                        }
+                        results.push(app_result);
+                        rate_limit_note_needed = true;
+                        worker_limit =
+                            adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
+                    }
+                    CheckWorkResult::Err {
+                        app: app_result,
+                        elapsed,
+                    } => {
+                        results.push(app_result);
+                        worker_limit =
+                            adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
+                    }
                 }
 
                 if let Some((app, state)) = pending.next() {
-                    spawn_check_worker(app, state, client.clone(), tx.clone());
+                    let github_proxy = github_proxy_enabled(&app, &global_config);
+                    let github_proxy_prefix = github_proxy_prefix(&app, &global_config);
+                    spawn_check_worker(
+                        app,
+                        state,
+                        client.clone(),
+                        github_proxy,
+                        github_proxy_prefix,
+                        tx.clone(),
+                    );
                     active += 1;
                 }
             }
@@ -420,6 +864,7 @@ fn main() -> Result<()> {
                     local_version: None,
                     remote_version: None,
                     download_url: None,
+                    rate_limited_until: None,
                     capabilities: Vec::new(),
                     error: Some(format!(
                         "Failed to parse app config at {}: {}",
@@ -444,14 +889,28 @@ fn main() -> Result<()> {
                     error,
                 })?;
             } else {
-                print_check_human(&results, error.as_deref(), color_output);
+                print_check_human(
+                    &results,
+                    error.as_deref(),
+                    if rate_limit_note_needed {
+                        Some(rate_limit_note())
+                    } else {
+                        None
+                    },
+                    color_output,
+                );
             }
+            state_manager.save()?;
         }
         Commands::Update { app_name } => {
             let storage_dir = integrator::expand_tilde(&global_config.storage_dir);
             let mut results = Vec::new();
             let mut found = false;
-            let mut update_jobs = Vec::new();
+            let mut rate_limit_note_needed = false;
+            let mut deferred_status_messages = Vec::new();
+            let mut deferred_warning_messages = Vec::new();
+            let now = now_epoch_seconds();
+            let mut pending_checks = Vec::new();
 
             for app in &app_configs {
                 if let Some(target) = app_name
@@ -460,224 +919,480 @@ fn main() -> Result<()> {
                     continue;
                 }
                 found = true;
-                update_jobs.push((app.clone(), state_manager.get_app(&app.name).cloned()));
+                let state = snapshot_app_state(&mut state_manager, &app.name, now);
+                let rate_limited_until = state.rate_limited_until;
+                let github_proxy = github_proxy_enabled(app, &global_config);
+                if rate_limit_enabled(app, &global_config)
+                    && !(github_proxy && app_uses_github_forge(app))
+                    && matches!(rate_limited_until, Some(until) if until > now)
+                {
+                    rate_limit_note_needed = true;
+                    results.push(UpdateApp {
+                        name: app.name.clone(),
+                        status: UpdateStatus::RateLimited,
+                        from_version: state.local_version.clone(),
+                        to_version: None,
+                        path: state.file_path.clone(),
+                        rate_limited_until,
+                        duration_seconds: None,
+                        error: None,
+                    });
+                    if !json_output {
+                        deferred_warning_messages.push(format!(
+                            "Skipping {} ({})",
+                            app.name,
+                            format_rate_limit_retry_text(rate_limited_until)
+                        ));
+                    }
+                    continue;
+                }
+                let github_proxy_prefix = github_proxy_prefix(app, &global_config);
+                pending_checks.push((app.clone(), Some(state), github_proxy, github_proxy_prefix));
             }
 
-            let worker_limit = std::thread::available_parallelism()
+            let hard_max_check = std::thread::available_parallelism()
                 .map(|n| n.get())
                 .unwrap_or(2)
-                .min(MAX_CONCURRENT_JOBS)
+                .min(MAX_CONCURRENT_CHECK_JOBS)
                 .max(1);
+            let hard_max_download = std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(2)
+                .min(MAX_CONCURRENT_DOWNLOADS)
+                .max(1);
+            let mut check_limit = hard_max_check;
+            let mut download_limit = hard_max_download;
+            let mut download_scheduler = ProviderDownloadScheduler::new();
 
-            let (tx, rx) = mpsc::channel();
-            let mut pending = update_jobs.into_iter();
-            let mut active = 0usize;
+            let (tx, rx) = mpsc::channel::<UpdateEvent>();
+            let mut pending_checks = pending_checks.into_iter().peekable();
+            let mut pending_downloads: VecDeque<UpdateDownloadJob> = VecDeque::new();
+            let mut active_checks = 0usize;
+            let mut active_downloads = 0usize;
 
-            let spawn_update_worker = |app: config::AppConfig,
-                                       state: Option<state::AppState>,
-                                       storage_dir: std::path::PathBuf,
-                                       naming_format: String,
-                                       segmented_downloads: bool,
-                                       client: ureq::Agent,
-                                       tx: mpsc::Sender<UpdateWorkResult>,
-                                       json_output: bool,
-                                       color_output: bool| {
+            let spawn_check_worker = |app: config::AppConfig,
+                                      state: Option<state::AppState>,
+                                      client: ureq::Agent,
+                                      github_proxy: bool,
+                                      github_proxy_prefix: String,
+                                      tx: mpsc::Sender<UpdateEvent>| {
                 std::thread::spawn(move || {
-                    let _ = tx.send(process_update_job(
+                    let _ = tx.send(UpdateEvent::Check(process_update_check_job(
                         &client,
                         app,
                         state,
-                        storage_dir,
-                        naming_format,
-                        segmented_downloads,
-                        json_output,
-                        color_output,
-                    ));
+                        github_proxy,
+                        github_proxy_prefix,
+                    )));
                 });
             };
 
-            while active < worker_limit {
-                if let Some((app, state)) = pending.next() {
-                    let storage_dir = storage_dir.clone();
-                    let naming_format = global_config.naming_format.clone();
-                    let segmented_downloads = app
-                        .segmented_downloads
-                        .unwrap_or(global_config.segmented_downloads);
-                    spawn_update_worker(
-                        app,
-                        state,
+            let spawn_download_worker = |job: UpdateDownloadJob,
+                                         client: ureq::Agent,
+                                         storage_dir: std::path::PathBuf,
+                                         naming_format: String,
+                                         segmented_downloads: bool,
+                                         tx: mpsc::Sender<UpdateEvent>,
+                                         json_output: bool,
+                                         color_output: bool| {
+                let provider = job.provider.clone();
+                std::thread::spawn(move || {
+                    let result = process_update_download_job(
+                        &client,
+                        job,
                         storage_dir,
                         naming_format,
                         segmented_downloads,
-                        client.clone(),
-                        tx.clone(),
                         json_output,
                         color_output,
                     );
-                    active += 1;
+                    let _ = tx.send(UpdateEvent::Download { provider, result });
+                });
+            };
+
+            let spawn_pending_downloads = |pending_downloads: &mut VecDeque<UpdateDownloadJob>,
+                                           active_downloads: &mut usize,
+                                           download_limit: usize,
+                                           download_scheduler: &mut ProviderDownloadScheduler,
+                                           tx: &mpsc::Sender<UpdateEvent>| {
+                if pending_downloads.is_empty() {
+                    return;
+                }
+
+                let mut rotations = 0usize;
+                let pending_len = pending_downloads.len();
+                while *active_downloads < download_limit && !pending_downloads.is_empty() && rotations < pending_len {
+                    let Some(job) = pending_downloads.pop_front() else {
+                        break;
+                    };
+
+                    if download_scheduler.try_acquire(&job.provider, download_limit) {
+                        let storage_dir = storage_dir.clone();
+                        let naming_format = global_config.naming_format.clone();
+                        let segmented_downloads = job
+                            .segmented_downloads
+                            .or(job.app.segmented_downloads)
+                            .unwrap_or(global_config.segmented_downloads);
+                        spawn_download_worker(
+                            job,
+                            client.clone(),
+                            storage_dir,
+                            naming_format,
+                            segmented_downloads,
+                            tx.clone(),
+                            json_output,
+                            color_output,
+                        );
+                        *active_downloads += 1;
+                        rotations = 0;
+                    } else {
+                        pending_downloads.push_back(job);
+                        rotations += 1;
+                    }
+                }
+            };
+
+            while active_checks < check_limit {
+                if let Some((app, state, github_proxy, github_proxy_prefix)) = pending_checks.next()
+                {
+                    spawn_check_worker(
+                        app,
+                        state,
+                        client.clone(),
+                        github_proxy,
+                        github_proxy_prefix,
+                        tx.clone(),
+                    );
+                    active_checks += 1;
                 } else {
                     break;
                 }
             }
 
-            while active > 0 {
-                let result = rx.recv().expect("update worker panicked");
-                active -= 1;
+            spawn_pending_downloads(
+                &mut pending_downloads,
+                &mut active_downloads,
+                download_limit,
+                &mut download_scheduler,
+                &tx,
+            );
 
-                match result {
-                        UpdateWorkResult::Updated {
-                            app,
-                            from_version,
-                            info,
-                            new_path,
-                            old_path,
-                            started_at,
-                        } => {
-                            let app_name = app.name.clone();
-                            let to_version = info.version.clone();
-                            let old_path_ref = old_path.as_deref();
-                            let was_update = from_version.is_some();
+            while active_checks > 0 || active_downloads > 0 || !pending_downloads.is_empty() {
+                let event = rx.recv().expect("update worker panicked");
+                match event {
+                    UpdateEvent::Check(result) => {
+                        active_checks = active_checks.saturating_sub(1);
+                        let elapsed = update_work_elapsed(&result);
 
-                            if let Err(e) =
-                                integrator::integrate(&app, &global_config, &new_path, old_path_ref)
-                            {
-                                results.push(UpdateApp {
-                                    name: app_name.clone(),
-                                    status: UpdateStatus::Error,
-                                    from_version: from_version.clone(),
-                                    to_version: Some(to_version.clone()),
-                                    path: Some(new_path.to_string_lossy().to_string()),
-                                    duration_seconds: None,
-                                    error: Some(format!("Integration failed: {:#}", e)),
-                                });
-                                if !json_output {
-                                    print_warning(
-                                        &format!("Integration failed for {}: {:#}", app_name, e),
-                                        color_output,
-                                    );
-                                    print_warning(
-                                        &format!(
-                                            "Rolling back {} to its previous state...",
-                                            app_name
-                                        ),
-                                        color_output,
-                                    );
-                                }
-
-                                integrator::rollback(&app, &global_config, &new_path, old_path_ref);
-                            } else {
-                                let duration_seconds = started_at.elapsed().as_secs_f64();
-                                let state_mut = state_manager.get_app_mut(&app_name);
-                                state_mut.local_version = Some(to_version.clone());
-                                if let Some(etag) = info.new_etag {
-                                    state_mut.etag = Some(etag);
-                                }
-                                if let Some(lm) = info.new_last_modified {
-                                    state_mut.last_modified = Some(lm);
-                                }
-                                state_mut.file_path = Some(new_path.to_string_lossy().to_string());
-
-                                results.push(UpdateApp {
-                                    name: app_name.clone(),
-                                    status: UpdateStatus::Updated,
+                        match result {
+                            UpdateWorkResult::ReadyToDownload {
+                                app,
+                                state,
+                                from_version,
+                                current_path,
+                                info,
+                                elapsed: _,
+                                capabilities,
+                                segmented_downloads,
+                            } => {
+                                let provider = download_provider_key(&info.download_url);
+                                pending_downloads.push_back(UpdateDownloadJob {
+                                    app,
+                                    state,
                                     from_version,
-                                    to_version: Some(to_version.clone()),
-                                    path: Some(new_path.to_string_lossy().to_string()),
-                                    duration_seconds: Some(duration_seconds),
+                                    current_path,
+                                    info,
+                                    capabilities,
+                                    segmented_downloads,
+                                    provider,
+                                });
+                            }
+                            UpdateWorkResult::UpToDate {
+                                name,
+                                from_version,
+                                path,
+                                elapsed: _,
+                                capabilities,
+                                segmented_downloads,
+                            } => {
+                                let state = state_manager.get_app_mut(&name);
+                                cache_app_metadata(state, capabilities, segmented_downloads);
+                                results.push(UpdateApp {
+                                    name: name.clone(),
+                                    status: UpdateStatus::UpToDate,
+                                    from_version: from_version.clone(),
+                                    to_version: None,
+                                    path,
+                                    rate_limited_until: None,
+                                    duration_seconds: None,
                                     error: None,
                                 });
                                 if !json_output {
-                                    let action = if was_update {
-                                        "updated to"
-                                    } else {
-                                        "installed"
-                                    };
-                                    print_success(
-                                        &format!(
-                                            "{} {} {} in {:.2}s",
-                                            app_name, action, to_version, duration_seconds
-                                        ),
-                                        color_output,
-                                    );
-                                }
-                            }
-                        }
-                        UpdateWorkResult::UpToDate {
-                            name,
-                            from_version,
-                            path,
-                        } => {
-                            results.push(UpdateApp {
-                                name: name.clone(),
-                                status: UpdateStatus::UpToDate,
-                                from_version: from_version.clone(),
-                                to_version: None,
-                                path,
-                                duration_seconds: None,
-                                error: None,
-                            });
-                            if !json_output {
-                                print_progress(
-                                    &format!(
+                                    deferred_status_messages.push(format!(
                                         "{} is already up to date ({})",
                                         name,
                                         from_version.unwrap_or_else(|| "unknown".to_string())
-                                    ),
-                                    color_output,
+                                    ));
+                                }
+                            }
+                            UpdateWorkResult::RateLimited {
+                                name,
+                                from_version,
+                                path,
+                                elapsed,
+                                rate_limited_until,
+                            } => {
+                                let state = state_manager.get_app_mut(&name);
+                                state.rate_limited_until = rate_limited_until;
+                                results.push(UpdateApp {
+                                    name: name.clone(),
+                                    status: UpdateStatus::RateLimited,
+                                    from_version,
+                                    to_version: None,
+                                    path,
+                                    rate_limited_until,
+                                    duration_seconds: None,
+                                    error: None,
+                                });
+                                rate_limit_note_needed = true;
+                                if !json_output {
+                                    deferred_warning_messages.push(format!(
+                                        "Skipping {} ({})",
+                                        name,
+                                        format_rate_limit_retry_text(rate_limited_until)
+                                    ));
+                                }
+                                check_limit = adapt_worker_limit(
+                                    check_limit,
+                                    elapsed,
+                                    pending_checks.len(),
+                                    hard_max_check,
                                 );
                             }
-                        }
-                        UpdateWorkResult::Error {
-                            stage,
-                            name,
-                            from_version,
-                            to_version,
-                            path,
-                            error,
-                        } => {
-                            results.push(UpdateApp {
-                                name: name.clone(),
-                                status: UpdateStatus::Error,
+                            UpdateWorkResult::Error {
+                                stage,
+                                name,
                                 from_version,
                                 to_version,
                                 path,
-                                duration_seconds: None,
-                                error: Some(error.clone()),
-                            });
-                            if !json_output {
-                                match stage {
-                                    UpdateErrorStage::Check => print_warning(
-                                        &format!("Error checking updates for {}: {}", name, error),
-                                        color_output,
-                                    ),
-                                    UpdateErrorStage::Download => print_warning(
-                                        &format!("Download failed for {}: {}", name, error),
-                                        color_output,
-                                    ),
+                                elapsed: _,
+                                capabilities,
+                                segmented_downloads,
+                                rate_limited_until,
+                                error,
+                            } => {
+                                let state = state_manager.get_app_mut(&name);
+                                cache_app_metadata(state, capabilities, segmented_downloads);
+                                state.rate_limited_until = rate_limited_until;
+                                results.push(UpdateApp {
+                                    name: name.clone(),
+                                    status: UpdateStatus::Error,
+                                    from_version,
+                                    to_version,
+                                    path,
+                                    rate_limited_until,
+                                    duration_seconds: None,
+                                    error: Some(error.clone()),
+                                });
+                                if !json_output {
+                                    match stage {
+                                        UpdateErrorStage::Check => deferred_warning_messages
+                                            .push(format!("Error checking updates for {}: {}", name, error)),
+                                        UpdateErrorStage::Download => deferred_warning_messages
+                                            .push(format!("Download failed for {}: {}", name, error)),
+                                    }
                                 }
                             }
+                            _ => {}
+                        }
+
+                        check_limit = adapt_worker_limit(
+                            check_limit,
+                            elapsed,
+                            pending_checks.len(),
+                            hard_max_check,
+                        );
+                    }
+                    UpdateEvent::Download { provider, result } => {
+                        active_downloads = active_downloads.saturating_sub(1);
+                        download_scheduler.release(&provider);
+                        let _elapsed = update_work_elapsed(&result);
+
+                        match result {
+                            UpdateWorkResult::Updated {
+                                app,
+                                from_version,
+                                info,
+                                new_path,
+                                old_path,
+                                elapsed,
+                                downloaded_bytes,
+                                download_elapsed,
+                                capabilities,
+                                segmented_downloads,
+                                progress_completion_rendered,
+                            } => {
+                                let app_name = app.name.clone();
+                                let to_version = info.version.clone();
+                                let old_path_ref = old_path.as_deref();
+                                let was_update = from_version.is_some();
+                                let download_bps = download_elapsed.map(|download_elapsed| {
+                                    if download_elapsed.is_zero() {
+                                        0.0
+                                    } else {
+                                        downloaded_bytes as f64
+                                            / download_elapsed.as_secs_f64().max(0.001)
+                                    }
+                                });
+
+                                if let Err(e) =
+                                    integrator::integrate(&app, &global_config, &new_path, old_path_ref)
+                                {
+                                    let state = state_manager.get_app_mut(&app_name);
+                                    cache_app_metadata(state, capabilities, segmented_downloads);
+                                    results.push(UpdateApp {
+                                        name: app_name.clone(),
+                                        status: UpdateStatus::Error,
+                                        from_version: from_version.clone(),
+                                        to_version: Some(to_version.clone()),
+                                        path: Some(new_path.to_string_lossy().to_string()),
+                                        rate_limited_until: None,
+                                        duration_seconds: None,
+                                        error: Some(format!("Integration failed: {:#}", e)),
+                                    });
+                                    if !json_output {
+                                        deferred_warning_messages.push(format!(
+                                            "Integration failed for {}: {:#}",
+                                            app_name, e
+                                        ));
+                                        deferred_warning_messages.push(format!(
+                                            "Rolling back {} to its previous state...",
+                                            app_name
+                                        ));
+                                    }
+
+                                    integrator::rollback(&app, &global_config, &new_path, old_path_ref);
+                                } else {
+                                    let duration_seconds = elapsed.as_secs_f64();
+                                    let state_mut = state_manager.get_app_mut(&app_name);
+                                    state_mut.local_version = Some(to_version.clone());
+                                    state_mut.rate_limited_until = None;
+                                    if let Some(etag) = info.new_etag {
+                                        state_mut.etag = Some(etag);
+                                    }
+                                    if let Some(lm) = info.new_last_modified {
+                                        state_mut.last_modified = Some(lm);
+                                    }
+                                    state_mut.file_path = Some(new_path.to_string_lossy().to_string());
+                                    cache_app_metadata(state_mut, capabilities, segmented_downloads);
+
+                                    results.push(UpdateApp {
+                                        name: app_name.clone(),
+                                        status: UpdateStatus::Updated,
+                                        from_version,
+                                        to_version: Some(to_version.clone()),
+                                        path: Some(new_path.to_string_lossy().to_string()),
+                                        rate_limited_until: None,
+                                        duration_seconds: Some(duration_seconds),
+                                        error: None,
+                                    });
+                                    if !json_output && !progress_completion_rendered {
+                                        let action = if was_update {
+                                            "updated to"
+                                        } else {
+                                            "downloaded"
+                                        };
+                                        deferred_status_messages.push(format!(
+                                            "{} {} {} in {:.2}s",
+                                            app_name, action, to_version, duration_seconds
+                                        ));
+                                    }
+                                }
+
+                                download_limit = if let Some(download_bps) = download_bps {
+                                    adapt_worker_limit_for_speed(
+                                        download_limit,
+                                        Some(download_bps),
+                                        pending_downloads.len(),
+                                        hard_max_download,
+                                    )
+                                } else {
+                                    adapt_worker_limit(
+                                        download_limit,
+                                        elapsed,
+                                        pending_downloads.len(),
+                                        hard_max_download,
+                                    )
+                                };
+                            }
+                            UpdateWorkResult::Error {
+                                stage,
+                                name,
+                                from_version,
+                                to_version,
+                                path,
+                                elapsed: _,
+                                capabilities,
+                                segmented_downloads,
+                                rate_limited_until,
+                                error,
+                            } => {
+                                let state = state_manager.get_app_mut(&name);
+                                cache_app_metadata(state, capabilities, segmented_downloads);
+                                state.rate_limited_until = rate_limited_until;
+                                results.push(UpdateApp {
+                                    name: name.clone(),
+                                    status: UpdateStatus::Error,
+                                    from_version,
+                                    to_version,
+                                    path,
+                                    rate_limited_until,
+                                    duration_seconds: None,
+                                    error: Some(error.clone()),
+                                });
+                                if !json_output {
+                                    match stage {
+                                        UpdateErrorStage::Check => deferred_warning_messages
+                                            .push(format!("Error checking updates for {}: {}", name, error)),
+                                        UpdateErrorStage::Download => deferred_warning_messages
+                                            .push(format!("Download failed for {}: {}", name, error)),
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
                     }
-
-                if let Some((app, state)) = pending.next() {
-                    let storage_dir = storage_dir.clone();
-                    let naming_format = global_config.naming_format.clone();
-                    let segmented_downloads = app
-                        .segmented_downloads
-                        .unwrap_or(global_config.segmented_downloads);
-                    spawn_update_worker(
-                        app,
-                        state,
-                        storage_dir,
-                        naming_format,
-                        segmented_downloads,
-                        client.clone(),
-                        tx.clone(),
-                        json_output,
-                        color_output,
-                    );
-                    active += 1;
                 }
+
+                while active_checks < check_limit {
+                    if let Some((app, state, github_proxy, github_proxy_prefix)) =
+                        pending_checks.next()
+                    {
+                        spawn_check_worker(
+                            app,
+                            state,
+                            client.clone(),
+                            github_proxy,
+                            github_proxy_prefix,
+                            tx.clone(),
+                        );
+                        active_checks += 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                spawn_pending_downloads(
+                    &mut pending_downloads,
+                    &mut active_downloads,
+                    download_limit,
+                    &mut download_scheduler,
+                    &tx,
+                );
+            }
+
+            if !json_output {
+                downloader::finalize_progress_output()?;
             }
 
             for parse_error in &app_config_errors {
@@ -699,11 +1414,21 @@ fn main() -> Result<()> {
                     from_version: None,
                     to_version: None,
                     path: None,
+                    rate_limited_until: None,
                     duration_seconds: None,
                     error: Some(parse_error_message.clone()),
                 });
                 if !json_output {
-                    print_warning(&parse_error_message, color_output);
+                    deferred_warning_messages.push(parse_error_message);
+                }
+            }
+
+            if !json_output {
+                for message in deferred_status_messages {
+                    print_success(&message, color_output);
+                }
+                for message in deferred_warning_messages {
+                    print_warning(&message, color_output);
                 }
             }
 
@@ -729,17 +1454,24 @@ fn main() -> Result<()> {
                     .iter()
                     .filter(|app| matches!(app.status, UpdateStatus::UpToDate))
                     .count();
+                let rate_limited = results
+                    .iter()
+                    .filter(|app| matches!(app.status, UpdateStatus::RateLimited))
+                    .count();
                 let failed = results
                     .iter()
                     .filter(|app| matches!(app.status, UpdateStatus::Error))
                     .count();
                 print_progress(
                     &format!(
-                        "summary: {} updated, {} current, {} failed",
-                        updated, current, failed
+                        "summary: {} updated, {} current, {} rate limited, {} failed",
+                        updated, current, rate_limited, failed
                     ),
                     color_output,
                 );
+                if rate_limit_note_needed {
+                    print_warning(rate_limit_note(), color_output);
+                }
             }
             state_manager.save()?;
         }

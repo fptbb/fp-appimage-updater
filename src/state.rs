@@ -9,6 +9,12 @@ pub struct AppState {
     pub etag: Option<String>,
     pub last_modified: Option<String>,
     pub file_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limited_until: Option<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub segmented_downloads: Option<bool>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]

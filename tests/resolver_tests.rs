@@ -658,7 +658,7 @@ integration: false
         .as_i64()
         .expect("Fallback count was not a number");
     assert_eq!(
-        count, 2,
-        "Fallback path did not probe and then download the full file"
+        count, 1,
+        "Fallback path did not download the full file"
     );
 }
