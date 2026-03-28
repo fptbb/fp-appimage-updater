@@ -1,164 +1,6 @@
-use anyhow::Result;
-use serde::Serialize;
-use std::io::IsTerminal;
+use crate::output::types::*;
+use crate::output::styling::*;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-#[derive(Debug, Serialize)]
-pub struct ListResponse {
-    pub command: &'static str,
-    pub apps: Vec<ListApp>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ListApp {
-    pub name: String,
-    pub strategy: String,
-    pub local_version: Option<String>,
-    pub integration: bool,
-    pub symlink: bool,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CheckResponse {
-    pub command: &'static str,
-    pub apps: Vec<CheckApp>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CheckApp {
-    pub name: String,
-    pub status: CheckStatus,
-    pub local_version: Option<String>,
-    pub remote_version: Option<String>,
-    pub download_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rate_limited_until: Option<u64>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub capabilities: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CheckStatus {
-    UpToDate,
-    UpdateAvailable,
-    RateLimited,
-    Error,
-}
-
-#[derive(Debug, Serialize)]
-pub struct UpdateResponse {
-    pub command: &'static str,
-    pub apps: Vec<UpdateApp>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct UpdateApp {
-    pub name: String,
-    pub status: UpdateStatus,
-    pub from_version: Option<String>,
-    pub to_version: Option<String>,
-    pub path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rate_limited_until: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub duration_seconds: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum UpdateStatus {
-    Updated,
-    UpToDate,
-    RateLimited,
-    Error,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RemoveResponse {
-    pub command: &'static str,
-    pub apps: Vec<RemoveApp>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RemoveApp {
-    pub name: String,
-    pub status: RemoveStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RemoveStatus {
-    Removed,
-    Error,
-    NotFound,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ValidateResponse {
-    pub command: &'static str,
-    pub apps: Vec<ValidateApp>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ValidateApp {
-    pub name: Option<String>,
-    pub file: String,
-    pub status: ValidateStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ValidateStatus {
-    Valid,
-    Invalid,
-}
-
-#[derive(Debug, Serialize)]
-pub struct DoctorResponse {
-    pub command: &'static str,
-    pub checks: Vec<DoctorCheck>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct DoctorCheck {
-    pub name: String,
-    pub status: DoctorStatus,
-    pub detail: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DoctorStatus {
-    Ok,
-    Warn,
-}
-
-pub fn print_json<T: Serialize>(value: &T) -> Result<()> {
-    serde_json::to_writer_pretty(std::io::stdout(), value)?;
-    println!();
-    Ok(())
-}
-
-pub fn colors_enabled(json_output: bool) -> bool {
-    !json_output && std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none()
-}
 
 pub fn print_list_human(apps: &[ListApp], colors: bool) {
     println!("{}", bold("Configured apps", colors));
@@ -295,91 +137,6 @@ pub fn print_check_human(
     }
 }
 
-pub fn print_self_update_start(kind: &str, current: &str, colors: bool) {
-    println!(
-        "{}",
-        bold(
-            &format!("Checking for {} updates (current: v{})", kind, current),
-            colors
-        )
-    );
-}
-
-pub fn print_self_update_current(current: &str, colors: bool) {
-    println!(
-        "{}",
-        colorize(
-            &format!("Already up to date (v{})", current),
-            Color::Green,
-            colors
-        )
-    );
-}
-
-pub fn print_self_update_available(current: &str, latest: &str, colors: bool) {
-    println!(
-        "{}",
-        colorize(
-            &format!("New version available: {} -> {}", current, latest),
-            Color::Yellow,
-            colors
-        )
-    );
-}
-
-pub fn print_self_update_download(url: &str, colors: bool) {
-    println!("{}", dim(&format!("Downloading: {}", url), colors));
-}
-
-pub fn print_self_update_success(tag: &str, colors: bool) {
-    println!(
-        "{}",
-        colorize(
-            &format!("Updated successfully to {}!", tag),
-            Color::Green,
-            colors
-        )
-    );
-}
-
-pub fn format_rate_limit_retry_text(until: Option<u64>) -> String {
-    match until {
-        Some(until) => {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-            let secs = until.saturating_sub(now);
-            if secs < 60 {
-                format!("retry in {}s", secs)
-            } else if secs < 3600 {
-                format!("retry in {}m", secs / 60)
-            } else {
-                format!("retry in {}h {}m", secs / 3600, (secs % 3600) / 60)
-            }
-        }
-        None => "retry later".to_string(),
-    }
-}
-
-pub fn print_progress(message: &str, colors: bool) {
-    crate::downloader::suspend_for_print(|| {
-        println!("{}", dim(message, colors));
-    });
-}
-
-pub fn print_success(message: &str, colors: bool) {
-    crate::downloader::suspend_for_print(|| {
-        println!("{}", colorize(message, Color::Green, colors));
-    });
-}
-
-pub fn print_warning(message: &str, colors: bool) {
-    crate::downloader::suspend_for_print(|| {
-        eprintln!("{}", colorize(message, Color::Yellow, colors));
-    });
-}
-
 pub fn print_validate_human(apps: &[ValidateApp], error: Option<&str>, colors: bool) {
     print_command_header("validate", apps.len(), colors);
     let mut valid = 0usize;
@@ -462,15 +219,71 @@ pub fn print_doctor_human(checks: &[DoctorCheck], colors: bool) {
     );
 }
 
-#[derive(Clone, Copy)]
-enum Color {
-    Red,
-    Green,
-    Yellow,
-    Blue,
-    Cyan,
-    Magenta,
-    White,
+pub fn format_rate_limit_retry_text(until: Option<u64>) -> String {
+    match until {
+        Some(until) => {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let secs = until.saturating_sub(now);
+            if secs < 60 {
+                format!("retry in {}s", secs)
+            } else if secs < 3600 {
+                format!("retry in {}m", secs / 60)
+            } else {
+                format!("retry in {}h {}m", secs / 3600, (secs % 3600) / 60)
+            }
+        }
+        None => "retry later".to_string(),
+    }
+}
+
+pub fn print_self_update_start(kind: &str, current: &str, colors: bool) {
+    println!(
+        "{}",
+        bold(
+            &format!("Checking for {} updates (current: v{})", kind, current),
+            colors
+        )
+    );
+}
+
+pub fn print_self_update_current(current: &str, colors: bool) {
+    println!(
+        "{}",
+        colorize(
+            &format!("Already up to date (v{})", current),
+            Color::Green,
+            colors
+        )
+    );
+}
+
+pub fn print_self_update_available(current: &str, latest: &str, colors: bool) {
+    println!(
+        "{}",
+        colorize(
+            &format!("New version available: {} -> {}", current, latest),
+            Color::Yellow,
+            colors
+        )
+    );
+}
+
+pub fn print_self_update_download(url: &str, colors: bool) {
+    println!("{}", dim(&format!("Downloading: {}", url), colors));
+}
+
+pub fn print_self_update_success(tag: &str, colors: bool) {
+    println!(
+        "{}",
+        colorize(
+            &format!("Updated successfully to {}!", tag),
+            Color::Green,
+            colors
+        )
+    );
 }
 
 fn print_command_header(command: &str, count: usize, colors: bool) {
@@ -503,58 +316,4 @@ fn color_for_version(version: &str) -> Color {
     } else {
         Color::Blue
     }
-}
-
-fn status_text(text: &str, color: Color) -> String {
-    colorize(text, color, true)
-}
-
-fn bracketed(text: &str, colors: bool) -> String {
-    if colors {
-        format!("[{}]", text)
-    } else {
-        format!("[{}]", strip_ansi(text))
-    }
-}
-
-fn bold(text: &str, colors: bool) -> String {
-    style(text, "1", colors)
-}
-
-fn dim(text: &str, colors: bool) -> String {
-    style(text, "2", colors)
-}
-
-fn colorize(text: &str, color: Color, colors: bool) -> String {
-    let code = match color {
-        Color::Red => "31",
-        Color::Green => "32",
-        Color::Yellow => "33",
-        Color::Blue => "34",
-        Color::Cyan => "36",
-        Color::Magenta => "35",
-        Color::White => "37",
-    };
-    style(text, code, colors)
-}
-
-fn style(text: &str, code: &str, colors: bool) -> String {
-    if colors {
-        format!("\x1b[{}m{}\x1b[0m", code, text)
-    } else {
-        text.to_string()
-    }
-}
-
-fn strip_ansi(text: &str) -> String {
-    text.replace("\x1b[0m", "")
-        .replace("\x1b[31m", "")
-        .replace("\x1b[32m", "")
-        .replace("\x1b[33m", "")
-        .replace("\x1b[34m", "")
-        .replace("\x1b[35m", "")
-        .replace("\x1b[36m", "")
-        .replace("\x1b[37m", "")
-        .replace("\x1b[1m", "")
-        .replace("\x1b[2m", "")
 }

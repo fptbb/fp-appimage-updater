@@ -30,12 +30,10 @@ pub struct StateManager {
 impl StateManager {
     pub fn load(cache_path: impl AsRef<Path>) -> Self {
         let cache_path = cache_path.as_ref().to_path_buf();
-        let state = if cache_path.exists() {
-            let content = fs::read_to_string(&cache_path).unwrap_or_default();
-            serde_json::from_str(&content).unwrap_or_default()
-        } else {
-            State::default()
-        };
+        let state = fs::read_to_string(&cache_path)
+            .ok()
+            .and_then(|c| serde_json::from_str(&c).ok())
+            .unwrap_or_default();
 
         Self { cache_path, state }
     }

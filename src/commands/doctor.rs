@@ -1,0 +1,41 @@
+use crate::doctor;
+use crate::output::{print_doctor_human, print_json, print_progress, DoctorCheck, DoctorResponse, DoctorStatus};
+use crate::parser::{ConfigPaths, AppConfigLoadError};
+use anyhow::Result;
+
+pub fn run(
+    paths: &ConfigPaths,
+    app_count: usize,
+    error_count: usize,
+    app_config_errors: &[AppConfigLoadError],
+    json_output: bool,
+    color_output: bool,
+) -> Result<()> {
+    let checks = doctor::run(paths, app_count, error_count)
+        .into_iter()
+        .map(|check| DoctorCheck {
+            name: check.name,
+            status: match check.status {
+                doctor::DoctorStatus::Ok => DoctorStatus::Ok,
+                doctor::DoctorStatus::Warn => DoctorStatus::Warn,
+            },
+            detail: check.detail,
+        })
+        .collect::<Vec<_>>();
+
+    if json_output {
+        print_json(&DoctorResponse {
+            command: "doctor",
+            checks,
+        })?;
+    } else {
+        print_doctor_human(&checks, color_output);
+        if !app_config_errors.is_empty() {
+            print_progress(
+                "Tip: run `fp-appimage-updater validate` for detailed parse errors.",
+                color_output,
+            );
+        }
+    }
+    Ok(())
+}

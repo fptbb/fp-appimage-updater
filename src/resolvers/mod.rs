@@ -33,33 +33,24 @@ pub struct RateLimitInfo {
 
 impl RateLimitInfo {
     pub fn until_epoch_seconds(&self) -> Option<u64> {
-        if let Some(retry_after_seconds) = self.retry_after_seconds {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-            Some(now.saturating_add(retry_after_seconds))
-        } else {
-            self.reset_at
-        }
+        self.retry_after_seconds
+            .map(|retry| now_seconds().saturating_add(retry))
+            .or(self.reset_at)
     }
 
     pub fn short_message(&self) -> String {
-        if let Some(until) = self.until_epoch_seconds() {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-            let wait = until.saturating_sub(now);
-            if wait < 60 {
-                format!("Rate limited. Retry in {}s.", wait)
-            } else if wait < 3600 {
-                format!("Rate limited. Retry in {}m.", wait / 60)
-            } else {
-                format!("Rate limited. Retry in {}h {}m.", wait / 3600, (wait % 3600) / 60)
+        match self.until_epoch_seconds() {
+            Some(until) => {
+                let wait = until.saturating_sub(now_seconds());
+                if wait < 60 {
+                    format!("Rate limited. Retry in {}s.", wait)
+                } else if wait < 3600 {
+                    format!("Rate limited. Retry in {}m.", wait / 60)
+                } else {
+                    format!("Rate limited. Retry in {}h {}m.", wait / 3600, (wait % 3600) / 60)
+                }
             }
-        } else {
-            "Rate limited. Retry later.".to_string()
+            None => "Rate limited. Retry later.".to_string(),
         }
     }
 }
@@ -72,25 +63,25 @@ impl fmt::Display for RateLimitInfo {
 
 impl std::error::Error for RateLimitInfo {}
 
-pub fn rate_limit_info_from_headers(headers: &ureq::http::HeaderMap) -> Option<RateLimitInfo> {
-    let now = SystemTime::now()
+fn now_seconds() -> u64 {
+    SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let reset_after_seconds = header_u64_any(headers, &["ratelimit-reset", "RateLimit-Reset"]);
-    let reset_at = reset_after_seconds.map(|seconds| now.saturating_add(seconds)).or_else(|| {
-        header_u64_any(headers, &["x-ratelimit-reset", "X-RateLimit-Reset"])
-    });
-    let retry_after_seconds =
-        header_u64_any(headers, &["retry-after", "Retry-After"]);
+        .unwrap_or(0)
+}
+
+pub fn rate_limit_info_from_headers(headers: &ureq::http::HeaderMap) -> Option<RateLimitInfo> {
+    let reset_after = header_u64_any(headers, &["ratelimit-reset", "RateLimit-Reset"]);
+    let reset_at = reset_after
+        .map(|s| now_seconds().saturating_add(s))
+        .or_else(|| header_u64_any(headers, &["x-ratelimit-reset", "X-RateLimit-Reset"]));
+    
+    let retry_after_seconds = header_u64_any(headers, &["retry-after", "Retry-After"]);
 
     if reset_at.is_none() && retry_after_seconds.is_none() {
         None
     } else {
-        Some(RateLimitInfo {
-            reset_at,
-            retry_after_seconds,
-        })
+        Some(RateLimitInfo { reset_at, retry_after_seconds })
     }
 }
 
@@ -102,39 +93,27 @@ pub fn check_for_updates(
     github_proxy_prefix: &str,
 ) -> Result<CheckResult> {
     match &app.strategy {
-        StrategyConfig::Forge {
-            repository,
-            asset_match,
-        } => forge::resolve(
-            &client,
-            repository,
-            asset_match,
-            state,
-            github_proxy,
-            github_proxy_prefix,
-        ),
-        StrategyConfig::Direct { url, check_method } => {
-            direct::resolve(&client, url, check_method, state)
+        StrategyConfig::Forge { repository, asset_match } => {
+            forge::resolve(client, repository, asset_match, state, github_proxy, github_proxy_prefix)
         }
-        StrategyConfig::Script { script_path } => script::resolve(client, app, script_path, state),
+        StrategyConfig::Direct { url, check_method } => {
+            direct::resolve(client, url, check_method, state)
+        }
+        StrategyConfig::Script { script_path } => {
+            script::resolve(client, app, script_path, state)
+        }
     }
 }
 
 pub fn capability_from_header_value(name: &str, value: Option<&str>) -> Option<String> {
-    let value = value?.trim();
-    if value.eq_ignore_ascii_case("bytes") {
-        Some(name.to_string())
-    } else {
-        None
-    }
+    value?.trim().eq_ignore_ascii_case("bytes").then(|| name.to_string())
 }
 
 fn header_u64_any(headers: &ureq::http::HeaderMap, names: &[&str]) -> Option<u64> {
-    names
-        .iter()
+    names.iter()
         .find_map(|name| headers.get(*name))
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.trim().parse::<u64>().ok())
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.trim().parse().ok())
 }
 
 pub fn dedupe_capabilities(capabilities: &mut Vec<String>) {

@@ -3,8 +3,7 @@ use clap_complete::Shell;
 
 #[derive(Parser)]
 #[command(name = "fp-appimage-updater")]
-#[command(about = "Data-Driven AppImage Manager", long_about = None)]
-#[command(version)]
+#[command(about = "Data-Driven AppImage Manager", version)]
 pub struct Cli {
     /// Override the default configuration directory
     #[arg(short, long, global = true, value_name = "PATH")]
