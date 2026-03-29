@@ -110,6 +110,8 @@ Used for downloading from GitHub or GitLab releases.
 - `github_proxy_prefix`: Optional proxy base URL, array of base URLs, or the string `all` used when `github_proxy` is enabled. Defaults to `https://gh-proxy.com/`. The app tries them in order until one works. Use `all` to try every compatible proxy built into the app.
 - `respect_rate_limits`: Optional per-app override that tells the updater to skip apps until the retry window expires when a rate limit is hit. Defaults to `true`.
 
+For GitLab repositories, the forge resolver uses the permalink latest API at `https://gitlab.com/api/v4/projects/<project-path>/releases/permalink/latest`, reads `assets.links`, and prefers `direct_asset_url` when available.
+
 **Example:**
 ```yaml
 strategy:

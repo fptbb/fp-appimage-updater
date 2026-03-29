@@ -4,6 +4,18 @@ use ureq::Agent;
 
 use super::{CheckResult, UpdateInfo, dedupe_capabilities, rate_limit_info_from_headers};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ForgeHost {
+    GitHub,
+    GitLab,
+}
+
+#[derive(Debug, Clone)]
+struct ReleaseAsset {
+    name: String,
+    download_url: String,
+}
+
 pub fn resolve(
     client: &Agent,
     repository: &str,
@@ -12,7 +24,8 @@ pub fn resolve(
     github_proxy: bool,
     github_proxy_prefixes: &[String],
 ) -> Result<CheckResult> {
-    let url = github_release_url(repository)?;
+    let host = forge_host(repository)?;
+    let url = release_api_url(host, repository)?;
     let pattern = glob::Pattern::new(asset_match).with_context(|| {
         format!(
             "Invalid asset_match pattern '{}' for {}",
@@ -26,7 +39,13 @@ pub fn resolve(
         .http_status_as_error(false)
         .build()
         .call()
-        .with_context(|| format!("Failed to reach GitHub release API for {}", repository))?;
+        .with_context(|| {
+            format!(
+                "Failed to reach {} release API for {}",
+                host_name(host),
+                repository
+            )
+        })?;
 
     let status = response.status().as_u16();
     if status == 403 || status == 429 {
@@ -36,7 +55,7 @@ pub fn resolve(
                 repository
             ));
         };
-        if github_proxy {
+        if host == ForgeHost::GitHub && github_proxy {
             return resolve_via_github_proxy(
                 client,
                 repository,
@@ -53,82 +72,128 @@ pub fn resolve(
             });
         }
 
-        let html_url = github_release_web_url(repository)?;
-        let html = client
-            .get(&html_url)
-            .call()
-            .with_context(|| {
-                format!(
-                    "{} GitHub release page fallback failed for {}",
-                    rate_limit.short_message(),
-                    repository
-                )
-            })?
-            .into_body()
-            .read_to_string()
-            .with_context(|| format!("Failed to read GitHub release page for {}", repository))?;
+        if host == ForgeHost::GitHub {
+            let html_url = github_release_web_url(repository)?;
+            let html = client
+                .get(&html_url)
+                .call()
+                .with_context(|| {
+                    format!(
+                        "{} GitHub release page fallback failed for {}",
+                        rate_limit.short_message(),
+                        repository
+                    )
+                })?
+                .into_body()
+                .read_to_string()
+                .with_context(|| {
+                    format!("Failed to read GitHub release page for {}", repository)
+                })?;
 
-        return resolve_from_github_release_page(client, repository, &pattern, &html, state)
-            .map_err(|e| {
-                anyhow::Error::from(rate_limit.clone()).context(format!(
-                    "{} {}",
-                    rate_limit.short_message(),
-                    e
-                ))
-            });
+            return resolve_from_github_release_page(client, repository, &pattern, &html, state)
+                .map_err(|e| {
+                    anyhow::Error::from(rate_limit.clone()).context(format!(
+                        "{} {}",
+                        rate_limit.short_message(),
+                        e
+                    ))
+                });
+        }
+
+        return Err(anyhow::Error::from(rate_limit).context(format!(
+            "{} release API rate limited for {}",
+            host_name(host),
+            repository
+        )));
     }
 
     if !response.status().is_success() {
         return Err(anyhow!(
-            "GitHub release API returned {} for {}",
+            "{} release API returned {} for {}",
+            host_name(host),
             response.status(),
             repository
         ));
     }
 
-    let resp: serde_json::Value = response
-        .into_body()
-        .read_json()
-        .with_context(|| format!("Failed to parse GitHub release metadata for {}", repository))?;
+    let resp: serde_json::Value = response.into_body().read_json().with_context(|| {
+        format!(
+            "Failed to parse {} release metadata for {}",
+            host_name(host),
+            repository
+        )
+    })?;
     let version = resp["tag_name"].as_str().with_context(|| {
         format!(
             "Release metadata for {} did not contain tag_name",
             repository
         )
     })?;
-    let assets = resp["assets"].as_array().with_context(|| {
-        format!(
-            "Release metadata for {} did not contain an assets array",
-            repository
-        )
-    })?;
+    let assets = release_assets(host, &resp, repository)?;
 
     resolve_from_release_assets(
         client,
         repository,
         &pattern,
         version,
-        assets,
+        &assets,
         state,
-        false,
-        github_proxy_prefixes
-            .first()
-            .map(|prefix| prefix.as_str())
-            .unwrap_or(""),
+        host,
+        github_proxy,
+        github_proxy_prefixes,
     )
 }
 
-fn github_release_url(repository: &str) -> Result<String> {
+fn forge_host(repository: &str) -> Result<ForgeHost> {
     if repository.starts_with("https://github.com/") {
-        Ok(
-            repository.replace("https://github.com/", "https://api.github.com/repos/")
-                + "/releases/latest",
-        )
+        Ok(ForgeHost::GitHub)
+    } else if repository.starts_with("https://gitlab.com/") {
+        Ok(ForgeHost::GitLab)
     } else {
         Err(anyhow!(
-            "Only github.com is currently supported for forge strategy, got {}",
+            "Only github.com and gitlab.com are currently supported for forge strategy, got {}",
             repository
         ))
+    }
+}
+
+fn host_name(host: ForgeHost) -> &'static str {
+    match host {
+        ForgeHost::GitHub => "GitHub",
+        ForgeHost::GitLab => "GitLab",
+    }
+}
+
+fn forge_repo_path(repository: &str, host: ForgeHost) -> Result<&str> {
+    match host {
+        ForgeHost::GitHub => repository.strip_prefix("https://github.com/").ok_or_else(|| {
+            anyhow!(
+                "Only github.com and gitlab.com are currently supported for forge strategy, got {}",
+                repository
+            )
+        }),
+        ForgeHost::GitLab => repository.strip_prefix("https://gitlab.com/").ok_or_else(|| {
+            anyhow!(
+                "Only github.com and gitlab.com are currently supported for forge strategy, got {}",
+                repository
+            )
+        }),
+    }
+}
+
+fn encoded_gitlab_project_path(repository: &str) -> Result<String> {
+    Ok(forge_repo_path(repository, ForgeHost::GitLab)?.replace('/', "%2F"))
+}
+
+fn release_api_url(host: ForgeHost, repository: &str) -> Result<String> {
+    match host {
+        ForgeHost::GitHub => Ok(repository
+            .replace("https://github.com/", "https://api.github.com/repos/")
+            + "/releases/latest"),
+        ForgeHost::GitLab => Ok(format!(
+            "https://gitlab.com/api/v4/projects/{}/releases/permalink/latest",
+            encoded_gitlab_project_path(repository)?
+        )),
     }
 }
 
@@ -137,28 +202,17 @@ fn github_release_web_url(repository: &str) -> Result<String> {
         Ok(format!("{}/releases/latest", repository))
     } else {
         Err(anyhow!(
-            "Only github.com is currently supported for forge strategy, got {}",
+            "Only github.com is currently supported for the release page fallback, got {}",
             repository
         ))
     }
-}
-
-fn github_repo_path(repository: &str) -> Result<&str> {
-    repository
-        .strip_prefix("https://github.com/")
-        .ok_or_else(|| {
-            anyhow!(
-                "Only github.com is currently supported for forge strategy, got {}",
-                repository
-            )
-        })
 }
 
 fn github_proxy_release_url(repository: &str, github_proxy_prefix: &str) -> Result<String> {
     Ok(format!(
         "{}{}",
         github_proxy_prefix,
-        github_release_url(repository)?
+        release_api_url(ForgeHost::GitHub, repository)?
     ))
 }
 
@@ -173,7 +227,7 @@ fn validate_github_proxy_metadata(
     resp: &serde_json::Value,
     github_proxy_prefix: &str,
 ) -> Result<()> {
-    let repo_path = github_repo_path(repository)?;
+    let repo_path = forge_repo_path(repository, ForgeHost::GitHub)?;
     let expected_api_prefix = format!("https://api.github.com/repos/{}/releases/", repo_path);
     let expected_web_prefix = format!("https://github.com/{}/", repo_path);
 
@@ -200,15 +254,75 @@ fn validate_github_proxy_metadata(
     Ok(())
 }
 
-fn validate_github_download_url(repo_path: &str, download_url: &str) -> Result<()> {
-    let expected = format!("https://github.com/{}/releases/download/", repo_path);
+fn validate_release_download_url(
+    host: ForgeHost,
+    repo_path: &str,
+    version: &str,
+    download_url: &str,
+) -> Result<()> {
+    let expected = match host {
+        ForgeHost::GitHub => format!("https://github.com/{}/releases/download/", repo_path),
+        ForgeHost::GitLab => format!(
+            "https://gitlab.com/{}/-/releases/{}/downloads/",
+            repo_path, version
+        ),
+    };
+
     if download_url.starts_with(&expected) {
         Ok(())
     } else {
         Err(anyhow!(
-            "GitHub proxy returned a download URL for a different repository: {}",
+            "{} returned a download URL for a different repository: {}",
+            host_name(host),
             download_url
         ))
+    }
+}
+
+fn release_assets(
+    host: ForgeHost,
+    resp: &serde_json::Value,
+    repository: &str,
+) -> Result<Vec<ReleaseAsset>> {
+    match host {
+        ForgeHost::GitHub => {
+            let assets = resp["assets"].as_array().with_context(|| {
+                format!(
+                    "Release metadata for {} did not contain an assets array",
+                    repository
+                )
+            })?;
+
+            Ok(assets
+                .iter()
+                .filter_map(|asset| {
+                    Some(ReleaseAsset {
+                        name: asset["name"].as_str()?.to_string(),
+                        download_url: asset["browser_download_url"].as_str()?.to_string(),
+                    })
+                })
+                .collect())
+        }
+        ForgeHost::GitLab => {
+            let links = resp["assets"]["links"].as_array().with_context(|| {
+                format!(
+                    "Release metadata for {} did not contain an assets.links array",
+                    repository
+                )
+            })?;
+
+            Ok(links
+                .iter()
+                .filter_map(|asset| {
+                    let name = asset["name"].as_str()?.to_string();
+                    let download_url = asset["direct_asset_url"]
+                        .as_str()
+                        .or_else(|| asset["url"].as_str())?
+                        .to_string();
+                    Some(ReleaseAsset { name, download_url })
+                })
+                .collect())
+        }
     }
 }
 
@@ -217,29 +331,34 @@ fn resolve_from_release_assets(
     repository: &str,
     pattern: &glob::Pattern,
     version: &str,
-    assets: &[serde_json::Value],
+    assets: &[ReleaseAsset],
     state: Option<&AppState>,
+    host: ForgeHost,
     github_proxy: bool,
-    github_proxy_prefix: &str,
+    github_proxy_prefixes: &[String],
 ) -> Result<CheckResult> {
-    let repo_path = github_repo_path(repository)?;
+    let repo_path = forge_repo_path(repository, host)?;
     for asset in assets {
-        if let Some(name) = asset["name"].as_str()
-            && pattern.matches(name)
-            && let Some(download_url) = asset["browser_download_url"].as_str()
-        {
-            let download_url = if github_proxy {
-                let sanitized = sanitize_github_proxy_url(download_url, github_proxy_prefix);
-                validate_github_download_url(repo_path, &sanitized)?;
+        if pattern.matches(&asset.name) {
+            let download_url = if host == ForgeHost::GitHub && github_proxy {
+                let Some(github_proxy_prefix) = github_proxy_prefixes.first() else {
+                    return Err(anyhow!(
+                        "GitHub proxy is enabled for {} but no proxy prefixes were configured",
+                        repository
+                    ));
+                };
+                let sanitized = sanitize_github_proxy_url(&asset.download_url, github_proxy_prefix);
+                validate_release_download_url(host, repo_path, version, &sanitized)?;
                 sanitized
             } else {
-                download_url.to_string()
+                validate_release_download_url(host, repo_path, version, &asset.download_url)?;
+                asset.download_url.clone()
             };
             return build_check_result(
                 client,
                 repository,
                 version.to_string(),
-                download_url.to_string(),
+                download_url,
                 state,
             );
         }
@@ -247,7 +366,7 @@ fn resolve_from_release_assets(
 
     let available_assets = assets
         .iter()
-        .filter_map(|asset| asset["name"].as_str())
+        .map(|asset| asset.name.as_str())
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -335,22 +454,18 @@ fn resolve_via_single_github_proxy(
             repository
         )
     })?;
-    let assets = resp["assets"].as_array().with_context(|| {
-        format!(
-            "Release metadata for {} did not contain an assets array",
-            repository
-        )
-    })?;
+    let assets = release_assets(ForgeHost::GitHub, &resp, repository)?;
 
     resolve_from_release_assets(
         client,
         repository,
         pattern,
         version,
-        assets,
+        &assets,
         state,
+        ForgeHost::GitHub,
         true,
-        github_proxy_prefix,
+        &[github_proxy_prefix.to_string()],
     )
 }
 
@@ -361,7 +476,7 @@ fn resolve_from_github_release_page(
     html: &str,
     state: Option<&AppState>,
 ) -> Result<CheckResult> {
-    let repo_path = github_repo_path(repository)?;
+    let repo_path = forge_repo_path(repository, ForgeHost::GitHub)?;
     let Some((version, download_url)) = find_release_asset_in_html(html, repo_path, pattern) else {
         return Err(anyhow!(
             "Rate limited for {} and no matching asset was found on the release page for pattern '{}'",
@@ -493,8 +608,57 @@ mod tests {
         .expect_err("expected unsupported repository to fail");
 
         let message = format!("{:#}", err);
-        assert!(message.contains("Only github.com is currently supported"));
+        assert!(message.contains("Only github.com and gitlab.com are currently supported"));
         assert!(message.contains("https://example.com/owner/repo"));
+    }
+
+    #[test]
+    fn gitlab_release_url_uses_permalink_latest_api() {
+        let url = release_api_url(
+            ForgeHost::GitLab,
+            "https://gitlab.com/fpsys/fp-appimage-updater",
+        )
+        .expect("expected gitlab api url");
+
+        assert_eq!(
+            url,
+            "https://gitlab.com/api/v4/projects/fpsys%2Ffp-appimage-updater/releases/permalink/latest"
+        );
+    }
+
+    #[test]
+    fn gitlab_release_assets_use_direct_asset_url() {
+        let resp = serde_json::json!({
+            "tag_name": "v1.2.2",
+            "assets": {
+                "links": [
+                    {
+                        "name": "fp-appimage-updater.x64",
+                        "url": "https://gitlab.com/fpsys/fp-appimage-updater/-/jobs/artifacts/main/raw/build/fp-appimage-updater.x64?job=build-and-compress",
+                        "direct_asset_url": "https://gitlab.com/fpsys/fp-appimage-updater/-/releases/v1.2.2/downloads/bin/fp-appimage-updater.x64"
+                    },
+                    {
+                        "name": "fp-appimage-updater.ARM",
+                        "url": "https://gitlab.com/fpsys/fp-appimage-updater/-/jobs/artifacts/main/raw/build/fp-appimage-updater.ARM?job=build-and-compress",
+                        "direct_asset_url": "https://gitlab.com/fpsys/fp-appimage-updater/-/releases/v1.2.2/downloads/bin/fp-appimage-updater.ARM"
+                    }
+                ]
+            }
+        });
+
+        let assets = release_assets(
+            ForgeHost::GitLab,
+            &resp,
+            "https://gitlab.com/fpsys/fp-appimage-updater",
+        )
+        .expect("expected gitlab assets");
+
+        assert_eq!(assets.len(), 2);
+        assert_eq!(assets[0].name, "fp-appimage-updater.x64");
+        assert_eq!(
+            assets[0].download_url,
+            "https://gitlab.com/fpsys/fp-appimage-updater/-/releases/v1.2.2/downloads/bin/fp-appimage-updater.x64"
+        );
     }
 
     #[test]
