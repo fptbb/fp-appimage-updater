@@ -32,6 +32,31 @@ To clean your work directory:
 just clean
 ```
 
+### Temporary Forge URL Overrides
+If GitHub or GitLab changes an API path, you can temporarily override the forge URLs in the global `config.yml` instead of changing code immediately.
+
+Use the following placeholders in the URL templates:
+- `{account}` for the owner or group name.
+- `{repository}` for the repository name.
+- `{repo_path}` for the full `account/repository` path.
+- `{project_path}` for the GitLab-encoded `account%2Frepository` path.
+
+Supported global keys:
+- `github_release_api_url`
+- `github_release_web_url`
+- `gitlab_release_api_url`
+- `gitlab_release_web_url`
+
+Keep these overrides as short-lived compatibility shims. Once the upstream service is stable again, remove the temporary config and return to the built-in defaults.
+
+Example:
+```yaml
+github_release_api_url: "https://api.example.com/repos/{account}/{repository}/releases/latest"
+github_release_web_url: "https://example.com/{account}/{repository}"
+gitlab_release_api_url: "https://gitlab.example.com/api/v4/projects/{project_path}/releases/permalink/latest"
+gitlab_release_web_url: "https://gitlab.example.com/{repo_path}"
+```
+
 ## Project Architecture Overview
 
 The codebase is split into specific single-responsibility modules under `src/`:
@@ -93,3 +118,15 @@ With `--pre-release`, it resolves the **most recently published** release (stabl
 3. Push to `main` and let the workflow publish the release automatically.
 
 The workflow fails immediately if the version tag already exists - bump the version and retry.
+
+### Deployment Helper
+
+When you are preparing a release or deployment artifact, run the helper script from the repository root:
+
+```bash
+bash scripts/release-bump.sh
+```
+
+This script reads the version from `Cargo.toml`, updates `copr.spec`, refreshes the changelog entry, and stages the release metadata files for you.
+
+Use it after you have set the new version in `Cargo.toml` and before you deploy or publish the release artifacts. The script intentionally leaves the final commit step to you so you can review the release metadata first.

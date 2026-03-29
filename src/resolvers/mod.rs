@@ -7,6 +7,7 @@ pub mod direct;
 pub mod forge;
 pub mod script;
 
+use crate::config::GlobalConfig;
 use crate::config::{AppConfig, StrategyConfig};
 use crate::state::AppState;
 
@@ -98,6 +99,7 @@ pub fn check_for_updates(
     client: &Agent,
     github_proxy: bool,
     github_proxy_prefixes: &[String],
+    global_config: &GlobalConfig,
 ) -> Result<CheckResult> {
     match &app.strategy {
         StrategyConfig::Forge {
@@ -110,6 +112,7 @@ pub fn check_for_updates(
             state,
             github_proxy,
             github_proxy_prefixes,
+            global_config,
         ),
         StrategyConfig::Direct { url, check_method } => {
             direct::resolve(client, url, check_method, state)

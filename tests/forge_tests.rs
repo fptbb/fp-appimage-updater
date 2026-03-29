@@ -1,6 +1,8 @@
+use fp_appimage_updater::config::GlobalConfig;
 use fp_appimage_updater::resolvers::forge::{
-    ForgeHost, find_release_asset_in_html, release_api_url, release_assets,
-    sanitize_github_proxy_url, validate_github_proxy_metadata,
+    ForgeHost, find_release_asset_in_html, find_release_asset_in_html_with_base,
+    github_release_web_url_with_config, release_api_url, release_api_url_with_config,
+    release_assets, sanitize_github_proxy_url, validate_github_proxy_metadata,
 };
 use ureq::Agent;
 
@@ -14,6 +16,7 @@ fn invalid_asset_pattern_is_reported_before_network() {
         None,
         false,
         &[String::from("https://gh-proxy.com/")],
+        &GlobalConfig::default(),
     )
     .expect_err("expected invalid asset pattern to fail");
 
@@ -32,6 +35,7 @@ fn unsupported_repository_is_reported() {
         None,
         false,
         &[String::from("https://gh-proxy.com/")],
+        &GlobalConfig::default(),
     )
     .expect_err("expected unsupported repository to fail");
 
@@ -51,6 +55,42 @@ fn gitlab_release_url_uses_permalink_latest_api() {
     assert_eq!(
         url,
         "https://gitlab.com/api/v4/projects/fpsys%2Ffp-appimage-updater/releases/permalink/latest"
+    );
+}
+
+#[test]
+fn forge_url_templates_render_account_repository_and_repo_path() {
+    let config = GlobalConfig {
+        github_release_api_url: Some(
+            "https://api.example.com/repos/{account}/{repository}/releases/latest".to_string(),
+        ),
+        github_release_web_url: Some("https://example.com/{account}/{repository}".to_string()),
+        gitlab_release_api_url: Some(
+            "https://gitlab.example.com/api/v4/projects/{project_path}/releases/permalink/latest"
+                .to_string(),
+        ),
+        gitlab_release_web_url: Some("https://gitlab.example.com/{repo_path}".to_string()),
+        ..GlobalConfig::default()
+    };
+
+    assert_eq!(
+        release_api_url_with_config(ForgeHost::GitHub, "https://github.com/owner/repo", &config,)
+            .expect("expected github api url"),
+        "https://api.example.com/repos/owner/repo/releases/latest"
+    );
+    assert_eq!(
+        github_release_web_url_with_config("https://github.com/owner/repo", &config)
+            .expect("expected github web url"),
+        "https://example.com/owner/repo"
+    );
+    assert_eq!(
+        release_api_url_with_config(
+            ForgeHost::GitLab,
+            "https://gitlab.com/group/subgroup/repo",
+            &config,
+        )
+        .expect("expected gitlab api url"),
+        "https://gitlab.example.com/api/v4/projects/group%2Fsubgroup%2Frepo/releases/permalink/latest"
     );
 }
 
@@ -104,6 +144,24 @@ fn html_fallback_finds_matching_asset() {
     assert_eq!(
         download_url,
         "https://github.com/owner/repo/releases/download/v1.2.3/app-x86_64.AppImage"
+    );
+}
+
+#[test]
+fn html_fallback_uses_custom_release_base() {
+    let html = r#"
+        <a href="/owner/repo/releases/download/v1.2.3/app-x86_64.AppImage">download</a>
+    "#;
+    let pattern = glob::Pattern::new("*x86_64.AppImage").unwrap();
+
+    let (version, download_url) =
+        find_release_asset_in_html_with_base(html, "https://example.com/owner/repo", &pattern)
+            .expect("expected asset");
+
+    assert_eq!(version, "v1.2.3");
+    assert_eq!(
+        download_url,
+        "https://example.com/owner/repo/releases/download/v1.2.3/app-x86_64.AppImage"
     );
 }
 

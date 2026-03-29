@@ -228,6 +228,7 @@ pub fn run(
                               client: ureq::Agent,
                               github_proxy: bool,
                               github_proxy_prefixes: Vec<String>,
+                              global_config: config::GlobalConfig,
                               tx: mpsc::Sender<UpdateEvent>| {
         std::thread::spawn(move || {
             let _ = tx.send(UpdateEvent::Check(process_update_check_job(
@@ -236,6 +237,7 @@ pub fn run(
                 state,
                 github_proxy,
                 github_proxy_prefixes,
+                &global_config,
             )));
         });
     };
@@ -321,6 +323,7 @@ pub fn run(
                 client.clone(),
                 github_proxy,
                 github_proxy_prefixes,
+                global_config.clone(),
                 tx.clone(),
             );
             active_checks += 1;
@@ -634,6 +637,7 @@ pub fn run(
                     client.clone(),
                     github_proxy,
                     github_proxy_prefixes,
+                    global_config.clone(),
                     tx.clone(),
                 );
                 active_checks += 1;
@@ -747,6 +751,7 @@ fn process_update_check_job(
     state: Option<AppState>,
     github_proxy: bool,
     github_proxy_prefixes: Vec<String>,
+    global_config: &config::GlobalConfig,
 ) -> UpdateWorkResult {
     let started_at = Instant::now();
     let app_name = app.name.clone();
@@ -759,6 +764,7 @@ fn process_update_check_job(
         client,
         github_proxy,
         &github_proxy_prefixes,
+        global_config,
     ) {
         Ok(result) => {
             let capabilities = result.capabilities;

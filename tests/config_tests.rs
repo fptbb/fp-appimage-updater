@@ -79,3 +79,41 @@ strategy:
         Some(GithubProxyPrefixes::Multiple(_))
     ));
 }
+
+#[test]
+fn global_forge_url_templates_are_optional() {
+    let config: GlobalConfig = serde_yaml::from_str(
+        r#"
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: "{name}.AppImage"
+manage_desktop_files: true
+create_symlinks: false
+segmented_downloads: true
+respect_rate_limits: true
+github_proxy: false
+github_release_api_url: "https://api.example.com/repos/{account}/{repository}/releases/latest"
+github_release_web_url: "https://example.com/{account}/{repository}"
+gitlab_release_api_url: "https://gitlab.example.com/api/v4/projects/{project_path}/releases/permalink/latest"
+gitlab_release_web_url: "https://gitlab.example.com/{repo_path}"
+"#,
+    )
+    .expect("expected forge templates to parse");
+
+    assert_eq!(
+        config.github_release_api_url.as_deref(),
+        Some("https://api.example.com/repos/{account}/{repository}/releases/latest")
+    );
+    assert_eq!(
+        config.github_release_web_url.as_deref(),
+        Some("https://example.com/{account}/{repository}")
+    );
+    assert_eq!(
+        config.gitlab_release_api_url.as_deref(),
+        Some("https://gitlab.example.com/api/v4/projects/{project_path}/releases/permalink/latest")
+    );
+    assert_eq!(
+        config.gitlab_release_web_url.as_deref(),
+        Some("https://gitlab.example.com/{repo_path}")
+    );
+}

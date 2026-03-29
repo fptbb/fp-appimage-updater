@@ -32,6 +32,14 @@ pub struct GlobalConfig {
     pub github_proxy: bool,
     #[serde(default = "default_github_proxy_prefix")]
     pub github_proxy_prefix: GithubProxyPrefixes,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub github_release_api_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub github_release_web_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub gitlab_release_api_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub gitlab_release_web_url: Option<String>,
 }
 
 impl Default for GlobalConfig {
@@ -46,6 +54,10 @@ impl Default for GlobalConfig {
             respect_rate_limits: true,
             github_proxy: false,
             github_proxy_prefix: GithubProxyPrefixes::Single("https://gh-proxy.com/".to_string()),
+            github_release_api_url: None,
+            github_release_web_url: None,
+            gitlab_release_api_url: None,
+            gitlab_release_web_url: None,
         }
     }
 }

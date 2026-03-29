@@ -88,6 +88,7 @@ pub fn run(
                               client: ureq::Agent,
                               github_proxy: bool,
                               github_proxy_prefixes: Vec<String>,
+                              global_config: config::GlobalConfig,
                               tx: mpsc::Sender<CheckWorkResult>| {
         std::thread::spawn(move || {
             let _ = tx.send(process_check_job(
@@ -96,6 +97,7 @@ pub fn run(
                 &client,
                 github_proxy,
                 github_proxy_prefixes,
+                &global_config,
             ));
         });
     };
@@ -110,6 +112,7 @@ pub fn run(
                 client.clone(),
                 github_proxy,
                 github_proxy_prefixes,
+                global_config.clone(),
                 tx.clone(),
             );
             active += 1;
@@ -165,6 +168,7 @@ pub fn run(
                 client.clone(),
                 github_proxy,
                 github_proxy_prefixes,
+                global_config.clone(),
                 tx.clone(),
             );
             active += 1;
@@ -230,6 +234,7 @@ fn process_check_job(
     client: &ureq::Agent,
     github_proxy: bool,
     github_proxy_prefixes: Vec<String>,
+    global_config: &config::GlobalConfig,
 ) -> CheckWorkResult {
     let started_at = Instant::now();
     let local_version = state.as_ref().and_then(|s| s.local_version.clone());
@@ -240,6 +245,7 @@ fn process_check_job(
         client,
         github_proxy,
         &github_proxy_prefixes,
+        global_config,
     ) {
         Ok(result) => {
             let mut capabilities = result.capabilities;

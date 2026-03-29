@@ -1,3 +1,4 @@
+use crate::config::GlobalConfig;
 use crate::state::AppState;
 use anyhow::{Context, Result, anyhow};
 use ureq::Agent;
@@ -16,6 +17,14 @@ pub struct ReleaseAsset {
     pub download_url: String,
 }
 
+#[derive(Debug, Clone)]
+struct ForgeRepoInfo {
+    account: String,
+    repository: String,
+    repo_path: String,
+    project_path: String,
+}
+
 pub fn resolve(
     client: &Agent,
     repository: &str,
@@ -23,9 +32,10 @@ pub fn resolve(
     state: Option<&AppState>,
     github_proxy: bool,
     github_proxy_prefixes: &[String],
+    global_config: &GlobalConfig,
 ) -> Result<CheckResult> {
     let host = forge_host(repository)?;
-    let url = release_api_url(host, repository)?;
+    let url = release_api_url_with_config(host, repository, global_config)?;
     let pattern = glob::Pattern::new(asset_match).with_context(|| {
         format!(
             "Invalid asset_match pattern '{}' for {}",
@@ -62,6 +72,7 @@ pub fn resolve(
                 &pattern,
                 state,
                 github_proxy_prefixes,
+                global_config,
             )
             .map_err(|e| {
                 anyhow::Error::from(rate_limit.clone()).context(format!(
@@ -73,7 +84,7 @@ pub fn resolve(
         }
 
         if host == ForgeHost::GitHub {
-            let html_url = github_release_web_url(repository)?;
+            let html_url = github_release_page_url(repository)?;
             let html = client
                 .get(&html_url)
                 .call()
@@ -90,14 +101,21 @@ pub fn resolve(
                     format!("Failed to read GitHub release page for {}", repository)
                 })?;
 
-            return resolve_from_github_release_page(client, repository, &pattern, &html, state)
-                .map_err(|e| {
-                    anyhow::Error::from(rate_limit.clone()).context(format!(
-                        "{} {}",
-                        rate_limit.short_message(),
-                        e
-                    ))
-                });
+            return resolve_from_github_release_page(
+                client,
+                repository,
+                &pattern,
+                &html,
+                state,
+                global_config,
+            )
+            .map_err(|e| {
+                anyhow::Error::from(rate_limit.clone()).context(format!(
+                    "{} {}",
+                    rate_limit.short_message(),
+                    e
+                ))
+            });
         }
 
         return Err(anyhow::Error::from(rate_limit).context(format!(
@@ -141,6 +159,7 @@ pub fn resolve(
         host,
         github_proxy,
         github_proxy_prefixes,
+        global_config,
     )
 }
 
@@ -181,6 +200,26 @@ fn forge_repo_path(repository: &str, host: ForgeHost) -> Result<&str> {
     }
 }
 
+fn forge_repo_info(repository: &str, host: ForgeHost) -> Result<ForgeRepoInfo> {
+    let repo_path = forge_repo_path(repository, host)?;
+    let mut parts = repo_path.split('/');
+    let account = parts
+        .next()
+        .context("Repository URL did not contain an account segment")?
+        .to_string();
+    let repository = parts
+        .next_back()
+        .context("Repository URL did not contain a repository segment")?
+        .to_string();
+
+    Ok(ForgeRepoInfo {
+        account,
+        repository,
+        repo_path: repo_path.to_string(),
+        project_path: repo_path.replace('/', "%2F"),
+    })
+}
+
 fn encoded_gitlab_project_path(repository: &str) -> Result<String> {
     Ok(forge_repo_path(repository, ForgeHost::GitLab)?.replace('/', "%2F"))
 }
@@ -197,7 +236,80 @@ pub fn release_api_url(host: ForgeHost, repository: &str) -> Result<String> {
     }
 }
 
+fn render_forge_template(template: &str, repo: &ForgeRepoInfo) -> String {
+    template
+        .replace("{account}", &repo.account)
+        .replace("{repository}", &repo.repository)
+        .replace("{repo_path}", &repo.repo_path)
+        .replace("{project_path}", &repo.project_path)
+}
+
+fn release_api_url_with_template(
+    host: ForgeHost,
+    repository: &str,
+    template: Option<&str>,
+) -> Result<String> {
+    if let Some(template) = template {
+        let repo = forge_repo_info(repository, host)?;
+        return Ok(render_forge_template(template, &repo));
+    }
+
+    release_api_url(host, repository)
+}
+
+pub fn release_api_url_with_config(
+    host: ForgeHost,
+    repository: &str,
+    global_config: &GlobalConfig,
+) -> Result<String> {
+    match host {
+        ForgeHost::GitHub => release_api_url_with_template(
+            host,
+            repository,
+            global_config.github_release_api_url.as_deref(),
+        ),
+        ForgeHost::GitLab => release_api_url_with_template(
+            host,
+            repository,
+            global_config.gitlab_release_api_url.as_deref(),
+        ),
+    }
+}
+
 fn github_release_web_url(repository: &str) -> Result<String> {
+    if repository.starts_with("https://github.com/") {
+        Ok(repository.to_string())
+    } else {
+        Err(anyhow!(
+            "Only github.com is currently supported for the repository base URL, got {}",
+            repository
+        ))
+    }
+}
+
+fn github_release_web_url_with_template(
+    repository: &str,
+    template: Option<&str>,
+) -> Result<String> {
+    if let Some(template) = template {
+        let repo = forge_repo_info(repository, ForgeHost::GitHub)?;
+        return Ok(render_forge_template(template, &repo));
+    }
+
+    github_release_web_url(repository)
+}
+
+pub fn github_release_web_url_with_config(
+    repository: &str,
+    global_config: &GlobalConfig,
+) -> Result<String> {
+    github_release_web_url_with_template(
+        repository,
+        global_config.github_release_web_url.as_deref(),
+    )
+}
+
+fn github_release_page_url(repository: &str) -> Result<String> {
     if repository.starts_with("https://github.com/") {
         Ok(format!("{}/releases/latest", repository))
     } else {
@@ -213,6 +325,18 @@ pub fn github_proxy_release_url(repository: &str, github_proxy_prefix: &str) -> 
         "{}{}",
         github_proxy_prefix,
         release_api_url(ForgeHost::GitHub, repository)?
+    ))
+}
+
+fn github_proxy_release_url_with_config(
+    repository: &str,
+    github_proxy_prefix: &str,
+    global_config: &GlobalConfig,
+) -> Result<String> {
+    Ok(format!(
+        "{}{}",
+        github_proxy_prefix,
+        release_api_url_with_config(ForgeHost::GitHub, repository, global_config)?
     ))
 }
 
@@ -254,17 +378,58 @@ pub fn validate_github_proxy_metadata(
     Ok(())
 }
 
+fn validate_github_proxy_metadata_with_config(
+    repository: &str,
+    resp: &serde_json::Value,
+    github_proxy_prefix: &str,
+    global_config: &GlobalConfig,
+) -> Result<()> {
+    let api_url = release_api_url_with_config(ForgeHost::GitHub, repository, global_config)?;
+    let expected_api_prefix = api_url
+        .rsplit_once('/')
+        .map(|(prefix, _)| format!("{}/", prefix))
+        .unwrap_or_else(|| api_url.clone());
+    let web_url = github_release_web_url_with_config(repository, global_config)?;
+    let expected_web_prefix = format!("{}/", web_url.trim_end_matches('/'));
+
+    if let Some(api_url) = resp["url"].as_str() {
+        let api_url = sanitize_github_proxy_url(api_url, github_proxy_prefix);
+        if !api_url.starts_with(&expected_api_prefix) {
+            return Err(anyhow!(
+                "GitHub proxy returned metadata for a different repository: {}",
+                api_url
+            ));
+        }
+    }
+
+    if let Some(html_url) = resp["html_url"].as_str() {
+        let html_url = sanitize_github_proxy_url(html_url, github_proxy_prefix);
+        if !html_url.starts_with(&expected_web_prefix) {
+            return Err(anyhow!(
+                "GitHub proxy returned metadata for a different repository: {}",
+                html_url
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 fn validate_release_download_url(
     host: ForgeHost,
-    repo_path: &str,
+    release_web_url: &str,
     version: &str,
     download_url: &str,
 ) -> Result<()> {
     let expected = match host {
-        ForgeHost::GitHub => format!("https://github.com/{}/releases/download/", repo_path),
+        ForgeHost::GitHub => format!(
+            "{}/releases/download/",
+            release_web_url.trim_end_matches('/')
+        ),
         ForgeHost::GitLab => format!(
-            "https://gitlab.com/{}/-/releases/{}/downloads/",
-            repo_path, version
+            "{}/-/releases/{}/downloads/",
+            release_web_url.trim_end_matches('/'),
+            version
         ),
     };
 
@@ -336,8 +501,19 @@ fn resolve_from_release_assets(
     host: ForgeHost,
     github_proxy: bool,
     github_proxy_prefixes: &[String],
+    global_config: &GlobalConfig,
 ) -> Result<CheckResult> {
-    let repo_path = forge_repo_path(repository, host)?;
+    let release_web_url = match host {
+        ForgeHost::GitHub => github_release_web_url_with_config(repository, global_config)?,
+        ForgeHost::GitLab => {
+            if let Some(template) = global_config.gitlab_release_web_url.as_deref() {
+                let repo = forge_repo_info(repository, host)?;
+                render_forge_template(template, &repo)
+            } else {
+                format!("https://gitlab.com/{}", forge_repo_path(repository, host)?)
+            }
+        }
+    };
     for asset in assets {
         if pattern.matches(&asset.name) {
             let download_url = if host == ForgeHost::GitHub && github_proxy {
@@ -348,10 +524,15 @@ fn resolve_from_release_assets(
                     ));
                 };
                 let sanitized = sanitize_github_proxy_url(&asset.download_url, github_proxy_prefix);
-                validate_release_download_url(host, repo_path, version, &sanitized)?;
+                validate_release_download_url(host, &release_web_url, version, &sanitized)?;
                 sanitized
             } else {
-                validate_release_download_url(host, repo_path, version, &asset.download_url)?;
+                validate_release_download_url(
+                    host,
+                    &release_web_url,
+                    version,
+                    &asset.download_url,
+                )?;
                 asset.download_url.clone()
             };
             return build_check_result(
@@ -388,6 +569,7 @@ fn resolve_via_github_proxy(
     pattern: &glob::Pattern,
     state: Option<&AppState>,
     github_proxy_prefixes: &[String],
+    global_config: &GlobalConfig,
 ) -> Result<CheckResult> {
     let mut last_error = None;
     let mut last_rate_limit = None;
@@ -399,6 +581,7 @@ fn resolve_via_github_proxy(
             pattern,
             state,
             github_proxy_prefix,
+            global_config,
         ) {
             Ok(result) => return Ok(result),
             Err(err) => {
@@ -431,8 +614,10 @@ fn resolve_via_single_github_proxy(
     pattern: &glob::Pattern,
     state: Option<&AppState>,
     github_proxy_prefix: &str,
+    global_config: &GlobalConfig,
 ) -> Result<CheckResult> {
-    let proxy_url = github_proxy_release_url(repository, github_proxy_prefix)?;
+    let proxy_url =
+        github_proxy_release_url_with_config(repository, github_proxy_prefix, global_config)?;
     let response = client
         .get(&proxy_url)
         .config()
@@ -462,7 +647,12 @@ fn resolve_via_single_github_proxy(
             repository
         )
     })?;
-    validate_github_proxy_metadata(repository, &resp, github_proxy_prefix)?;
+    validate_github_proxy_metadata_with_config(
+        repository,
+        &resp,
+        github_proxy_prefix,
+        global_config,
+    )?;
     let version = resp["tag_name"].as_str().with_context(|| {
         format!(
             "Release metadata for {} did not contain tag_name",
@@ -481,6 +671,7 @@ fn resolve_via_single_github_proxy(
         ForgeHost::GitHub,
         true,
         &[github_proxy_prefix.to_string()],
+        global_config,
     )
 }
 
@@ -490,9 +681,12 @@ fn resolve_from_github_release_page(
     pattern: &glob::Pattern,
     html: &str,
     state: Option<&AppState>,
+    global_config: &GlobalConfig,
 ) -> Result<CheckResult> {
-    let repo_path = forge_repo_path(repository, ForgeHost::GitHub)?;
-    let Some((version, download_url)) = find_release_asset_in_html(html, repo_path, pattern) else {
+    let release_web_url = github_release_web_url_with_config(repository, global_config)?;
+    let Some((version, download_url)) =
+        find_release_asset_in_html_with_base(html, &release_web_url, pattern)
+    else {
         return Err(anyhow!(
             "Rate limited for {} and no matching asset was found on the release page for pattern '{}'",
             repository,
@@ -556,31 +750,51 @@ pub fn find_release_asset_in_html(
     repo_path: &str,
     pattern: &glob::Pattern,
 ) -> Option<(String, String)> {
-    let needle = format!("{}/releases/download/", repo_path);
-    let mut search_start = 0usize;
+    let release_web_url = format!("https://github.com/{}", repo_path.trim_start_matches('/'));
+    find_release_asset_in_html_with_base(html, &release_web_url, pattern)
+}
 
-    while let Some(relative_idx) = html[search_start..].find(&needle) {
-        let start = search_start + relative_idx;
-        let after = &html[start + needle.len()..];
-        let tag_end = after.find('/')?;
-        let version = &after[..tag_end];
-        let after_tag = &after[tag_end + 1..];
-        let file_end = after_tag
-            .find(|c: char| c == '"' || c == '\'' || c == '?' || c == '<' || c.is_whitespace())
-            .unwrap_or(after_tag.len());
-        let asset_name = &after_tag[..file_end];
+pub fn find_release_asset_in_html_with_base(
+    html: &str,
+    release_web_url: &str,
+    pattern: &glob::Pattern,
+) -> Option<(String, String)> {
+    let absolute_needle = format!(
+        "{}/releases/download/",
+        release_web_url.trim_end_matches('/')
+    );
+    let relative_base = release_web_url
+        .split_once("://")
+        .and_then(|(_, rest)| rest.split_once('/').map(|(_, path)| format!("/{}", path)))
+        .unwrap_or_else(|| release_web_url.trim_end_matches('/').to_string());
+    let relative_needle = format!("{}/releases/download/", relative_base.trim_end_matches('/'));
 
-        if pattern.matches(asset_name) {
-            let download_url = format!(
-                "https://github.com{}/{}/{}",
-                repo_path,
-                "releases/download",
-                format!("{}/{}", version, asset_name)
-            );
-            return Some((version.to_string(), download_url));
+    for needle in [absolute_needle, relative_needle] {
+        let mut search_start = 0usize;
+
+        while let Some(relative_idx) = html[search_start..].find(&needle) {
+            let start = search_start + relative_idx;
+            let after = &html[start + needle.len()..];
+            let tag_end = after.find('/')?;
+            let version = &after[..tag_end];
+            let after_tag = &after[tag_end + 1..];
+            let file_end = after_tag
+                .find(|c: char| c == '"' || c == '\'' || c == '?' || c == '<' || c.is_whitespace())
+                .unwrap_or(after_tag.len());
+            let asset_name = &after_tag[..file_end];
+
+            if pattern.matches(asset_name) {
+                let download_url = format!(
+                    "{}/releases/download/{}/{}",
+                    release_web_url.trim_end_matches('/'),
+                    version,
+                    asset_name
+                );
+                return Some((version.to_string(), download_url));
+            }
+
+            search_start = start + needle.len();
         }
-
-        search_start = start + needle.len();
     }
 
     None
