@@ -390,6 +390,7 @@ fn resolve_via_github_proxy(
     github_proxy_prefixes: &[String],
 ) -> Result<CheckResult> {
     let mut last_error = None;
+    let mut last_rate_limit = None;
 
     for github_proxy_prefix in github_proxy_prefixes {
         match resolve_via_single_github_proxy(
@@ -401,15 +402,22 @@ fn resolve_via_github_proxy(
         ) {
             Ok(result) => return Ok(result),
             Err(err) => {
-                last_error = Some(err.context(format!(
-                    "GitHub proxy {} failed for {}",
-                    github_proxy_prefix, repository
-                )));
+                if err.downcast_ref::<super::RateLimitInfo>().is_some() {
+                    last_rate_limit = Some(err.context(format!(
+                        "GitHub proxy {} rate limited for {}",
+                        github_proxy_prefix, repository
+                    )));
+                } else {
+                    last_error = Some(err.context(format!(
+                        "GitHub proxy {} failed for {}",
+                        github_proxy_prefix, repository
+                    )));
+                }
             }
         }
     }
 
-    Err(last_error.unwrap_or_else(|| {
+    Err(last_rate_limit.or(last_error).unwrap_or_else(|| {
         anyhow!(
             "GitHub proxy is enabled for {} but no proxy prefixes were configured",
             repository
@@ -434,6 +442,13 @@ fn resolve_via_single_github_proxy(
         .with_context(|| format!("Failed to reach GitHub proxy for {}", repository))?;
 
     if !response.status().is_success() {
+        if let Some(rate_limit) = rate_limit_info_from_headers(response.headers()) {
+            return Err(anyhow::Error::from(rate_limit).context(format!(
+                "GitHub proxy returned {} for {}",
+                response.status(),
+                repository
+            )));
+        }
         return Err(anyhow!(
             "GitHub proxy returned {} for {}",
             response.status(),
