@@ -24,6 +24,8 @@ pub enum UpdateWorkResult {
         elapsed: Duration,
         capabilities: Vec<String>,
         segmented_downloads: Option<bool>,
+        forge_repository: Option<String>,
+        forge_platform: Option<crate::state::ForgePlatform>,
     },
     Updated {
         app: config::AppConfig,
@@ -37,6 +39,8 @@ pub enum UpdateWorkResult {
         capabilities: Vec<String>,
         segmented_downloads: Option<bool>,
         progress_completion_rendered: bool,
+        forge_repository: Option<String>,
+        forge_platform: Option<crate::state::ForgePlatform>,
     },
     UpToDate {
         name: String,
@@ -45,6 +49,8 @@ pub enum UpdateWorkResult {
         elapsed: Duration,
         capabilities: Vec<String>,
         segmented_downloads: Option<bool>,
+        forge_repository: Option<String>,
+        forge_platform: Option<crate::state::ForgePlatform>,
     },
     RateLimited {
         name: String,
@@ -64,6 +70,8 @@ pub enum UpdateWorkResult {
         segmented_downloads: Option<bool>,
         rate_limited_until: Option<u64>,
         error: String,
+        forge_repository: Option<String>,
+        forge_platform: Option<crate::state::ForgePlatform>,
     },
 }
 
@@ -84,6 +92,8 @@ pub struct UpdateDownloadJob {
     pub capabilities: Vec<String>,
     pub segmented_downloads: Option<bool>,
     pub provider: String,
+    pub forge_repository: Option<String>,
+    pub forge_platform: Option<crate::state::ForgePlatform>,
 }
 
 pub struct ProviderDownloadScheduler {
@@ -362,6 +372,8 @@ pub fn run(
                         elapsed: _,
                         capabilities,
                         segmented_downloads,
+                        forge_repository,
+                        forge_platform,
                     } => {
                         let provider = download_provider_key(&info.download_url);
                         pending_downloads.push_back(UpdateDownloadJob {
@@ -373,6 +385,8 @@ pub fn run(
                             capabilities,
                             segmented_downloads,
                             provider,
+                            forge_repository,
+                            forge_platform,
                         });
                     }
                     UpdateWorkResult::UpToDate {
@@ -382,9 +396,17 @@ pub fn run(
                         elapsed: _,
                         capabilities,
                         segmented_downloads,
+                        forge_repository,
+                        forge_platform,
                     } => {
                         let state = state_manager.get_app_mut(&name);
-                        cache_app_metadata(state, capabilities, segmented_downloads);
+                        cache_app_metadata(
+                            state,
+                            capabilities,
+                            segmented_downloads,
+                            forge_repository,
+                            forge_platform,
+                        );
                         results.push(UpdateApp {
                             name: name.clone(),
                             status: UpdateStatus::UpToDate,
@@ -448,9 +470,17 @@ pub fn run(
                         segmented_downloads,
                         rate_limited_until,
                         error,
+                        forge_repository,
+                        forge_platform,
                     } => {
                         let state = state_manager.get_app_mut(&name);
-                        cache_app_metadata(state, capabilities, segmented_downloads);
+                        cache_app_metadata(
+                            state,
+                            capabilities,
+                            segmented_downloads,
+                            forge_repository,
+                            forge_platform,
+                        );
                         state.rate_limited_until = rate_limited_until;
                         results.push(UpdateApp {
                             name: name.clone(),
@@ -497,6 +527,8 @@ pub fn run(
                         capabilities,
                         segmented_downloads,
                         progress_completion_rendered,
+                        forge_repository,
+                        forge_platform,
                     } => {
                         let app_name = app.name.clone();
                         let to_version = info.version.clone();
@@ -514,7 +546,13 @@ pub fn run(
                             integrator::integrate(&app, global_config, &new_path, old_path_ref)
                         {
                             let state = state_manager.get_app_mut(&app_name);
-                            cache_app_metadata(state, capabilities, segmented_downloads);
+                            cache_app_metadata(
+                                state,
+                                capabilities,
+                                segmented_downloads,
+                                forge_repository,
+                                forge_platform,
+                            );
                             results.push(UpdateApp {
                                 name: app_name.clone(),
                                 status: UpdateStatus::Error,
@@ -547,7 +585,13 @@ pub fn run(
                                 state_mut.last_modified = Some(lm);
                             }
                             state_mut.file_path = Some(new_path.to_string_lossy().to_string());
-                            cache_app_metadata(state_mut, capabilities, segmented_downloads);
+                            cache_app_metadata(
+                                state_mut,
+                                capabilities,
+                                segmented_downloads,
+                                forge_repository,
+                                forge_platform,
+                            );
 
                             results.push(UpdateApp {
                                 name: app_name.clone(),
@@ -599,9 +643,17 @@ pub fn run(
                         segmented_downloads,
                         rate_limited_until,
                         error,
+                        forge_repository,
+                        forge_platform,
                     } => {
                         let state = state_manager.get_app_mut(&name);
-                        cache_app_metadata(state, capabilities, segmented_downloads);
+                        cache_app_metadata(
+                            state,
+                            capabilities,
+                            segmented_downloads,
+                            forge_repository,
+                            forge_platform,
+                        );
                         state.rate_limited_until = rate_limited_until;
                         results.push(UpdateApp {
                             name: name.clone(),
@@ -767,9 +819,14 @@ fn process_update_check_job(
         global_config,
     ) {
         Ok(result) => {
-            let capabilities = result.capabilities;
-            let segmented_support = result.segmented_downloads;
-            let Some(info) = result.update else {
+            let resolvers::CheckResult {
+                update,
+                capabilities,
+                segmented_downloads: segmented_support,
+                forge_repository,
+                forge_platform,
+            } = result;
+            let Some(info) = update else {
                 return UpdateWorkResult::UpToDate {
                     name: app_name,
                     from_version,
@@ -777,6 +834,8 @@ fn process_update_check_job(
                     elapsed: started_at.elapsed(),
                     capabilities,
                     segmented_downloads: segmented_support,
+                    forge_repository,
+                    forge_platform,
                 };
             };
             UpdateWorkResult::ReadyToDownload {
@@ -788,6 +847,8 @@ fn process_update_check_job(
                 elapsed: started_at.elapsed(),
                 capabilities,
                 segmented_downloads: segmented_support,
+                forge_repository,
+                forge_platform,
             }
         }
         Err(e) => {
@@ -814,6 +875,8 @@ fn process_update_check_job(
                     segmented_downloads: None,
                     rate_limited_until: None,
                     error: format!("{:#}", e),
+                    forge_repository: None,
+                    forge_platform: None,
                 }
             }
         }
@@ -839,6 +902,8 @@ fn process_update_download_job(
         capabilities,
         segmented_downloads: segmented_support,
         provider: _,
+        forge_repository,
+        forge_platform,
     } = job;
     let app_name = app.name.clone();
     let to_version = info.version.clone();
@@ -866,6 +931,8 @@ fn process_update_download_job(
             capabilities,
             segmented_downloads: download_result.segmented_downloads.or(segmented_support),
             progress_completion_rendered: download_result.progress_completion_rendered,
+            forge_repository,
+            forge_platform,
         },
         Err(e) => UpdateWorkResult::Error {
             stage: UpdateErrorStage::Download,
@@ -878,6 +945,8 @@ fn process_update_download_job(
             segmented_downloads: segmented_support,
             rate_limited_until: None,
             error: format!("Download failed: {:#}", e),
+            forge_repository,
+            forge_platform,
         },
     }
 }

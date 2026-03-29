@@ -105,12 +105,25 @@ pub fn cache_app_metadata(
     state: &mut AppState,
     capabilities: Vec<String>,
     segmented_downloads: Option<bool>,
+    forge_repository: Option<String>,
+    forge_platform: Option<crate::state::ForgePlatform>,
 ) {
     let mut capabilities = capabilities;
     resolvers::dedupe_capabilities(&mut capabilities);
     state.capabilities = capabilities;
     if let Some(segmented_downloads) = segmented_downloads {
         state.segmented_downloads = Some(segmented_downloads);
+    }
+
+    match (forge_repository, forge_platform) {
+        (Some(repository), Some(platform)) => {
+            state.forge_repository = Some(repository);
+            state.forge_platform = Some(platform);
+        }
+        _ => {
+            state.forge_repository = None;
+            state.forge_platform = None;
+        }
     }
 }
 

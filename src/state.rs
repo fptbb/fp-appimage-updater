@@ -3,6 +3,15 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ForgePlatform {
+    GitHub,
+    GitLab,
+    Gitea,
+    Forgejo,
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct AppState {
     pub local_version: Option<String>,
@@ -15,6 +24,10 @@ pub struct AppState {
     pub capabilities: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub segmented_downloads: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forge_repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forge_platform: Option<ForgePlatform>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]

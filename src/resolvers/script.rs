@@ -120,5 +120,7 @@ pub fn resolve(
         update,
         capabilities,
         segmented_downloads,
+        forge_repository: None,
+        forge_platform: None,
     })
 }

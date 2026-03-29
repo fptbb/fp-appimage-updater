@@ -9,7 +9,7 @@ pub mod script;
 
 use crate::config::GlobalConfig;
 use crate::config::{AppConfig, StrategyConfig};
-use crate::state::AppState;
+use crate::state::{AppState, ForgePlatform};
 
 #[derive(Debug)]
 pub struct UpdateInfo {
@@ -24,6 +24,8 @@ pub struct CheckResult {
     pub update: Option<UpdateInfo>,
     pub capabilities: Vec<String>,
     pub segmented_downloads: Option<bool>,
+    pub forge_repository: Option<String>,
+    pub forge_platform: Option<ForgePlatform>,
 }
 
 #[derive(Debug, Clone)]

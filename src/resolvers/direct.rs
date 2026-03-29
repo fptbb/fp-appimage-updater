@@ -91,6 +91,8 @@ pub fn resolve(
             }),
             capabilities,
             segmented_downloads,
+            forge_repository: None,
+            forge_platform: None,
         })
     } else {
         dedupe_capabilities(&mut capabilities);
@@ -99,6 +101,8 @@ pub fn resolve(
             update: None,
             capabilities,
             segmented_downloads,
+            forge_repository: None,
+            forge_platform: None,
         })
     }
 }

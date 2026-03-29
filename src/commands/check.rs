@@ -14,6 +14,8 @@ pub enum CheckWorkResult {
         elapsed: Duration,
         cache_capabilities: Vec<String>,
         segmented_downloads: Option<bool>,
+        forge_repository: Option<String>,
+        forge_platform: Option<crate::state::ForgePlatform>,
     },
     RateLimited {
         app: CheckApp,
@@ -131,9 +133,17 @@ pub fn run(
                 elapsed,
                 cache_capabilities,
                 segmented_downloads,
+                forge_repository,
+                forge_platform,
             } => {
                 let state = state_manager.get_app_mut(&app_result.name);
-                cache_app_metadata(state, cache_capabilities, segmented_downloads);
+                cache_app_metadata(
+                    state,
+                    cache_capabilities,
+                    segmented_downloads,
+                    forge_repository,
+                    forge_platform,
+                );
                 results.push(app_result);
                 worker_limit = adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
             }
@@ -248,7 +258,13 @@ fn process_check_job(
         global_config,
     ) {
         Ok(result) => {
-            let mut capabilities = result.capabilities;
+            let resolvers::CheckResult {
+                update,
+                mut capabilities,
+                segmented_downloads,
+                forge_repository,
+                forge_platform,
+            } = result;
             let cache_capabilities = capabilities.clone();
             if matches!(
                 app.zsync,
@@ -259,7 +275,7 @@ fn process_check_job(
             resolvers::dedupe_capabilities(&mut capabilities);
             let elapsed = started_at.elapsed();
 
-            match result.update {
+            match update {
                 Some(info) => CheckWorkResult::Ok {
                     app: CheckApp {
                         name: app.name,
@@ -273,7 +289,9 @@ fn process_check_job(
                     },
                     elapsed,
                     cache_capabilities,
-                    segmented_downloads: result.segmented_downloads,
+                    segmented_downloads,
+                    forge_repository,
+                    forge_platform,
                 },
                 None => CheckWorkResult::Ok {
                     app: CheckApp {
@@ -288,7 +306,9 @@ fn process_check_job(
                     },
                     elapsed,
                     cache_capabilities,
-                    segmented_downloads: result.segmented_downloads,
+                    segmented_downloads,
+                    forge_repository,
+                    forge_platform,
                 },
             }
         }

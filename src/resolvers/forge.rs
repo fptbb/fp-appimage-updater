@@ -5,11 +5,7 @@ use ureq::Agent;
 
 use super::{CheckResult, UpdateInfo, dedupe_capabilities, rate_limit_info_from_headers};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ForgeHost {
-    GitHub,
-    GitLab,
-}
+pub use crate::state::ForgePlatform as ForgeHost;
 
 #[derive(Debug, Clone)]
 pub struct ReleaseAsset {
@@ -25,6 +21,107 @@ struct ForgeRepoInfo {
     project_path: String,
 }
 
+fn repository_origin(repository: &str) -> Result<String> {
+    let (scheme, rest) = repository
+        .split_once("://")
+        .context("Repository URL did not contain a scheme")?;
+    let (host, _) = rest
+        .split_once('/')
+        .context("Repository URL did not contain a repository path")?;
+    Ok(format!("{scheme}://{host}"))
+}
+
+fn repository_path(repository: &str) -> Result<&str> {
+    let (_, rest) = repository
+        .split_once("://")
+        .context("Repository URL did not contain a scheme")?;
+    let (_, path) = rest
+        .split_once('/')
+        .context("Repository URL did not contain a repository path")?;
+    let path = path.trim_end_matches('/');
+    if path.is_empty() {
+        Err(anyhow!(
+            "Repository URL did not contain an account and repository: {}",
+            repository
+        ))
+    } else {
+        Ok(path)
+    }
+}
+
+fn repository_host(repository: &str) -> Result<&str> {
+    let (_, rest) = repository
+        .split_once("://")
+        .context("Repository URL did not contain a scheme")?;
+    let (host, _) = rest
+        .split_once('/')
+        .context("Repository URL did not contain a repository path")?;
+    Ok(host)
+}
+
+fn cached_forge_platform(state: Option<&AppState>, repository: &str) -> Option<ForgeHost> {
+    state
+        .filter(|state| state.forge_repository.as_deref() == Some(repository))
+        .and_then(|state| state.forge_platform)
+}
+
+pub fn forge_platform_from_swagger_title(title: &str) -> Option<ForgeHost> {
+    match title.trim() {
+        "Gitea API" => Some(ForgeHost::Gitea),
+        "Forgejo API" => Some(ForgeHost::Forgejo),
+        "GitHub API" => Some(ForgeHost::GitHub),
+        "GitLab API" => Some(ForgeHost::GitLab),
+        _ => None,
+    }
+}
+
+fn detect_forge_platform(client: &Agent, repository: &str) -> Result<ForgeHost> {
+    let swagger_url = format!("{}/swagger.v1.json", repository_origin(repository)?);
+    let response = client
+        .get(&swagger_url)
+        .call()
+        .with_context(|| format!("Failed to reach forge swagger endpoint for {}", repository))?;
+
+    if !response.status().is_success() {
+        return Err(anyhow!(
+            "Failed to detect forge platform for {} from {}: {}",
+            repository,
+            swagger_url,
+            response.status()
+        ));
+    }
+
+    let resp: serde_json::Value = response.into_body().read_json().with_context(|| {
+        format!(
+            "Failed to parse forge swagger metadata for {} from {}",
+            repository, swagger_url
+        )
+    })?;
+    let title = resp["info"]["title"]
+        .as_str()
+        .context("Forge swagger response did not contain info.title")?;
+
+    forge_platform_from_swagger_title(title).ok_or_else(|| {
+        anyhow!(
+            "Unsupported forge API title '{}' returned by {}",
+            title,
+            swagger_url
+        )
+    })
+}
+
+fn forge_host(client: &Agent, repository: &str, state: Option<&AppState>) -> Result<ForgeHost> {
+    if let Some(platform) = cached_forge_platform(state, repository) {
+        return Ok(platform);
+    }
+
+    match repository_host(repository)? {
+        "github.com" => Ok(ForgeHost::GitHub),
+        "gitlab.com" => Ok(ForgeHost::GitLab),
+        _ => detect_forge_platform(client, repository),
+    }
+}
+
 pub fn resolve(
     client: &Agent,
     repository: &str,
@@ -34,7 +131,7 @@ pub fn resolve(
     github_proxy_prefixes: &[String],
     global_config: &GlobalConfig,
 ) -> Result<CheckResult> {
-    let host = forge_host(repository)?;
+    let host = forge_host(client, repository, state)?;
     let url = release_api_url_with_config(host, repository, global_config)?;
     let pattern = glob::Pattern::new(asset_match).with_context(|| {
         format!(
@@ -163,41 +260,17 @@ pub fn resolve(
     )
 }
 
-pub fn forge_host(repository: &str) -> Result<ForgeHost> {
-    if repository.starts_with("https://github.com/") {
-        Ok(ForgeHost::GitHub)
-    } else if repository.starts_with("https://gitlab.com/") {
-        Ok(ForgeHost::GitLab)
-    } else {
-        Err(anyhow!(
-            "Only github.com and gitlab.com are currently supported for forge strategy, got {}",
-            repository
-        ))
-    }
-}
-
 fn host_name(host: ForgeHost) -> &'static str {
     match host {
         ForgeHost::GitHub => "GitHub",
         ForgeHost::GitLab => "GitLab",
+        ForgeHost::Gitea => "Gitea",
+        ForgeHost::Forgejo => "Forgejo",
     }
 }
 
-fn forge_repo_path(repository: &str, host: ForgeHost) -> Result<&str> {
-    match host {
-        ForgeHost::GitHub => repository.strip_prefix("https://github.com/").ok_or_else(|| {
-            anyhow!(
-                "Only github.com and gitlab.com are currently supported for forge strategy, got {}",
-                repository
-            )
-        }),
-        ForgeHost::GitLab => repository.strip_prefix("https://gitlab.com/").ok_or_else(|| {
-            anyhow!(
-                "Only github.com and gitlab.com are currently supported for forge strategy, got {}",
-                repository
-            )
-        }),
-    }
+fn forge_repo_path(repository: &str, _host: ForgeHost) -> Result<&str> {
+    repository_path(repository)
 }
 
 fn forge_repo_info(repository: &str, host: ForgeHost) -> Result<ForgeRepoInfo> {
@@ -221,7 +294,7 @@ fn forge_repo_info(repository: &str, host: ForgeHost) -> Result<ForgeRepoInfo> {
 }
 
 fn encoded_gitlab_project_path(repository: &str) -> Result<String> {
-    Ok(forge_repo_path(repository, ForgeHost::GitLab)?.replace('/', "%2F"))
+    Ok(repository_path(repository)?.replace('/', "%2F"))
 }
 
 pub fn release_api_url(host: ForgeHost, repository: &str) -> Result<String> {
@@ -232,6 +305,11 @@ pub fn release_api_url(host: ForgeHost, repository: &str) -> Result<String> {
         ForgeHost::GitLab => Ok(format!(
             "https://gitlab.com/api/v4/projects/{}/releases/permalink/latest",
             encoded_gitlab_project_path(repository)?
+        )),
+        ForgeHost::Gitea | ForgeHost::Forgejo => Ok(format!(
+            "{}/api/v1/repos/{}/releases/latest",
+            repository_origin(repository)?,
+            repository_path(repository)?
         )),
     }
 }
@@ -273,6 +351,7 @@ pub fn release_api_url_with_config(
             repository,
             global_config.gitlab_release_api_url.as_deref(),
         ),
+        ForgeHost::Gitea | ForgeHost::Forgejo => release_api_url(host, repository),
     }
 }
 
@@ -422,7 +501,7 @@ fn validate_release_download_url(
     download_url: &str,
 ) -> Result<()> {
     let expected = match host {
-        ForgeHost::GitHub => format!(
+        ForgeHost::GitHub | ForgeHost::Gitea | ForgeHost::Forgejo => format!(
             "{}/releases/download/",
             release_web_url.trim_end_matches('/')
         ),
@@ -450,7 +529,7 @@ pub fn release_assets(
     repository: &str,
 ) -> Result<Vec<ReleaseAsset>> {
     match host {
-        ForgeHost::GitHub => {
+        ForgeHost::GitHub | ForgeHost::Gitea | ForgeHost::Forgejo => {
             let assets = resp["assets"].as_array().with_context(|| {
                 format!(
                     "Release metadata for {} did not contain an assets array",
@@ -513,6 +592,7 @@ fn resolve_from_release_assets(
                 format!("https://gitlab.com/{}", forge_repo_path(repository, host)?)
             }
         }
+        ForgeHost::Gitea | ForgeHost::Forgejo => repository.trim_end_matches('/').to_string(),
     };
     for asset in assets {
         if pattern.matches(&asset.name) {
@@ -541,6 +621,8 @@ fn resolve_from_release_assets(
                 version.to_string(),
                 download_url,
                 state,
+                Some(repository.to_string()),
+                Some(host),
             );
         }
     }
@@ -694,7 +776,15 @@ fn resolve_from_github_release_page(
         ));
     };
 
-    build_check_result(client, repository, version, download_url, state)
+    build_check_result(
+        client,
+        repository,
+        version,
+        download_url,
+        state,
+        Some(repository.to_string()),
+        Some(ForgeHost::GitHub),
+    )
 }
 
 fn build_check_result(
@@ -703,6 +793,8 @@ fn build_check_result(
     version: String,
     download_url: String,
     state: Option<&AppState>,
+    forge_repository: Option<String>,
+    forge_platform: Option<ForgeHost>,
 ) -> Result<CheckResult> {
     let mut capabilities = Vec::new();
     let mut segmented_downloads = Some(false);
@@ -742,6 +834,8 @@ fn build_check_result(
         update,
         capabilities,
         segmented_downloads,
+        forge_repository,
+        forge_platform,
     })
 }
 

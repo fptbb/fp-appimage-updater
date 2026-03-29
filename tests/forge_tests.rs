@@ -1,9 +1,12 @@
+use fp_appimage_updater::commands::helpers::cache_app_metadata;
 use fp_appimage_updater::config::GlobalConfig;
 use fp_appimage_updater::resolvers::forge::{
     ForgeHost, find_release_asset_in_html, find_release_asset_in_html_with_base,
-    github_release_web_url_with_config, release_api_url, release_api_url_with_config,
-    release_assets, sanitize_github_proxy_url, validate_github_proxy_metadata,
+    forge_platform_from_swagger_title, github_release_web_url_with_config, release_api_url,
+    release_api_url_with_config, release_assets, sanitize_github_proxy_url,
+    validate_github_proxy_metadata,
 };
+use fp_appimage_updater::state::AppState;
 use ureq::Agent;
 
 #[test]
@@ -26,25 +29,6 @@ fn invalid_asset_pattern_is_reported_before_network() {
 }
 
 #[test]
-fn unsupported_repository_is_reported() {
-    let client = Agent::new_with_defaults();
-    let err = fp_appimage_updater::resolvers::forge::resolve(
-        &client,
-        "https://example.com/owner/repo",
-        "*",
-        None,
-        false,
-        &[String::from("https://gh-proxy.com/")],
-        &GlobalConfig::default(),
-    )
-    .expect_err("expected unsupported repository to fail");
-
-    let message = format!("{:#}", err);
-    assert!(message.contains("Only github.com and gitlab.com are currently supported"));
-    assert!(message.contains("https://example.com/owner/repo"));
-}
-
-#[test]
 fn gitlab_release_url_uses_permalink_latest_api() {
     let url = release_api_url(
         ForgeHost::GitLab,
@@ -56,6 +40,47 @@ fn gitlab_release_url_uses_permalink_latest_api() {
         url,
         "https://gitlab.com/api/v4/projects/fpsys%2Ffp-appimage-updater/releases/permalink/latest"
     );
+}
+
+#[test]
+fn gitea_release_url_uses_api_v1_latest() {
+    let url = release_api_url(
+        ForgeHost::Gitea,
+        "https://git.linux.toys/fptbb/fp-appimage-updater",
+    )
+    .expect("expected gitea api url");
+
+    assert_eq!(
+        url,
+        "https://git.linux.toys/api/v1/repos/fptbb/fp-appimage-updater/releases/latest"
+    );
+}
+
+#[test]
+fn forgejo_release_url_uses_api_v1_latest() {
+    let url = release_api_url(
+        ForgeHost::Forgejo,
+        "https://git.linux.toys/fptbb/fp-appimage-updater",
+    )
+    .expect("expected forgejo api url");
+
+    assert_eq!(
+        url,
+        "https://git.linux.toys/api/v1/repos/fptbb/fp-appimage-updater/releases/latest"
+    );
+}
+
+#[test]
+fn forge_swagger_title_maps_to_platforms() {
+    assert_eq!(
+        forge_platform_from_swagger_title("Gitea API"),
+        Some(ForgeHost::Gitea)
+    );
+    assert_eq!(
+        forge_platform_from_swagger_title("Forgejo API"),
+        Some(ForgeHost::Forgejo)
+    );
+    assert_eq!(forge_platform_from_swagger_title("Unknown"), None);
 }
 
 #[test]
@@ -221,4 +246,32 @@ fn github_proxy_metadata_must_match_repository() {
 
     let message = format!("{:#}", err);
     assert!(message.contains("different repository"));
+}
+
+#[test]
+fn cache_app_metadata_stores_forge_details() {
+    let mut state = AppState::default();
+
+    cache_app_metadata(
+        &mut state,
+        vec!["segmented_downloads".to_string(), "etag".to_string()],
+        Some(true),
+        Some("https://git.linux.toys/fptbb/fp-appimage-updater".to_string()),
+        Some(ForgeHost::Forgejo),
+    );
+
+    assert_eq!(
+        state.forge_repository.as_deref(),
+        Some("https://git.linux.toys/fptbb/fp-appimage-updater")
+    );
+    assert_eq!(state.forge_platform, Some(ForgeHost::Forgejo));
+    assert_eq!(state.segmented_downloads, Some(true));
+    assert_eq!(
+        state.capabilities,
+        vec!["etag".to_string(), "segmented_downloads".to_string()]
+    );
+
+    cache_app_metadata(&mut state, Vec::new(), None, None, None);
+    assert_eq!(state.forge_repository, None);
+    assert_eq!(state.forge_platform, None);
 }
