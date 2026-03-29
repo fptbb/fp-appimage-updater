@@ -26,3 +26,6 @@ When version changes in the Cargo.toml, the commit message should be always exac
 
 ## Comment policy
 Only add comments when the code is genuinely complex or non-obvious. Prefer clear code and small helper names over narration. Keep comments short and specific, and remove step-by-step or redundant comments during cleanup passes.
+
+## Testing policy
+Keep tests updated in the tests/ folder.

@@ -5,15 +5,15 @@ use ureq::Agent;
 use super::{CheckResult, UpdateInfo, dedupe_capabilities, rate_limit_info_from_headers};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ForgeHost {
+pub enum ForgeHost {
     GitHub,
     GitLab,
 }
 
 #[derive(Debug, Clone)]
-struct ReleaseAsset {
-    name: String,
-    download_url: String,
+pub struct ReleaseAsset {
+    pub name: String,
+    pub download_url: String,
 }
 
 pub fn resolve(
@@ -144,7 +144,7 @@ pub fn resolve(
     )
 }
 
-fn forge_host(repository: &str) -> Result<ForgeHost> {
+pub fn forge_host(repository: &str) -> Result<ForgeHost> {
     if repository.starts_with("https://github.com/") {
         Ok(ForgeHost::GitHub)
     } else if repository.starts_with("https://gitlab.com/") {
@@ -185,7 +185,7 @@ fn encoded_gitlab_project_path(repository: &str) -> Result<String> {
     Ok(forge_repo_path(repository, ForgeHost::GitLab)?.replace('/', "%2F"))
 }
 
-fn release_api_url(host: ForgeHost, repository: &str) -> Result<String> {
+pub fn release_api_url(host: ForgeHost, repository: &str) -> Result<String> {
     match host {
         ForgeHost::GitHub => Ok(repository
             .replace("https://github.com/", "https://api.github.com/repos/")
@@ -208,7 +208,7 @@ fn github_release_web_url(repository: &str) -> Result<String> {
     }
 }
 
-fn github_proxy_release_url(repository: &str, github_proxy_prefix: &str) -> Result<String> {
+pub fn github_proxy_release_url(repository: &str, github_proxy_prefix: &str) -> Result<String> {
     Ok(format!(
         "{}{}",
         github_proxy_prefix,
@@ -216,13 +216,13 @@ fn github_proxy_release_url(repository: &str, github_proxy_prefix: &str) -> Resu
     ))
 }
 
-fn sanitize_github_proxy_url(url: &str, github_proxy_prefix: &str) -> String {
+pub fn sanitize_github_proxy_url(url: &str, github_proxy_prefix: &str) -> String {
     url.strip_prefix(github_proxy_prefix)
         .unwrap_or(url)
         .to_string()
 }
 
-fn validate_github_proxy_metadata(
+pub fn validate_github_proxy_metadata(
     repository: &str,
     resp: &serde_json::Value,
     github_proxy_prefix: &str,
@@ -279,7 +279,7 @@ fn validate_release_download_url(
     }
 }
 
-fn release_assets(
+pub fn release_assets(
     host: ForgeHost,
     resp: &serde_json::Value,
     repository: &str,
@@ -551,7 +551,7 @@ fn build_check_result(
     })
 }
 
-fn find_release_asset_in_html(
+pub fn find_release_asset_in_html(
     html: &str,
     repo_path: &str,
     pattern: &glob::Pattern,
@@ -584,161 +584,4 @@ fn find_release_asset_in_html(
     }
 
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ureq::Agent;
-
-    #[test]
-    fn invalid_asset_pattern_is_reported_before_network() {
-        let client = Agent::new_with_defaults();
-        let err = resolve(
-            &client,
-            "https://github.com/fptbb/fp-appimage-updater",
-            "[",
-            None,
-            false,
-            &[String::from("https://gh-proxy.com/")],
-        )
-        .expect_err("expected invalid asset pattern to fail");
-
-        let message = format!("{:#}", err);
-        assert!(message.contains("Invalid asset_match pattern"));
-        assert!(message.contains("https://github.com/fptbb/fp-appimage-updater"));
-    }
-
-    #[test]
-    fn unsupported_repository_is_reported() {
-        let client = Agent::new_with_defaults();
-        let err = resolve(
-            &client,
-            "https://example.com/owner/repo",
-            "*",
-            None,
-            false,
-            &[String::from("https://gh-proxy.com/")],
-        )
-        .expect_err("expected unsupported repository to fail");
-
-        let message = format!("{:#}", err);
-        assert!(message.contains("Only github.com and gitlab.com are currently supported"));
-        assert!(message.contains("https://example.com/owner/repo"));
-    }
-
-    #[test]
-    fn gitlab_release_url_uses_permalink_latest_api() {
-        let url = release_api_url(
-            ForgeHost::GitLab,
-            "https://gitlab.com/fpsys/fp-appimage-updater",
-        )
-        .expect("expected gitlab api url");
-
-        assert_eq!(
-            url,
-            "https://gitlab.com/api/v4/projects/fpsys%2Ffp-appimage-updater/releases/permalink/latest"
-        );
-    }
-
-    #[test]
-    fn gitlab_release_assets_use_direct_asset_url() {
-        let resp = serde_json::json!({
-            "tag_name": "v1.2.2",
-            "assets": {
-                "links": [
-                    {
-                        "name": "fp-appimage-updater.x64",
-                        "url": "https://gitlab.com/fpsys/fp-appimage-updater/-/jobs/artifacts/main/raw/build/fp-appimage-updater.x64?job=build-and-compress",
-                        "direct_asset_url": "https://gitlab.com/fpsys/fp-appimage-updater/-/releases/v1.2.2/downloads/bin/fp-appimage-updater.x64"
-                    },
-                    {
-                        "name": "fp-appimage-updater.ARM",
-                        "url": "https://gitlab.com/fpsys/fp-appimage-updater/-/jobs/artifacts/main/raw/build/fp-appimage-updater.ARM?job=build-and-compress",
-                        "direct_asset_url": "https://gitlab.com/fpsys/fp-appimage-updater/-/releases/v1.2.2/downloads/bin/fp-appimage-updater.ARM"
-                    }
-                ]
-            }
-        });
-
-        let assets = release_assets(
-            ForgeHost::GitLab,
-            &resp,
-            "https://gitlab.com/fpsys/fp-appimage-updater",
-        )
-        .expect("expected gitlab assets");
-
-        assert_eq!(assets.len(), 2);
-        assert_eq!(assets[0].name, "fp-appimage-updater.x64");
-        assert_eq!(
-            assets[0].download_url,
-            "https://gitlab.com/fpsys/fp-appimage-updater/-/releases/v1.2.2/downloads/bin/fp-appimage-updater.x64"
-        );
-    }
-
-    #[test]
-    fn html_fallback_finds_matching_asset() {
-        let html = r#"
-            <a href="/owner/repo/releases/download/v1.2.3/app-x86_64.AppImage">download</a>
-            <a href="/owner/repo/releases/download/v1.2.3/app-arm.AppImage">download</a>
-        "#;
-        let pattern = glob::Pattern::new("*x86_64.AppImage").unwrap();
-
-        let (version, download_url) =
-            find_release_asset_in_html(html, "/owner/repo", &pattern).expect("expected asset");
-
-        assert_eq!(version, "v1.2.3");
-        assert_eq!(
-            download_url,
-            "https://github.com/owner/repo/releases/download/v1.2.3/app-x86_64.AppImage"
-        );
-    }
-
-    #[test]
-    fn github_proxy_prefix_is_removed() {
-        let proxied = "https://gh-proxy.com/https://github.com/owner/repo/releases/download/v1.2.3/app.AppImage";
-        assert_eq!(
-            sanitize_github_proxy_url(proxied, "https://gh-proxy.com/"),
-            "https://github.com/owner/repo/releases/download/v1.2.3/app.AppImage"
-        );
-    }
-
-    #[test]
-    fn github_proxy_release_url_supports_multiple_proxy_bases() {
-        let release_url =
-            github_proxy_release_url("https://github.com/owner/repo", "https://corsproxy.io/?")
-                .expect("expected proxy url");
-        assert_eq!(
-            release_url,
-            "https://corsproxy.io/?https://api.github.com/repos/owner/repo/releases/latest"
-        );
-
-        let release_url = github_proxy_release_url(
-            "https://github.com/owner/repo",
-            "https://api.allorigins.win/raw?url=",
-        )
-        .expect("expected proxy url");
-        assert_eq!(
-            release_url,
-            "https://api.allorigins.win/raw?url=https://api.github.com/repos/owner/repo/releases/latest"
-        );
-    }
-
-    #[test]
-    fn github_proxy_metadata_must_match_repository() {
-        let resp = serde_json::json!({
-            "url": "https://gh-proxy.com/https://api.github.com/repos/other/repo/releases/1",
-            "html_url": "https://gh-proxy.com/https://github.com/other/repo/releases/tag/v1.2.3"
-        });
-
-        let err = validate_github_proxy_metadata(
-            "https://github.com/owner/repo",
-            &resp,
-            "https://gh-proxy.com/",
-        )
-        .expect_err("expected repository mismatch to fail");
-
-        let message = format!("{:#}", err);
-        assert!(message.contains("different repository"));
-    }
 }

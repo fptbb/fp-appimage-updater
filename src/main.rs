@@ -1,27 +1,13 @@
 use anyhow::Result;
 use clap::Parser;
 
-mod cli;
-mod commands;
-mod config;
-mod disintegrator;
-mod doctor;
-mod downloader;
-mod initializer;
-mod integrator;
-mod lock;
-mod output;
-mod parser;
-mod resolvers;
-mod self_updater;
-mod state;
-mod validator;
-
-use cli::{Cli, Commands};
-use commands::helpers::build_http_agent;
-use output::colors_enabled;
-use parser::ConfigPaths;
-use state::StateManager;
+use fp_appimage_updater::cli::{Cli, Commands};
+use fp_appimage_updater::commands;
+use fp_appimage_updater::commands::helpers::build_http_agent;
+use fp_appimage_updater::lock;
+use fp_appimage_updater::output::colors_enabled;
+use fp_appimage_updater::parser::{self, ConfigPaths};
+use fp_appimage_updater::state::StateManager;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();

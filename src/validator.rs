@@ -114,14 +114,3 @@ fn infer_name_from_yaml(content: &str) -> Option<String> {
 fn app_not_found_error(name: &str) -> String {
     format!("App '{}' not found in configuration.", name)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::infer_name_from_yaml;
-
-    #[test]
-    fn infer_name_from_valid_yaml() {
-        let yaml = "name: whatpulse\nstrategy:\n  strategy: direct\n  url: https://example.org/x.AppImage\n  check_method: etag\n";
-        assert_eq!(infer_name_from_yaml(yaml).as_deref(), Some("whatpulse"));
-    }
-}
