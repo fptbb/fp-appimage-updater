@@ -1,6 +1,8 @@
 use crate::doctor;
-use crate::output::{print_doctor_human, print_json, print_progress, DoctorCheck, DoctorResponse, DoctorStatus};
-use crate::parser::{ConfigPaths, AppConfigLoadError};
+use crate::output::{
+    DoctorCheck, DoctorResponse, DoctorStatus, print_doctor_human, print_json, print_progress,
+};
+use crate::parser::{AppConfigLoadError, ConfigPaths};
 use anyhow::Result;
 
 pub fn run(

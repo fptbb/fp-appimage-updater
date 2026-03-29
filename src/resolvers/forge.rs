@@ -10,7 +10,7 @@ pub fn resolve(
     asset_match: &str,
     state: Option<&AppState>,
     github_proxy: bool,
-    github_proxy_prefix: &str,
+    github_proxy_prefixes: &[String],
 ) -> Result<CheckResult> {
     let url = github_release_url(repository)?;
     let pattern = glob::Pattern::new(asset_match).with_context(|| {
@@ -37,11 +37,20 @@ pub fn resolve(
             ));
         };
         if github_proxy {
-            return resolve_via_github_proxy(client, repository, &pattern, state, github_proxy_prefix)
-                .map_err(|e| {
-                    anyhow::Error::from(rate_limit.clone())
-                        .context(format!("{} {}", rate_limit.short_message(), e))
-                });
+            return resolve_via_github_proxy(
+                client,
+                repository,
+                &pattern,
+                state,
+                github_proxy_prefixes,
+            )
+            .map_err(|e| {
+                anyhow::Error::from(rate_limit.clone()).context(format!(
+                    "{} {}",
+                    rate_limit.short_message(),
+                    e
+                ))
+            });
         }
 
         let html_url = github_release_web_url(repository)?;
@@ -61,8 +70,11 @@ pub fn resolve(
 
         return resolve_from_github_release_page(client, repository, &pattern, &html, state)
             .map_err(|e| {
-                anyhow::Error::from(rate_limit.clone())
-                    .context(format!("{} {}", rate_limit.short_message(), e))
+                anyhow::Error::from(rate_limit.clone()).context(format!(
+                    "{} {}",
+                    rate_limit.short_message(),
+                    e
+                ))
             });
     }
 
@@ -74,9 +86,10 @@ pub fn resolve(
         ));
     }
 
-    let resp: serde_json::Value = response.into_body().read_json().with_context(|| {
-        format!("Failed to parse GitHub release metadata for {}", repository)
-    })?;
+    let resp: serde_json::Value = response
+        .into_body()
+        .read_json()
+        .with_context(|| format!("Failed to parse GitHub release metadata for {}", repository))?;
     let version = resp["tag_name"].as_str().with_context(|| {
         format!(
             "Release metadata for {} did not contain tag_name",
@@ -98,7 +111,10 @@ pub fn resolve(
         assets,
         state,
         false,
-        github_proxy_prefix,
+        github_proxy_prefixes
+            .first()
+            .map(|prefix| prefix.as_str())
+            .unwrap_or(""),
     )
 }
 
@@ -130,11 +146,20 @@ fn github_release_web_url(repository: &str) -> Result<String> {
 fn github_repo_path(repository: &str) -> Result<&str> {
     repository
         .strip_prefix("https://github.com/")
-        .ok_or_else(|| anyhow!("Only github.com is currently supported for forge strategy, got {}", repository))
+        .ok_or_else(|| {
+            anyhow!(
+                "Only github.com is currently supported for forge strategy, got {}",
+                repository
+            )
+        })
 }
 
 fn github_proxy_release_url(repository: &str, github_proxy_prefix: &str) -> Result<String> {
-    Ok(format!("{}{}", github_proxy_prefix, github_release_url(repository)?))
+    Ok(format!(
+        "{}{}",
+        github_proxy_prefix,
+        github_release_url(repository)?
+    ))
 }
 
 fn sanitize_github_proxy_url(url: &str, github_proxy_prefix: &str) -> String {
@@ -243,6 +268,41 @@ fn resolve_via_github_proxy(
     repository: &str,
     pattern: &glob::Pattern,
     state: Option<&AppState>,
+    github_proxy_prefixes: &[String],
+) -> Result<CheckResult> {
+    let mut last_error = None;
+
+    for github_proxy_prefix in github_proxy_prefixes {
+        match resolve_via_single_github_proxy(
+            client,
+            repository,
+            pattern,
+            state,
+            github_proxy_prefix,
+        ) {
+            Ok(result) => return Ok(result),
+            Err(err) => {
+                last_error = Some(err.context(format!(
+                    "GitHub proxy {} failed for {}",
+                    github_proxy_prefix, repository
+                )));
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        anyhow!(
+            "GitHub proxy is enabled for {} but no proxy prefixes were configured",
+            repository
+        )
+    }))
+}
+
+fn resolve_via_single_github_proxy(
+    client: &Agent,
+    repository: &str,
+    pattern: &glob::Pattern,
+    state: Option<&AppState>,
     github_proxy_prefix: &str,
 ) -> Result<CheckResult> {
     let proxy_url = github_proxy_release_url(repository, github_proxy_prefix)?;
@@ -262,10 +322,12 @@ fn resolve_via_github_proxy(
         ));
     }
 
-    let resp: serde_json::Value = response
-        .into_body()
-        .read_json()
-        .with_context(|| format!("Failed to parse proxied release metadata for {}", repository))?;
+    let resp: serde_json::Value = response.into_body().read_json().with_context(|| {
+        format!(
+            "Failed to parse proxied release metadata for {}",
+            repository
+        )
+    })?;
     validate_github_proxy_metadata(repository, &resp, github_proxy_prefix)?;
     let version = resp["tag_name"].as_str().with_context(|| {
         format!(
@@ -341,10 +403,7 @@ fn build_check_result(
         ));
     }
 
-    let update = if state
-        .and_then(|s| s.local_version.as_deref())
-        == Some(version.as_str())
-    {
+    let update = if state.and_then(|s| s.local_version.as_deref()) == Some(version.as_str()) {
         None
     } else {
         Some(UpdateInfo {
@@ -411,7 +470,7 @@ mod tests {
             "[",
             None,
             false,
-            "https://gh-proxy.com/",
+            &[String::from("https://gh-proxy.com/")],
         )
         .expect_err("expected invalid asset pattern to fail");
 
@@ -429,9 +488,9 @@ mod tests {
             "*",
             None,
             false,
-            "https://gh-proxy.com/",
+            &[String::from("https://gh-proxy.com/")],
         )
-            .expect_err("expected unsupported repository to fail");
+        .expect_err("expected unsupported repository to fail");
 
         let message = format!("{:#}", err);
         assert!(message.contains("Only github.com is currently supported"));
@@ -466,6 +525,27 @@ mod tests {
     }
 
     #[test]
+    fn github_proxy_release_url_supports_multiple_proxy_bases() {
+        let release_url =
+            github_proxy_release_url("https://github.com/owner/repo", "https://corsproxy.io/?")
+                .expect("expected proxy url");
+        assert_eq!(
+            release_url,
+            "https://corsproxy.io/?https://api.github.com/repos/owner/repo/releases/latest"
+        );
+
+        let release_url = github_proxy_release_url(
+            "https://github.com/owner/repo",
+            "https://api.allorigins.win/raw?url=",
+        )
+        .expect("expected proxy url");
+        assert_eq!(
+            release_url,
+            "https://api.allorigins.win/raw?url=https://api.github.com/repos/owner/repo/releases/latest"
+        );
+    }
+
+    #[test]
     fn github_proxy_metadata_must_match_repository() {
         let resp = serde_json::json!({
             "url": "https://gh-proxy.com/https://api.github.com/repos/other/repo/releases/1",
@@ -477,7 +557,7 @@ mod tests {
             &resp,
             "https://gh-proxy.com/",
         )
-            .expect_err("expected repository mismatch to fail");
+        .expect_err("expected repository mismatch to fail");
 
         let message = format!("{:#}", err);
         assert!(message.contains("different repository"));

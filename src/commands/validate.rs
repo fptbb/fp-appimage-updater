@@ -1,6 +1,8 @@
-use crate::validator;
-use crate::output::{print_json, print_validate_human, ValidateApp, ValidateResponse, ValidateStatus};
+use crate::output::{
+    ValidateApp, ValidateResponse, ValidateStatus, print_json, print_validate_human,
+};
 use crate::parser::ConfigPaths;
+use crate::validator;
 use anyhow::Result;
 
 pub fn run(

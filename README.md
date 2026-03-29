@@ -11,7 +11,7 @@ fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed t
 - **Segmented Downloads:** Split large direct downloads into HTTP ranges when the server supports them. Enabled by default.
 - **Parallel Operations:** `check` and `update` run multiple apps concurrently to keep large batches fast, with provider-aware caps to avoid hammering the same host.
 - **Rate-Limit Cooldowns:** Apps that hit rate limits are skipped until their retry time unless you opt out.
-- **GitHub Proxy Fallback:** Optional GitHub metadata proxy support can bypass GitHub API rate limits without proxying the actual download.
+- **GitHub Proxy Fallback:** Optional GitHub metadata proxy support can bypass GitHub API rate limits without proxying the actual download, and can try multiple proxy bases in order.
 - **Desktop Integration:** Extracts exact `.desktop` manifests and icons directly from the AppImage using `--appimage-extract` and seamlessly inserts them into your `.local/share/applications` application menu.
 - **Local Health Checks:** `doctor` checks the local configuration, required directories, and optional tooling like `zsync`.
 - **Global & Local Configs:** Override storage paths, integration behaviors, symlinking, segmented downloads, rate-limit cooldowns, and GitHub proxy settings per-app or globally.
@@ -82,7 +82,10 @@ create_symlinks: false
 segmented_downloads: true
 respect_rate_limits: true
 github_proxy: false
-github_proxy_prefix: "https://gh-proxy.com/"
+github_proxy_prefix:
+  - "https://gh-proxy.com/"
+  - "https://corsproxy.io/?"
+  - "https://api.allorigins.win/raw?url="
 ```
 
 ### App Recipe Example (`apps/whatpulse.yml`)
@@ -103,8 +106,8 @@ fp-appimage-updater supports three different strategies for resolving and downlo
 Used for downloading from GitHub or GitLab releases.
 - `repository`: The URL to the GitHub or GitLab repository.
 - `asset_match`: A wildcard string to match the specific asset name in the release (e.g., `"*-amd64.AppImage"`).
-- `github_proxy`: Optional per-app GitHub-only metadata proxy fallback. When enabled, `fp-appimage-updater` retries the GitHub release API through `gh-proxy.com` if the direct request is rate limited. The final download still uses the direct GitHub asset URL.
-- `github_proxy_prefix`: Optional proxy base URL used when `github_proxy` is enabled. Defaults to `https://gh-proxy.com/`.
+- `github_proxy`: Optional per-app GitHub-only metadata proxy fallback. When enabled, `fp-appimage-updater` retries the GitHub release API through the configured proxy bases if the direct request is rate limited. The final download still uses the direct GitHub asset URL.
+- `github_proxy_prefix`: Optional proxy base URL, array of base URLs, or the string `all` used when `github_proxy` is enabled. Defaults to `https://gh-proxy.com/`. The app tries them in order until one works. Use `all` to try every compatible proxy built into the app.
 - `respect_rate_limits`: Optional per-app override that tells the updater to skip apps until the retry window expires when a rate limit is hit. Defaults to `true`.
 
 **Example:**
@@ -241,7 +244,7 @@ fp-appimage-updater update
 
 Successful updates now include the elapsed time in seconds so you can see how long each app took to install or update.
 When the updater detects a rate limit, it remembers the retry window and skips that app on the next run unless `respect_rate_limits` is disabled globally or for that app.
-GitHub forge apps can optionally use `github_proxy` with a custom `github_proxy_prefix` to retry metadata lookups through a proxy without proxying the actual download URL.
+GitHub forge apps can optionally use `github_proxy` with a custom `github_proxy_prefix` string or array to retry metadata lookups through one or more proxies without proxying the actual download URL.
 Downloads are scheduled with a small provider-aware cap, so the updater keeps moving without overloading a single host.
 
 ### List Installed Apps

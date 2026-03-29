@@ -1,14 +1,14 @@
+use crate::commands::helpers::*;
 use crate::config;
 use crate::downloader;
 use crate::integrator;
 use crate::output::{
-    format_rate_limit_retry_text, print_json, print_progress, print_success, print_warning,
-    UpdateApp, UpdateResponse, UpdateStatus,
+    UpdateApp, UpdateResponse, UpdateStatus, format_rate_limit_retry_text, print_json,
+    print_progress, print_success, print_warning,
 };
 use crate::parser::AppConfigLoadError;
 use crate::resolvers;
 use crate::state::{AppState, StateManager};
-use crate::commands::helpers::*;
 use anyhow::Result;
 use std::collections::{HashMap, VecDeque};
 use std::sync::mpsc;
@@ -100,11 +100,7 @@ impl ProviderDownloadScheduler {
     }
 
     fn provider_limit(provider: &str) -> usize {
-        if provider == "github" {
-            3
-        } else {
-            2
-        }
+        if provider == "github" { 3 } else { 2 }
     }
 
     pub fn try_acquire(&mut self, provider: &str, global_limit: usize) -> bool {
@@ -119,7 +115,10 @@ impl ProviderDownloadScheduler {
         }
 
         self.active_global += 1;
-        *self.active_by_provider.entry(provider.to_string()).or_insert(0) += 1;
+        *self
+            .active_by_provider
+            .entry(provider.to_string())
+            .or_insert(0) += 1;
         true
     }
 
@@ -195,8 +194,13 @@ pub fn run(
             }
             continue;
         }
-        let github_proxy_prefix = github_proxy_prefix(app, global_config);
-        pending_checks.push((app.clone(), Some(state), github_proxy, github_proxy_prefix));
+        let github_proxy_prefixes = github_proxy_prefixes(app, global_config);
+        pending_checks.push((
+            app.clone(),
+            Some(state),
+            github_proxy,
+            github_proxy_prefixes,
+        ));
     }
 
     let hard_max_check = std::thread::available_parallelism()
@@ -223,7 +227,7 @@ pub fn run(
                               state: Option<AppState>,
                               client: ureq::Agent,
                               github_proxy: bool,
-                              github_proxy_prefix: String,
+                              github_proxy_prefixes: Vec<String>,
                               tx: mpsc::Sender<UpdateEvent>| {
         std::thread::spawn(move || {
             let _ = tx.send(UpdateEvent::Check(process_update_check_job(
@@ -231,7 +235,7 @@ pub fn run(
                 app,
                 state,
                 github_proxy,
-                github_proxy_prefix,
+                github_proxy_prefixes,
             )));
         });
     };
@@ -275,7 +279,10 @@ pub fn run(
 
         let mut rotations = 0usize;
         let pending_len = pending_downloads.len();
-        while *active_downloads < download_limit && !pending_downloads.is_empty() && rotations < pending_len {
+        while *active_downloads < download_limit
+            && !pending_downloads.is_empty()
+            && rotations < pending_len
+        {
             let Some(job) = pending_downloads.pop_front() else {
                 break;
             };
@@ -307,14 +314,13 @@ pub fn run(
     };
 
     while active_checks < check_limit {
-        if let Some((app, state, github_proxy, github_proxy_prefix)) = pending_checks.next()
-        {
+        if let Some((app, state, github_proxy, github_proxy_prefixes)) = pending_checks.next() {
             spawn_check_worker(
                 app,
                 state,
                 client.clone(),
                 github_proxy,
-                github_proxy_prefix,
+                github_proxy_prefixes,
                 tx.clone(),
             );
             active_checks += 1;
@@ -455,8 +461,10 @@ pub fn run(
                         });
                         if !json_output {
                             match stage {
-                                UpdateErrorStage::Check => deferred_warning_messages
-                                    .push(format!("Error checking updates for {}: {}", name, error)),
+                                UpdateErrorStage::Check => deferred_warning_messages.push(format!(
+                                    "Error checking updates for {}: {}",
+                                    name, error
+                                )),
                                 UpdateErrorStage::Download => deferred_warning_messages
                                     .push(format!("Download failed for {}: {}", name, error)),
                             }
@@ -465,12 +473,8 @@ pub fn run(
                     _ => {}
                 }
 
-                check_limit = adapt_worker_limit(
-                    check_limit,
-                    elapsed,
-                    pending_checks.len(),
-                    hard_max_check,
-                );
+                check_limit =
+                    adapt_worker_limit(check_limit, elapsed, pending_checks.len(), hard_max_check);
             }
             UpdateEvent::Download { provider, result } => {
                 active_downloads = active_downloads.saturating_sub(1);
@@ -499,8 +503,7 @@ pub fn run(
                             if download_elapsed.is_zero() {
                                 0.0
                             } else {
-                                downloaded_bytes as f64
-                                    / download_elapsed.as_secs_f64().max(0.001)
+                                downloaded_bytes as f64 / download_elapsed.as_secs_f64().max(0.001)
                             }
                         });
 
@@ -520,10 +523,8 @@ pub fn run(
                                 error: Some(format!("Integration failed: {:#}", e)),
                             });
                             if !json_output {
-                                deferred_warning_messages.push(format!(
-                                    "Integration failed for {}: {:#}",
-                                    app_name, e
-                                ));
+                                deferred_warning_messages
+                                    .push(format!("Integration failed for {}: {:#}", app_name, e));
                                 deferred_warning_messages.push(format!(
                                     "Rolling back {} to its previous state...",
                                     app_name
@@ -611,8 +612,10 @@ pub fn run(
                         });
                         if !json_output {
                             match stage {
-                                UpdateErrorStage::Check => deferred_warning_messages
-                                    .push(format!("Error checking updates for {}: {}", name, error)),
+                                UpdateErrorStage::Check => deferred_warning_messages.push(format!(
+                                    "Error checking updates for {}: {}",
+                                    name, error
+                                )),
                                 UpdateErrorStage::Download => deferred_warning_messages
                                     .push(format!("Download failed for {}: {}", name, error)),
                             }
@@ -624,15 +627,13 @@ pub fn run(
         }
 
         while active_checks < check_limit {
-            if let Some((app, state, github_proxy, github_proxy_prefix)) =
-                pending_checks.next()
-            {
+            if let Some((app, state, github_proxy, github_proxy_prefixes)) = pending_checks.next() {
                 spawn_check_worker(
                     app,
                     state,
                     client.clone(),
                     github_proxy,
-                    github_proxy_prefix,
+                    github_proxy_prefixes,
                     tx.clone(),
                 );
                 active_checks += 1;
@@ -745,7 +746,7 @@ fn process_update_check_job(
     app: config::AppConfig,
     state: Option<AppState>,
     github_proxy: bool,
-    github_proxy_prefix: String,
+    github_proxy_prefixes: Vec<String>,
 ) -> UpdateWorkResult {
     let started_at = Instant::now();
     let app_name = app.name.clone();
@@ -757,7 +758,7 @@ fn process_update_check_job(
         state.as_ref(),
         client,
         github_proxy,
-        &github_proxy_prefix,
+        &github_proxy_prefixes,
     ) {
         Ok(result) => {
             let capabilities = result.capabilities;

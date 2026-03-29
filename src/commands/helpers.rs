@@ -7,6 +7,11 @@ pub const MAX_CONCURRENT_CHECK_JOBS: usize = 3;
 pub const MAX_CONCURRENT_DOWNLOADS: usize = 6;
 pub const FAST_JOB_SECONDS: f64 = 2.0;
 pub const SLOW_JOB_SECONDS: f64 = 15.0;
+const ALL_GITHUB_PROXY_PREFIXES: [&str; 3] = [
+    "https://gh-proxy.com/",
+    "https://corsproxy.io/?",
+    "https://api.allorigins.win/raw?url=",
+];
 
 pub fn now_epoch_seconds() -> u64 {
     std::time::SystemTime::now()
@@ -16,17 +21,39 @@ pub fn now_epoch_seconds() -> u64 {
 }
 
 pub fn rate_limit_enabled(app: &config::AppConfig, global: &config::GlobalConfig) -> bool {
-    app.respect_rate_limits.unwrap_or(global.respect_rate_limits)
+    app.respect_rate_limits
+        .unwrap_or(global.respect_rate_limits)
 }
 
 pub fn github_proxy_enabled(app: &config::AppConfig, global: &config::GlobalConfig) -> bool {
     app.github_proxy.unwrap_or(global.github_proxy)
 }
 
-pub fn github_proxy_prefix(app: &config::AppConfig, global: &config::GlobalConfig) -> String {
-    app.github_proxy_prefix
+pub fn github_proxy_prefixes(
+    app: &config::AppConfig,
+    global: &config::GlobalConfig,
+) -> Vec<String> {
+    let prefixes = app
+        .github_proxy_prefix
         .clone()
         .unwrap_or_else(|| global.github_proxy_prefix.clone())
+        .into_vec();
+
+    if prefixes
+        .iter()
+        .any(|prefix| prefix.trim().eq_ignore_ascii_case("all"))
+    {
+        return ALL_GITHUB_PROXY_PREFIXES
+            .iter()
+            .map(|prefix| prefix.to_string())
+            .collect();
+    }
+
+    prefixes
+        .into_iter()
+        .map(|prefix| prefix.trim().to_string())
+        .filter(|prefix| !prefix.is_empty())
+        .collect()
 }
 
 pub fn app_uses_github_forge(app: &config::AppConfig) -> bool {
@@ -42,11 +69,7 @@ pub fn clear_expired_rate_limit(state: &mut AppState, now: u64) {
     }
 }
 
-pub fn snapshot_app_state(
-    state_manager: &mut StateManager,
-    app_name: &str,
-    now: u64,
-) -> AppState {
+pub fn snapshot_app_state(state_manager: &mut StateManager, app_name: &str, now: u64) -> AppState {
     let state = state_manager.get_app_mut(app_name);
     clear_expired_rate_limit(state, now);
     state.clone()
@@ -103,5 +126,63 @@ pub fn matches_target(target: Option<&str>, app_name: Option<&str>) -> bool {
     match target {
         Some(target) => app_name == Some(target),
         None => true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app_config(prefix: Option<config::GithubProxyPrefixes>) -> config::AppConfig {
+        config::AppConfig {
+            config_dir: std::path::PathBuf::new(),
+            name: "demo".to_string(),
+            zsync: None,
+            integration: None,
+            create_symlink: None,
+            segmented_downloads: None,
+            respect_rate_limits: None,
+            github_proxy: None,
+            github_proxy_prefix: prefix,
+            storage_dir: None,
+            strategy: config::StrategyConfig::Direct {
+                url: "https://example.com/file.AppImage".to_string(),
+                check_method: config::CheckMethod::Etag,
+            },
+        }
+    }
+
+    #[test]
+    fn github_proxy_prefix_all_expands_to_all_supported_prefixes() {
+        let app = app_config(Some(config::GithubProxyPrefixes::Single("all".to_string())));
+        let global = config::GlobalConfig::default();
+
+        let prefixes = github_proxy_prefixes(&app, &global);
+        assert_eq!(
+            prefixes,
+            vec![
+                "https://gh-proxy.com/".to_string(),
+                "https://corsproxy.io/?".to_string(),
+                "https://api.allorigins.win/raw?url=".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn github_proxy_prefix_all_in_array_expands_to_all_supported_prefixes() {
+        let app = app_config(Some(config::GithubProxyPrefixes::Multiple(vec![
+            "all".to_string(),
+        ])));
+        let global = config::GlobalConfig::default();
+
+        let prefixes = github_proxy_prefixes(&app, &global);
+        assert_eq!(
+            prefixes,
+            vec![
+                "https://gh-proxy.com/".to_string(),
+                "https://corsproxy.io/?".to_string(),
+                "https://api.allorigins.win/raw?url=".to_string(),
+            ]
+        );
     }
 }

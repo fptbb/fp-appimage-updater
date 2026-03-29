@@ -2,6 +2,22 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum GithubProxyPrefixes {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl GithubProxyPrefixes {
+    pub fn into_vec(self) -> Vec<String> {
+        match self {
+            Self::Single(prefix) => vec![prefix],
+            Self::Multiple(prefixes) => prefixes,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GlobalConfig {
     pub storage_dir: String,
     pub symlink_dir: String,
@@ -15,7 +31,7 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub github_proxy: bool,
     #[serde(default = "default_github_proxy_prefix")]
-    pub github_proxy_prefix: String,
+    pub github_proxy_prefix: GithubProxyPrefixes,
 }
 
 impl Default for GlobalConfig {
@@ -29,7 +45,7 @@ impl Default for GlobalConfig {
             segmented_downloads: true,
             respect_rate_limits: true,
             github_proxy: false,
-            github_proxy_prefix: "https://gh-proxy.com/".to_string(),
+            github_proxy_prefix: GithubProxyPrefixes::Single("https://gh-proxy.com/".to_string()),
         }
     }
 }
@@ -38,8 +54,8 @@ fn default_respect_rate_limits() -> bool {
     true
 }
 
-fn default_github_proxy_prefix() -> String {
-    "https://gh-proxy.com/".to_string()
+fn default_github_proxy_prefix() -> GithubProxyPrefixes {
+    GithubProxyPrefixes::Single("https://gh-proxy.com/".to_string())
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -54,7 +70,7 @@ pub struct AppConfig {
     pub segmented_downloads: Option<bool>,
     pub respect_rate_limits: Option<bool>,
     pub github_proxy: Option<bool>,
-    pub github_proxy_prefix: Option<String>,
+    pub github_proxy_prefix: Option<GithubProxyPrefixes>,
     pub storage_dir: Option<String>,
     pub strategy: StrategyConfig,
 }
@@ -87,4 +103,89 @@ pub enum StrategyConfig {
 pub enum CheckMethod {
     Etag,
     LastModified,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn global_proxy_prefix_accepts_string_or_array() {
+        let single: GlobalConfig = serde_yaml::from_str(
+            r#"
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: "{name}.AppImage"
+manage_desktop_files: true
+create_symlinks: false
+segmented_downloads: true
+respect_rate_limits: true
+github_proxy: true
+github_proxy_prefix: "https://gh-proxy.com/"
+"#,
+        )
+        .expect("expected string prefix to parse");
+        assert!(matches!(
+            single.github_proxy_prefix,
+            GithubProxyPrefixes::Single(_)
+        ));
+
+        let multiple: GlobalConfig = serde_yaml::from_str(
+            r#"
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: "{name}.AppImage"
+manage_desktop_files: true
+create_symlinks: false
+segmented_downloads: true
+respect_rate_limits: true
+github_proxy: true
+github_proxy_prefix:
+  - "https://corsproxy.io/?"
+  - "https://api.allorigins.win/raw?url="
+"#,
+        )
+        .expect("expected prefix array to parse");
+        assert!(matches!(
+            multiple.github_proxy_prefix,
+            GithubProxyPrefixes::Multiple(_)
+        ));
+    }
+
+    #[test]
+    fn app_proxy_prefix_accepts_string_or_array() {
+        let single: AppConfig = serde_yaml::from_str(
+            r#"
+name: demo
+github_proxy_prefix: "https://gh-proxy.com/"
+strategy:
+  strategy: direct
+  url: "https://example.com/file.AppImage"
+  check_method: etag
+"#,
+        )
+        .expect("expected string prefix to parse");
+        assert!(matches!(
+            single.github_proxy_prefix,
+            Some(GithubProxyPrefixes::Single(_))
+        ));
+
+        let multiple: AppConfig = serde_yaml::from_str(
+            r#"
+name: demo
+github_proxy_prefix:
+  - "https://corsproxy.io/?"
+  - "https://api.allorigins.win/raw?url="
+strategy:
+  strategy: direct
+  url: "https://example.com/file.AppImage"
+  check_method: etag
+"#,
+        )
+        .expect("expected prefix array to parse");
+        assert!(matches!(
+            multiple.github_proxy_prefix,
+            Some(GithubProxyPrefixes::Multiple(_))
+        ));
+    }
 }

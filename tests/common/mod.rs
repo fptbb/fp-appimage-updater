@@ -10,8 +10,10 @@ static DOCKER_START_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 fn ensure_test_image() -> Result<(), String> {
     BUILD_TEST_IMAGE_RESULT
         .get_or_init(|| {
-            let dockerfile =
-                format!("{}/tests/common/fedora.Dockerfile", env!("CARGO_MANIFEST_DIR"));
+            let dockerfile = format!(
+                "{}/tests/common/fedora.Dockerfile",
+                env!("CARGO_MANIFEST_DIR")
+            );
             let context_dir = format!("{}/tests/common", env!("CARGO_MANIFEST_DIR"));
             let status = Command::new("docker")
                 .arg("build")
@@ -166,7 +168,11 @@ async fn wait_for_wiremock_ready(container: &ContainerAsync<GenericImage>) {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(180);
 
     loop {
-        match client.get(format!("{}/__admin/mappings", base_url)).send().await {
+        match client
+            .get(format!("{}/__admin/mappings", base_url))
+            .send()
+            .await
+        {
             Ok(resp) if resp.status().is_success() => return,
             Ok(_) | Err(_) if tokio::time::Instant::now() < deadline => {
                 tokio::time::sleep(Duration::from_millis(250)).await;

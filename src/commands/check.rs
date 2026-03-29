@@ -1,11 +1,9 @@
+use crate::commands::helpers::*;
 use crate::config;
-use crate::output::{
-    print_check_human, print_json, CheckApp, CheckResponse, CheckStatus,
-};
+use crate::output::{CheckApp, CheckResponse, CheckStatus, print_check_human, print_json};
 use crate::parser::AppConfigLoadError;
 use crate::resolvers;
 use crate::state::{AppState, StateManager};
-use crate::commands::helpers::*;
 use anyhow::Result;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -89,7 +87,7 @@ pub fn run(
                               state: Option<AppState>,
                               client: ureq::Agent,
                               github_proxy: bool,
-                              github_proxy_prefix: String,
+                              github_proxy_prefixes: Vec<String>,
                               tx: mpsc::Sender<CheckWorkResult>| {
         std::thread::spawn(move || {
             let _ = tx.send(process_check_job(
@@ -97,7 +95,7 @@ pub fn run(
                 state,
                 &client,
                 github_proxy,
-                github_proxy_prefix,
+                github_proxy_prefixes,
             ));
         });
     };
@@ -105,13 +103,13 @@ pub fn run(
     while active < worker_limit {
         if let Some((app, state)) = pending.next() {
             let github_proxy = github_proxy_enabled(&app, global_config);
-            let github_proxy_prefix = github_proxy_prefix(&app, global_config);
+            let github_proxy_prefixes = github_proxy_prefixes(&app, global_config);
             spawn_check_worker(
                 app,
                 state,
                 client.clone(),
                 github_proxy,
-                github_proxy_prefix,
+                github_proxy_prefixes,
                 tx.clone(),
             );
             active += 1;
@@ -134,8 +132,7 @@ pub fn run(
                 let state = state_manager.get_app_mut(&app_result.name);
                 cache_app_metadata(state, cache_capabilities, segmented_downloads);
                 results.push(app_result);
-                worker_limit =
-                    adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
+                worker_limit = adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
             }
             CheckWorkResult::RateLimited {
                 app: app_result,
@@ -148,28 +145,26 @@ pub fn run(
                 }
                 results.push(app_result);
                 rate_limit_note_needed = true;
-                worker_limit =
-                    adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
+                worker_limit = adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
             }
             CheckWorkResult::Err {
                 app: app_result,
                 elapsed,
             } => {
                 results.push(app_result);
-                worker_limit =
-                    adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
+                worker_limit = adapt_worker_limit(worker_limit, elapsed, pending.len(), hard_max);
             }
         }
 
         if let Some((app, state)) = pending.next() {
             let github_proxy = github_proxy_enabled(&app, global_config);
-            let github_proxy_prefix = github_proxy_prefix(&app, global_config);
+            let github_proxy_prefixes = github_proxy_prefixes(&app, global_config);
             spawn_check_worker(
                 app,
                 state,
                 client.clone(),
                 github_proxy,
-                github_proxy_prefix,
+                github_proxy_prefixes,
                 tx.clone(),
             );
             active += 1;
@@ -234,7 +229,7 @@ fn process_check_job(
     state: Option<AppState>,
     client: &ureq::Agent,
     github_proxy: bool,
-    github_proxy_prefix: String,
+    github_proxy_prefixes: Vec<String>,
 ) -> CheckWorkResult {
     let started_at = Instant::now();
     let local_version = state.as_ref().and_then(|s| s.local_version.clone());
@@ -244,7 +239,7 @@ fn process_check_job(
         state.as_ref(),
         client,
         github_proxy,
-        &github_proxy_prefix,
+        &github_proxy_prefixes,
     ) {
         Ok(result) => {
             let mut capabilities = result.capabilities;

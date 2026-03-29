@@ -81,16 +81,16 @@ pub fn try_segmented_http_download(
                     quiet,
                     colors,
                 ) {
-                    Ok((progress_displayed, progress_completion_rendered)) => {
-                        (
-                            true,
-                            Some(true),
-                            progress_displayed || progress_completion_rendered,
-                        )
-                    }
-                    Err(e) => {
-                        (false, segmented_support_from_error(&e).or(Some(true)), false)
-                    }
+                    Ok((progress_displayed, progress_completion_rendered)) => (
+                        true,
+                        Some(true),
+                        progress_displayed || progress_completion_rendered,
+                    ),
+                    Err(e) => (
+                        false,
+                        segmented_support_from_error(&e).or(Some(true)),
+                        false,
+                    ),
                 };
             }
             Ok(None) => {}
@@ -112,17 +112,22 @@ pub fn try_segmented_http_download(
         return (false, support, false);
     }
 
-    match segmented_http_download(client, app_name, version, url, target_path, total_len, quiet, colors) {
-        Ok((progress_displayed, progress_completion_rendered)) => {
-            (
-                true,
-                support,
-                progress_displayed || progress_completion_rendered,
-            )
-        }
-        Err(e) => {
-            (false, segmented_support_from_error(&e).or(support), false)
-        }
+    match segmented_http_download(
+        client,
+        app_name,
+        version,
+        url,
+        target_path,
+        total_len,
+        quiet,
+        colors,
+    ) {
+        Ok((progress_displayed, progress_completion_rendered)) => (
+            true,
+            support,
+            progress_displayed || progress_completion_rendered,
+        ),
+        Err(e) => (false, segmented_support_from_error(&e).or(support), false),
     }
 }
 
@@ -249,18 +254,10 @@ pub fn segmented_http_download(
                 continue;
             }
 
-            handles
-                .push(scope.spawn(move || {
-                    let result = download_range(
-                        &client,
-                        &url,
-                        &target_path,
-                        start,
-                        end,
-                        &handle,
-                    );
-                    result
-                }));
+            handles.push(scope.spawn(move || {
+                let result = download_range(&client, &url, &target_path, start, end, &handle);
+                result
+            }));
         }
 
         for handle in handles {
@@ -273,9 +270,10 @@ pub fn segmented_http_download(
     }
 
     if progress_displayed {
-        let bytes = fs::metadata(target_path).map(|meta| meta.len()).unwrap_or(total_len);
-        let completion_rendered =
-            progress.finish(bytes, started_at.elapsed())?;
+        let bytes = fs::metadata(target_path)
+            .map(|meta| meta.len())
+            .unwrap_or(total_len);
+        let completion_rendered = progress.finish(bytes, started_at.elapsed())?;
         return Ok((progress_displayed, completion_rendered));
     }
 
@@ -371,7 +369,9 @@ pub fn download_http(
     }
 
     if progress_displayed {
-        let bytes = fs::metadata(target_path).map(|meta| meta.len()).unwrap_or(0);
+        let bytes = fs::metadata(target_path)
+            .map(|meta| meta.len())
+            .unwrap_or(0);
         let completion_rendered = progress.finish(bytes, started_at.elapsed())?;
         return Ok((progress_displayed, completion_rendered));
     }

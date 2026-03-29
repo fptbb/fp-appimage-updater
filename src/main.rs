@@ -18,10 +18,10 @@ mod state;
 mod validator;
 
 use cli::{Cli, Commands};
-use output::{colors_enabled};
+use commands::helpers::build_http_agent;
+use output::colors_enabled;
 use parser::ConfigPaths;
 use state::StateManager;
-use commands::helpers::build_http_agent;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();

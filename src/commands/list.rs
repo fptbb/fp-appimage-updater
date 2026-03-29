@@ -1,5 +1,5 @@
 use crate::config;
-use crate::output::{print_json, print_list_human, ListApp, ListResponse};
+use crate::output::{ListApp, ListResponse, print_json, print_list_human};
 use crate::state::StateManager;
 use anyhow::Result;
 

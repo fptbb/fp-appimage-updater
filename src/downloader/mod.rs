@@ -93,40 +93,44 @@ pub fn download_app(
     if !zsync_success {
         let download_started = Instant::now();
         let mut progress_completion_rendered = false;
-        let (segmented_success, segmented_support, segmented_progress_displayed) = if segmented_downloads {
-            try_segmented_http_download(
-                client,
-                &app.name,
-                &update_info.version,
-                &update_info.download_url,
-                &tmp_path,
-                segmented_downloads_support,
-                quiet,
-                colors,
-            )
-        } else {
-            (false, segmented_downloads_support, false)
-        };
+        let (segmented_success, segmented_support, segmented_progress_displayed) =
+            if segmented_downloads {
+                try_segmented_http_download(
+                    client,
+                    &app.name,
+                    &update_info.version,
+                    &update_info.download_url,
+                    &tmp_path,
+                    segmented_downloads_support,
+                    quiet,
+                    colors,
+                )
+            } else {
+                (false, segmented_downloads_support, false)
+            };
         segmented_downloads_support = segmented_support;
         progress_completion_rendered |= segmented_progress_displayed;
 
         if !segmented_success {
-            let (_download_progress_displayed, download_progress_completion_rendered) = download_http(
-                client,
-                &app.name,
-                &update_info.version,
-                &update_info.download_url,
-                &tmp_path,
-                quiet,
-                colors,
-            )?;
+            let (_download_progress_displayed, download_progress_completion_rendered) =
+                download_http(
+                    client,
+                    &app.name,
+                    &update_info.version,
+                    &update_info.download_url,
+                    &tmp_path,
+                    quiet,
+                    colors,
+                )?;
             progress_completion_rendered |= download_progress_completion_rendered;
         }
 
         std::fs::rename(&tmp_path, &final_path)
             .context("Failed to rename tmp file to final destination")?;
 
-        let downloaded_bytes = fs::metadata(&final_path).map(|meta| meta.len()).unwrap_or(0);
+        let downloaded_bytes = fs::metadata(&final_path)
+            .map(|meta| meta.len())
+            .unwrap_or(0);
 
         return Ok(DownloadResult {
             path: final_path,
@@ -140,7 +144,9 @@ pub fn download_app(
     std::fs::rename(&tmp_path, &final_path)
         .context("Failed to rename tmp file to final destination")?;
 
-    let downloaded_bytes = fs::metadata(&final_path).map(|meta| meta.len()).unwrap_or(0);
+    let downloaded_bytes = fs::metadata(&final_path)
+        .map(|meta| meta.len())
+        .unwrap_or(0);
 
     Ok(DownloadResult {
         path: final_path,

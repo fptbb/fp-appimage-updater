@@ -105,10 +105,7 @@ pub fn resolve(
     }
     dedupe_capabilities(&mut capabilities);
 
-    let update = if state
-        .and_then(|s| s.local_version.as_deref())
-        == Some(version.as_str())
-    {
+    let update = if state.and_then(|s| s.local_version.as_deref()) == Some(version.as_str()) {
         None
     } else {
         Some(UpdateInfo {
@@ -176,7 +173,8 @@ mod tests {
         };
         let client = Agent::new_with_defaults();
 
-        let err = resolve(&client, &app, "./resolver.sh", None).expect_err("expected script failure");
+        let err =
+            resolve(&client, &app, "./resolver.sh", None).expect_err("expected script failure");
 
         let message = format!("{:#}", err);
         assert!(message.contains("Resolver script for 'broken-script' failed"));

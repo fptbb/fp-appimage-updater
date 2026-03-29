@@ -38,7 +38,10 @@ pub fn integrate(
     let should_integrate = app.integration.unwrap_or(global.manage_desktop_files);
     if should_integrate {
         if let Err(e) = integrate_desktop(app, appimage_path) {
-            eprintln!("Warning: Desktop integration failed for {}: {:#}", app.name, e);
+            eprintln!(
+                "Warning: Desktop integration failed for {}: {:#}",
+                app.name, e
+            );
         }
     }
 
@@ -46,7 +49,10 @@ pub fn integrate(
     if let Some(old_path) = old_appimage_path {
         if old_path != appimage_path && old_path.exists() {
             if let Err(e) = fs::remove_file(old_path) {
-                eprintln!("Warning: Failed to delete old AppImage {:?}: {}", old_path, e);
+                eprintln!(
+                    "Warning: Failed to delete old AppImage {:?}: {}",
+                    old_path, e
+                );
             }
         }
     }
@@ -61,7 +67,10 @@ fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
     let apps_dir = data_local_dir.join("applications");
     fs::create_dir_all(&apps_dir)?;
 
-    let icon_dest_dir = exec_path.parent().map(|p| p.join(".icons")).unwrap_or_default();
+    let icon_dest_dir = exec_path
+        .parent()
+        .map(|p| p.join(".icons"))
+        .unwrap_or_default();
     if !icon_dest_dir.as_os_str().is_empty() {
         fs::create_dir_all(&icon_dest_dir)?;
     }
@@ -99,7 +108,8 @@ fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
     let mut actual_icon_path = String::new();
     if let Some(icon_path) = find_best_icon(&extracted_root) {
         if let Some(ext) = icon_path.extension() {
-            let final_icon_path = icon_dest_dir.join(format!("{}.{}", app.name, ext.to_string_lossy()));
+            let final_icon_path =
+                icon_dest_dir.join(format!("{}.{}", app.name, ext.to_string_lossy()));
             if fs::copy(&icon_path, &final_icon_path).is_ok() {
                 actual_icon_path = final_icon_path.to_string_lossy().to_string();
             }
@@ -111,8 +121,11 @@ fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
         if let Ok(mut conf) = ini::Ini::load_from_file(&desktop_path) {
             if let Some(section) = conf.section_mut(Some("Desktop Entry")) {
                 let existing_exec = section.get("Exec").unwrap_or("");
-                let args = existing_exec.find(' ').map(|idx| &existing_exec[idx..]).unwrap_or("");
-                
+                let args = existing_exec
+                    .find(' ')
+                    .map(|idx| &existing_exec[idx..])
+                    .unwrap_or("");
+
                 section.insert("Exec", format!("{}{}", exec_path.display(), args));
                 section.insert("TryExec", exec_path.display().to_string());
                 if !actual_icon_path.is_empty() {

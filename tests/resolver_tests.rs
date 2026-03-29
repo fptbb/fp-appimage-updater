@@ -657,8 +657,5 @@ integration: false
     let count = stats["count"]
         .as_i64()
         .expect("Fallback count was not a number");
-    assert_eq!(
-        count, 1,
-        "Fallback path did not download the full file"
-    );
+    assert_eq!(count, 1, "Fallback path did not download the full file");
 }

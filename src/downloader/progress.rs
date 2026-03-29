@@ -121,13 +121,13 @@ impl ProgressUi {
         if let Some(index) = self.entries.iter().position(|e| e.id == id) {
             self.entries.remove(index);
             self.clear_rendered()?;
-            
+
             if self.enabled {
                 let mut stderr = std::io::stderr();
                 writeln!(stderr, "{}", green(&summary))?;
                 stderr.flush()?;
             }
-            
+
             self.draw()?;
             Ok(true)
         } else {
@@ -152,7 +152,7 @@ impl ProgressUi {
         }
         let mut stderr = std::io::stderr();
         for _ in 0..self.rendered_lines {
-            write!(stderr, "\x1b[1A\x1b[2K\r")?; 
+            write!(stderr, "\x1b[1A\x1b[2K\r")?;
         }
         stderr.flush()?;
         self.rendered_lines = 0;

@@ -1,5 +1,5 @@
-use crate::output::types::*;
 use crate::output::styling::*;
+use crate::output::types::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn print_list_human(apps: &[ListApp], colors: bool) {
@@ -133,7 +133,10 @@ pub fn print_check_human(
     }
 
     if let Some(note) = rate_limit_note {
-        println!("{}", colorize(&format!("note: {}", note), Color::Yellow, colors));
+        println!(
+            "{}",
+            colorize(&format!("note: {}", note), Color::Yellow, colors)
+        );
     }
 }
 

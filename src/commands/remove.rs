@@ -1,6 +1,8 @@
 use crate::config;
 use crate::disintegrator;
-use crate::output::{print_json, print_progress, print_warning, RemoveApp, RemoveResponse, RemoveStatus};
+use crate::output::{
+    RemoveApp, RemoveResponse, RemoveStatus, print_json, print_progress, print_warning,
+};
 use crate::state::StateManager;
 use anyhow::Result;
 
@@ -29,8 +31,7 @@ pub fn run(
                 command: "remove",
                 apps: Vec::new(),
                 error: Some(
-                    "Please provide an application name to remove, or use --all."
-                        .to_string(),
+                    "Please provide an application name to remove, or use --all.".to_string(),
                 ),
             })?;
         } else {
@@ -50,13 +51,9 @@ pub fn run(
                 target_found_in_configs = true;
                 let state = state_manager.get_app(&app.name);
 
-                if let Err(e) = disintegrator::remove_app(
-                    app,
-                    global_config,
-                    state,
-                    json_output,
-                    color_output,
-                ) {
+                if let Err(e) =
+                    disintegrator::remove_app(app, global_config, state, json_output, color_output)
+                {
                     if json_output {
                         results.push(RemoveApp {
                             name: app.name.clone(),
@@ -93,8 +90,7 @@ pub fn run(
 
     if json_output {
         let error = if !found && !all {
-            app_name
-                .map(|target| format!("App '{}' not found in configuration.", target))
+            app_name.map(|target| format!("App '{}' not found in configuration.", target))
         } else {
             None
         };

@@ -20,9 +20,13 @@ impl FileLock {
         match OpenOptions::new().write(true).create_new(true).open(&path) {
             Ok(_) => Ok(Self { path }),
             Err(e) if e.kind() == ErrorKind::AlreadyExists => {
-                bail!("Another fp-appimage-updater process is already running (lock file exists at {}).", path.display());
+                bail!(
+                    "Another fp-appimage-updater process is already running (lock file exists at {}).",
+                    path.display()
+                );
             }
-            Err(e) => Err(e).with_context(|| format!("Failed to acquire process lock at {}", path.display())),
+            Err(e) => Err(e)
+                .with_context(|| format!("Failed to acquire process lock at {}", path.display())),
         }
     }
 }

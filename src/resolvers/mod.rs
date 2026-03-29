@@ -1,7 +1,7 @@
 use anyhow::Result;
-use ureq::Agent;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
+use ureq::Agent;
 
 pub mod direct;
 pub mod forge;
@@ -47,7 +47,11 @@ impl RateLimitInfo {
                 } else if wait < 3600 {
                     format!("Rate limited. Retry in {}m.", wait / 60)
                 } else {
-                    format!("Rate limited. Retry in {}h {}m.", wait / 3600, (wait % 3600) / 60)
+                    format!(
+                        "Rate limited. Retry in {}h {}m.",
+                        wait / 3600,
+                        (wait % 3600) / 60
+                    )
                 }
             }
             None => "Rate limited. Retry later.".to_string(),
@@ -75,13 +79,16 @@ pub fn rate_limit_info_from_headers(headers: &ureq::http::HeaderMap) -> Option<R
     let reset_at = reset_after
         .map(|s| now_seconds().saturating_add(s))
         .or_else(|| header_u64_any(headers, &["x-ratelimit-reset", "X-RateLimit-Reset"]));
-    
+
     let retry_after_seconds = header_u64_any(headers, &["retry-after", "Retry-After"]);
 
     if reset_at.is_none() && retry_after_seconds.is_none() {
         None
     } else {
-        Some(RateLimitInfo { reset_at, retry_after_seconds })
+        Some(RateLimitInfo {
+            reset_at,
+            retry_after_seconds,
+        })
     }
 }
 
@@ -90,27 +97,37 @@ pub fn check_for_updates(
     state: Option<&AppState>,
     client: &Agent,
     github_proxy: bool,
-    github_proxy_prefix: &str,
+    github_proxy_prefixes: &[String],
 ) -> Result<CheckResult> {
     match &app.strategy {
-        StrategyConfig::Forge { repository, asset_match } => {
-            forge::resolve(client, repository, asset_match, state, github_proxy, github_proxy_prefix)
-        }
+        StrategyConfig::Forge {
+            repository,
+            asset_match,
+        } => forge::resolve(
+            client,
+            repository,
+            asset_match,
+            state,
+            github_proxy,
+            github_proxy_prefixes,
+        ),
         StrategyConfig::Direct { url, check_method } => {
             direct::resolve(client, url, check_method, state)
         }
-        StrategyConfig::Script { script_path } => {
-            script::resolve(client, app, script_path, state)
-        }
+        StrategyConfig::Script { script_path } => script::resolve(client, app, script_path, state),
     }
 }
 
 pub fn capability_from_header_value(name: &str, value: Option<&str>) -> Option<String> {
-    value?.trim().eq_ignore_ascii_case("bytes").then(|| name.to_string())
+    value?
+        .trim()
+        .eq_ignore_ascii_case("bytes")
+        .then(|| name.to_string())
 }
 
 fn header_u64_any(headers: &ureq::http::HeaderMap, names: &[&str]) -> Option<u64> {
-    names.iter()
+    names
+        .iter()
         .find_map(|name| headers.get(*name))
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.trim().parse().ok())
