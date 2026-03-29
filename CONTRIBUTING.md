@@ -99,18 +99,6 @@ The workflow reads the version from `Cargo.toml`, builds the release artifacts, 
 The workflow refuses to create an RC if the stable tag for that version already exists.
 When testing is complete, run a stable release with the same version number.
 
-### Installing a pre-release
-
-```bash
-# Via install script
-curl -sL https://fau.fpt.icu/install.sh | bash -s -- --pre-release
-
-# Via the self-update command
-fp-appimage-updater self-update --pre-release
-```
-
-With `--pre-release`, it resolves the **most recently published** release (stable or RC).
-
 ### Stable Release
 
 1. Bump `version` in `Cargo.toml`.
@@ -124,7 +112,7 @@ The workflow fails immediately if the version tag already exists - bump the vers
 When you are preparing a release or deployment artifact, run the helper script from the repository root:
 
 ```bash
-bash scripts/release-bump.sh
+just release-bump
 ```
 
 This script reads the version from `Cargo.toml`, updates `copr.spec`, refreshes the changelog entry, and stages the release metadata files for you.
