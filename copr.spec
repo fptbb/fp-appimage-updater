@@ -22,7 +22,7 @@ fp-appimage-updater is a lightweight, strictly declarative AppImage updater
 designed to manage Linux Desktop integration and AppImage binary updates natively.
 
 %prep
-%setup -q
+%setup -q -n %{name}-v%{version}
 
 %build
 cargo build --release
