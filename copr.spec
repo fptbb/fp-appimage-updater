@@ -51,30 +51,8 @@ install -m 644 systemd/fp-appimage-updater.timer %{buildroot}%{_userunitdir}/
 %license LICENSE
 
 %changelog
-* Wed Apr 01 2026 fp-appimage-updater Maintainer - 1.2.8-1
+* Tue Mar 31 2026 fp-appimage-updater Maintainer - 1.2.8-1
 - Update to version 1.2.8
-* Wed Apr 01 2026 fp-appimage-updater Maintainer - 1.2.7-1
-- Update to version 1.2.7
-* Wed Apr 01 2026 fp-appimage-updater Maintainer - 1.2.6-1
-- Update to version 1.2.6
-* Sun Mar 29 2026 fp-appimage-updater Maintainer - 1.2.5-1
-- Update to version 1.2.5
-* Sun Mar 29 2026 fp-appimage-updater Maintainer - 1.2.4-1
-- Update to version 1.2.4
-* Sat Mar 28 2026 fp-appimage-updater Maintainer - 1.2.3-1
-- Update to version 1.2.3
-* Sat Mar 28 2026 fp-appimage-updater Maintainer - 1.2.2-1
-- Update to version 1.2.2
-* Sat Mar 28 2026 fp-appimage-updater Maintainer - 1.2.1-1
-- Update to version 1.2.1
-* Sat Mar 28 2026 fp-appimage-updater Maintainer - 1.2.0-1
-- Update to version 1.2.0
-* Fri Mar 27 2026 fp-appimage-updater Maintainer - 1.1.6-1
-- Update to version 1.1.6
-* Fri Mar 27 2026 fp-appimage-updater Maintainer - 1.1.5-2
-- Update to version 1.1.5
-* Tue Mar 27 2026 fp-appimage-updater Maintainer - 1.1.5-1
-- Update to version 1.1.5
 * Tue Mar 24 2026 fp-appimage-updater Maintainer - 1.1.4-1
 - Initial COPR release
 
