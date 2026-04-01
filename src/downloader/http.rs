@@ -254,10 +254,11 @@ pub fn segmented_http_download(
                 continue;
             }
 
-            handles.push(scope.spawn(move || {
-                let result = download_range(&client, &url, &target_path, start, end, &handle);
-                result
-            }));
+            handles.push(
+                scope.spawn(move || {
+                    download_range(&client, &url, &target_path, start, end, &handle)
+                }),
+            );
         }
 
         for handle in handles {
@@ -389,10 +390,10 @@ fn new_progress_bar(total: u64, app_name: &str, quiet: bool) -> Option<ProgressH
 }
 
 fn progress_update(handle: Option<ProgressHandle>, amount: u64) -> Result<()> {
-    if let Some(handle) = handle {
-        if let Ok(mut ui) = progress_ui().lock() {
-            ui.inc(handle.id, amount)?;
-        }
+    if let Some(handle) = handle
+        && let Ok(mut ui) = progress_ui().lock()
+    {
+        ui.inc(handle.id, amount)?;
     }
     Ok(())
 }

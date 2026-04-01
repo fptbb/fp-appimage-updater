@@ -1,6 +1,4 @@
 use anyhow::Result;
-use clap::Parser;
-
 use fp_appimage_updater::cli::{Cli, Commands};
 use fp_appimage_updater::commands;
 use fp_appimage_updater::commands::helpers::build_http_agent;
@@ -10,7 +8,7 @@ use fp_appimage_updater::parser::{self, ConfigPaths};
 use fp_appimage_updater::state::StateManager;
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let cli = Cli::parse()?;
     let json_output = cli.json;
 
     let paths = if let Some(config_dir) = cli.config.clone() {
@@ -85,7 +83,10 @@ fn main() -> Result<()> {
             )?;
             state_manager.save()?;
         }
-        Commands::Update { app_name } => {
+        Commands::Update {
+            app_name,
+            self_update,
+        } => {
             commands::update::run(
                 &app_configs,
                 &app_config_errors,
@@ -97,6 +98,14 @@ fn main() -> Result<()> {
                 color_output,
             )?;
             state_manager.save()?;
+
+            // After application updates, handle self-update
+            if *self_update {
+                commands::self_update::run(&client, false, color_output)?;
+            } else if !json_output {
+                // By default, just check for updates if not in JSON mode
+                commands::self_update::check(&client, false, color_output)?;
+            }
         }
         Commands::Remove { app_name, all } => {
             commands::remove::run(
@@ -114,7 +123,7 @@ fn main() -> Result<()> {
             commands::self_update::run(&client, *pre_release, color_output)?;
         }
         Commands::Completion { shell } => {
-            commands::completion::run(*shell)?;
+            commands::completion::run(shell)?;
         }
     }
 

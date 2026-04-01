@@ -62,10 +62,8 @@ fn app_config_files(apps_dir: &Path) -> Result<Vec<PathBuf>> {
     let pattern = format!("{}/**/*.yml", apps_dir.display());
     let mut files = Vec::new();
 
-    for entry in glob(&pattern)? {
-        if let Ok(path) = entry {
-            files.push(path);
-        }
+    for path in glob(&pattern)?.flatten() {
+        files.push(path);
     }
 
     Ok(files)
@@ -106,7 +104,7 @@ fn validate_file(path: &Path) -> ValidationResult {
 fn infer_name_from_yaml(content: &str) -> Option<String> {
     let value: Value = serde_yaml::from_str(content).ok()?;
     let map = value.as_mapping()?;
-    map.get(&Value::String("name".to_string()))?
+    map.get(Value::String("name".to_string()))?
         .as_str()
         .map(ToOwned::to_owned)
 }

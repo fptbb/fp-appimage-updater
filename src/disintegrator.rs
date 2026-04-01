@@ -19,13 +19,12 @@ pub fn remove_app(
         let file_path = std::path::Path::new(file_path_str);
         if file_path.exists()
             && let Err(e) = fs::remove_file(file_path)
+            && !quiet
         {
-            if !quiet {
-                print_warning(
-                    &format!("Failed to delete AppImage binary {:?}: {}", file_path, e),
-                    colors,
-                );
-            }
+            print_warning(
+                &format!("Failed to delete AppImage binary {:?}: {}", file_path, e),
+                colors,
+            );
         }
     }
 
@@ -34,13 +33,12 @@ pub fn remove_app(
 
     if (symlink_path.exists() || symlink_path.is_symlink())
         && let Err(e) = fs::remove_file(&symlink_path)
+        && !quiet
     {
-        if !quiet {
-            print_warning(
-                &format!("Failed to remove symlink {:?}: {}", symlink_path, e),
-                colors,
-            );
-        }
+        print_warning(
+            &format!("Failed to remove symlink {:?}: {}", symlink_path, e),
+            colors,
+        );
     }
 
     remove_desktop(app, state, colors)?;

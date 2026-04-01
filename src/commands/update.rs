@@ -101,6 +101,12 @@ pub struct ProviderDownloadScheduler {
     active_by_provider: HashMap<String, usize>,
 }
 
+impl Default for ProviderDownloadScheduler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProviderDownloadScheduler {
     pub fn new() -> Self {
         Self {

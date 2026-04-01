@@ -1,84 +1,188 @@
-use clap::{Parser, Subcommand, ValueEnum};
-use clap_complete::Shell;
+use anyhow::{Result, anyhow};
+use std::path::PathBuf;
+use std::str::FromStr;
 
-#[derive(Parser)]
-#[command(name = "fp-appimage-updater")]
-#[command(about = "Data-Driven AppImage Manager", version)]
+pub struct CmdInfo {
+    pub name: &'static str,
+    pub desc: &'static str,
+    pub opts: &'static [&'static str],
+}
+
+pub const COMMAND_DEFS: &[CmdInfo] = &[
+    CmdInfo { name: "init", desc: "Initialize starter configuration files", opts: &["--global", "--app", "--strategy", "--force"] },
+    CmdInfo { name: "validate", desc: "Validate application recipe files", opts: &[] },
+    CmdInfo { name: "doctor", desc: "Run health checks for local setup", opts: &[] },
+    CmdInfo { name: "list", desc: "List all configured applications and their status", opts: &[] },
+    CmdInfo { name: "check", desc: "Check for updates", opts: &[] },
+    CmdInfo { name: "update", desc: "Update applications (all, or specify one)", opts: &["--self-update"] },
+    CmdInfo { name: "remove", desc: "Remove an application and its symlink", opts: &["-a", "--all"] },
+    CmdInfo { name: "self-update", desc: "Update fp-appimage-updater itself", opts: &["--pre-release"] },
+    CmdInfo { name: "completion", desc: "Generate shell completion scripts", opts: &[] },
+];
+
+pub const GLOBAL_OPTS: &[&str] = &["-c", "--config", "--json", "-h", "--help", "-V", "--version"];
+
+pub fn print_help() {
+    println!("fp-appimage-updater {}
+Data-Driven AppImage Manager
+
+USAGE:
+    fp-appimage-updater [OPTIONS] <COMMAND>
+
+OPTIONS:
+    -c, --config <PATH>  Override the default configuration directory
+        --json           Emit machine-readable JSON instead of human-readable text
+    -h, --help           Print help information
+    -V, --version        Print version information
+
+COMMANDS:", env!("CARGO_PKG_VERSION"));
+    
+    for cmd in COMMAND_DEFS {
+        println!("    {:<12} {}", cmd.name, cmd.desc);
+        if !cmd.opts.is_empty() {
+            println!("        {}", cmd.opts.join(", "));
+        }
+    }
+}
+
 pub struct Cli {
-    /// Override the default configuration directory
-    #[arg(short, long, global = true, value_name = "PATH")]
-    pub config: Option<std::path::PathBuf>,
-
-    /// Emit machine-readable JSON instead of human-readable text
-    #[arg(long, global = true)]
+    pub config: Option<PathBuf>,
     pub json: bool,
-
-    #[command(subcommand)]
     pub command: Commands,
 }
 
-#[derive(Subcommand)]
 pub enum Commands {
-    /// Initialize starter configuration files
     Init {
-        /// Create global config.yml
-        #[arg(long)]
         global: bool,
-        /// Create an app recipe with this name
-        #[arg(long, value_name = "NAME")]
         app: Option<String>,
-        /// Strategy to scaffold when using --app
-        #[arg(long, value_enum, default_value_t = InitStrategy::Direct)]
         strategy: InitStrategy,
-        /// Overwrite files if they already exist
-        #[arg(long)]
         force: bool,
     },
-    /// Validate application recipe files
     Validate {
-        /// Optional specific application to validate
         app_name: Option<String>,
     },
-    /// Run health checks for local setup
     Doctor,
-    /// List all configured applications and their status
     List,
-    /// Check for updates
     Check {
-        /// Optional specific application to check
         app_name: Option<String>,
     },
-    /// Update applications (all, or specify one)
     Update {
-        /// Optional specific application to update
         app_name: Option<String>,
+        self_update: bool,
     },
-    /// Remove an application and its symlink
     Remove {
-        /// Application to remove, or none to remove all
         app_name: Option<String>,
-
-        #[arg(short, long)]
-        /// Remove all applications
         all: bool,
     },
-    /// Update fp-appimage-updater itself to the latest GitLab release
     SelfUpdate {
-        #[arg(long)]
-        /// Also consider pre-release (RC) versions
         pre_release: bool,
     },
-    /// Generate shell completions
     Completion {
-        /// The shell to generate the completions for
-        #[arg(value_enum)]
-        shell: Shell,
+        shell: String,
     },
 }
 
-#[derive(Clone, Copy, Debug, ValueEnum)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum InitStrategy {
     Direct,
     Forge,
     Script,
+}
+
+impl FromStr for InitStrategy {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "direct" => Ok(InitStrategy::Direct),
+            "forge" => Ok(InitStrategy::Forge),
+            "script" => Ok(InitStrategy::Script),
+            _ => Err(anyhow!("Invalid strategy: {}", s)),
+        }
+    }
+}
+
+impl Cli {
+    pub fn parse() -> Result<Self> {
+        let mut args = pico_args::Arguments::from_env();
+
+        if args.contains(["-h", "--help"]) {
+            print_help();
+            std::process::exit(0);
+        }
+
+        if args.contains(["-V", "--version"]) {
+            println!("fp-appimage-updater {}", env!("CARGO_PKG_VERSION"));
+            std::process::exit(0);
+        }
+
+        let config: Option<PathBuf> = args
+            .opt_value_from_os_str(["-c", "--config"], |s| {
+                Ok::<PathBuf, std::convert::Infallible>(PathBuf::from(s))
+            })
+            .unwrap_or(None);
+
+        let json = args.contains("--json");
+
+        let subcommand = args.subcommand()?.unwrap_or_default();
+        let command = match subcommand.as_str() {
+            "init" => {
+                let global = args.contains("--global");
+                let force = args.contains("--force");
+                let strategy: Option<InitStrategy> = args.opt_value_from_str("--strategy")?;
+                let app: Option<String> = args.opt_value_from_str("--app")?;
+                Commands::Init {
+                    global,
+                    app,
+                    strategy: strategy.unwrap_or(InitStrategy::Direct),
+                    force,
+                }
+            }
+            "validate" => Commands::Validate {
+                app_name: args.opt_free_from_str()?,
+            },
+            "doctor" => Commands::Doctor,
+            "list" => Commands::List,
+            "check" => Commands::Check {
+                app_name: args.opt_free_from_str()?,
+            },
+            "update" => {
+                let self_update = args.contains("--self-update");
+                Commands::Update {
+                    app_name: args.opt_free_from_str()?,
+                    self_update,
+                }
+            }
+            "remove" => {
+                let all = args.contains(["-a", "--all"]);
+                Commands::Remove {
+                    app_name: args.opt_free_from_str()?,
+                    all,
+                }
+            }
+            "self-update" | "selfupdate" => Commands::SelfUpdate {
+                pre_release: args.contains("--pre-release"),
+            },
+            "completion" => Commands::Completion {
+                shell: args
+                    .opt_free_from_str()?
+                    .unwrap_or_else(|| String::from("bash")),
+            },
+            _ => {
+                print_help();
+                std::process::exit(1);
+            }
+        };
+
+        // Ensure no leftover flags exist
+        let remaining = args.finish();
+        if !remaining.is_empty() {
+            eprintln!("Warning: unused arguments left: {:?}", remaining);
+        }
+
+        Ok(Self {
+            config,
+            json,
+            command,
+        })
+    }
 }

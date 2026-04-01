@@ -60,12 +60,11 @@ impl ProgressGuard {
 
 impl Drop for ProgressGuard {
     fn drop(&mut self) {
-        if !self.finished {
-            if let Some(handle) = self.handle {
-                if let Ok(mut ui) = progress_ui().lock() {
-                    let _ = ui.abandon(handle.id);
-                }
-            }
+        if !self.finished
+            && let Some(handle) = self.handle
+            && let Ok(mut ui) = progress_ui().lock()
+        {
+            let _ = ui.abandon(handle.id);
         }
     }
 }

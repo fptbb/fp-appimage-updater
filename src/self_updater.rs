@@ -1,12 +1,15 @@
 use anyhow::{Context, Result, bail};
+use sha2::{Digest, Sha256};
 use std::env;
 use std::fs;
+use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
 use ureq::Agent;
 
 use crate::output::{
-    print_self_update_available, print_self_update_current, print_self_update_download,
-    print_self_update_start, print_self_update_success,
+    print_progress, print_self_update_available, print_self_update_current,
+    print_self_update_download, print_self_update_start, print_self_update_success, print_warning,
 };
 
 const REPO: &str = "fpsys/fp-appimage-updater";
@@ -65,12 +68,83 @@ fn resolve_latest_tag(client: &Agent, pre_release: bool) -> Result<String> {
     }
 }
 
+pub fn check_for_update(client: &Agent, pre_release: bool, colors: bool) -> Result<Option<String>> {
+    let latest_tag = resolve_latest_tag(client, pre_release)?;
+    let latest_semver = latest_tag
+        .trim_start_matches('v')
+        .split('-')
+        .next()
+        .unwrap_or("");
+
+    if latest_semver != CURRENT_VERSION {
+        print_self_update_available(CURRENT_VERSION, &latest_tag, colors);
+        return Ok(Some(latest_tag));
+    }
+
+    Ok(None)
+}
+
+fn is_writable_by_user(path: &PathBuf) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = match fs::metadata(path) {
+        Ok(m) => m,
+        Err(_) => return false,
+    };
+
+    let uid = unsafe { libc::getuid() };
+    if uid == 0 {
+        return true;
+    } // root can write anywhere usually
+
+    if metadata.uid() == uid {
+        return metadata.permissions().mode() & 0o200 != 0;
+    }
+
+    false
+}
+
+fn verify_checksum(binary_path: &PathBuf, checksums_content: &str, asset_name: &str) -> Result<()> {
+    let mut file = fs::File::open(binary_path)?;
+    let mut hasher = Sha256::new();
+    std::io::copy(&mut file, &mut hasher)?;
+    let hash = hasher.finalize();
+    let hash_hex = hex::encode(hash);
+
+    for line in checksums_content.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() == 2 && parts[1] == asset_name {
+            if parts[0] == hash_hex {
+                return Ok(());
+            } else {
+                bail!(
+                    "Checksum mismatch for {}: expected {}, found {}",
+                    asset_name,
+                    parts[0],
+                    hash_hex
+                );
+            }
+        }
+    }
+
+    bail!("No checksum found for {} in checksums.txt", asset_name);
+}
+
 pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()> {
+    let current_binary = env::current_exe().context("Failed to resolve current executable path")?;
+
+    // Safety check: ensure we are not trying to update a system-owned binary
+    if !is_writable_by_user(&current_binary) {
+        print_warning(
+            "The current binary is not writable by the user. It might be installed in a system directory or managed by a package manager. Self-update aborted.",
+            colors,
+        );
+        return Ok(());
+    }
+
     let kind = if pre_release { "pre-release" } else { "stable" };
     print_self_update_start(kind, CURRENT_VERSION, colors);
 
     let latest_tag = resolve_latest_tag(client, pre_release)?;
-
     let latest_semver = latest_tag
         .trim_start_matches('v')
         .split('-')
@@ -90,23 +164,20 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
         "https://gitlab.com/{}/-/releases/{}/downloads/bin/{}",
         REPO, latest_tag, binary_name
     );
-    let fallback_download_url = format!(
-        "https://gitlab.com/{}/-/jobs/artifacts/main/raw/build/{}?job=build-and-compress",
-        REPO, binary_name
+    let checksums_url = format!(
+        "https://gitlab.com/{}/-/releases/{}/downloads/bin/checksums.txt",
+        REPO, latest_tag
     );
 
     print_self_update_download(&download_url, colors);
 
-    let response = client.get(&download_url).call().or_else(|_| {
-        client
-            .get(&fallback_download_url)
-            .call()
-            .context("Failed to download new binary from GitLab release asset or fallback artifact")
-    })?;
+    // Download binary
+    let response = client
+        .get(&download_url)
+        .call()
+        .context("Failed to download new binary from GitLab release asset")?;
 
-    let current_binary = env::current_exe().context("Failed to resolve current executable path")?;
     let tmp_path = current_binary.with_extension("tmp");
-
     {
         let mut tmp_file = fs::File::create(&tmp_path)
             .context("Failed to create temporary file for new binary")?;
@@ -115,12 +186,28 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
             .context("Failed to write buffer to temp file")?;
     }
 
+    // Download and verify checksum
+    print_progress("Verifying checksum...", colors);
+    let checksum_resp = client
+        .get(&checksums_url)
+        .call()
+        .context("Failed to download checksums.txt")?;
+    let mut checksums_content = String::new();
+    checksum_resp
+        .into_body()
+        .into_reader()
+        .read_to_string(&mut checksums_content)?;
+
+    if let Err(e) = verify_checksum(&tmp_path, &checksums_content, &binary_name) {
+        let _ = fs::remove_file(&tmp_path);
+        bail!("Integrity check failed: {}", e);
+    }
+
     let mut perms = fs::metadata(&tmp_path)?.permissions();
     perms.set_mode(0o755);
     fs::set_permissions(&tmp_path, perms)?;
 
-    fs::rename(&tmp_path, &current_binary)
-        .context("Failed to replace current binary — you may need elevated permissions (are you maybe on an immutable filesystem?)")?;
+    fs::rename(&tmp_path, &current_binary).context("Failed to replace current binary")?;
 
     print_self_update_success(&latest_tag, colors);
     Ok(())

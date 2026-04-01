@@ -73,10 +73,8 @@ fn write_file(
         .ok_or_else(|| anyhow::anyhow!("Invalid path: {}", path.display()))?;
     fs::create_dir_all(parent)?;
 
-    if path.exists() && force {
-        if path.is_dir() {
-            bail!("Cannot overwrite directory with file: {}", path.display());
-        }
+    if path.exists() && force && path.is_dir() {
+        bail!("Cannot overwrite directory with file: {}", path.display());
     }
 
     fs::write(path, content)?;

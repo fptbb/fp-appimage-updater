@@ -151,7 +151,7 @@ fn infer_name_from_yaml_path(path: &std::path::Path) -> Option<String> {
     let content = fs::read_to_string(path).ok()?;
     let value: Value = serde_yaml::from_str(&content).ok()?;
     let map = value.as_mapping()?;
-    map.get(&Value::String("name".to_string()))?
+    map.get(Value::String("name".to_string()))?
         .as_str()
         .map(ToOwned::to_owned)
 }

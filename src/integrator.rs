@@ -36,25 +36,23 @@ pub fn integrate(
 
     // Handle desktop integration
     let should_integrate = app.integration.unwrap_or(global.manage_desktop_files);
-    if should_integrate {
-        if let Err(e) = integrate_desktop(app, appimage_path) {
-            eprintln!(
-                "Warning: Desktop integration failed for {}: {:#}",
-                app.name, e
-            );
-        }
+    if should_integrate && let Err(e) = integrate_desktop(app, appimage_path) {
+        eprintln!(
+            "Warning: Desktop integration failed for {}: {:#}",
+            app.name, e
+        );
     }
 
     // Cleanup old version
-    if let Some(old_path) = old_appimage_path {
-        if old_path != appimage_path && old_path.exists() {
-            if let Err(e) = fs::remove_file(old_path) {
-                eprintln!(
-                    "Warning: Failed to delete old AppImage {:?}: {}",
-                    old_path, e
-                );
-            }
-        }
+    if let Some(old_path) = old_appimage_path
+        && old_path != appimage_path
+        && old_path.exists()
+        && let Err(e) = fs::remove_file(old_path)
+    {
+        eprintln!(
+            "Warning: Failed to delete old AppImage {:?}: {}",
+            old_path, e
+        );
     }
 
     Ok(())
@@ -106,35 +104,34 @@ fn integrate_desktop(app: &AppConfig, exec_path: &Path) -> Result<()> {
 
     // Find and copy icon
     let mut actual_icon_path = String::new();
-    if let Some(icon_path) = find_best_icon(&extracted_root) {
-        if let Some(ext) = icon_path.extension() {
-            let final_icon_path =
-                icon_dest_dir.join(format!("{}.{}", app.name, ext.to_string_lossy()));
-            if fs::copy(&icon_path, &final_icon_path).is_ok() {
-                actual_icon_path = final_icon_path.to_string_lossy().to_string();
-            }
+    if let Some(icon_path) = find_best_icon(&extracted_root)
+        && let Some(ext) = icon_path.extension()
+    {
+        let final_icon_path = icon_dest_dir.join(format!("{}.{}", app.name, ext.to_string_lossy()));
+        if fs::copy(&icon_path, &final_icon_path).is_ok() {
+            actual_icon_path = final_icon_path.to_string_lossy().to_string();
         }
     }
 
     // Find and rewrite desktop file
-    if let Some(desktop_path) = find_desktop_file(&extracted_root) {
-        if let Ok(mut conf) = ini::Ini::load_from_file(&desktop_path) {
-            if let Some(section) = conf.section_mut(Some("Desktop Entry")) {
-                let existing_exec = section.get("Exec").unwrap_or("");
-                let args = existing_exec
-                    .find(' ')
-                    .map(|idx| &existing_exec[idx..])
-                    .unwrap_or("");
+    if let Some(desktop_path) = find_desktop_file(&extracted_root)
+        && let Ok(mut conf) = ini::Ini::load_from_file(&desktop_path)
+    {
+        if let Some(section) = conf.section_mut(Some("Desktop Entry")) {
+            let existing_exec = section.get("Exec").unwrap_or("");
+            let args = existing_exec
+                .find(' ')
+                .map(|idx| &existing_exec[idx..])
+                .unwrap_or("");
 
-                section.insert("Exec", format!("{}{}", exec_path.display(), args));
-                section.insert("TryExec", exec_path.display().to_string());
-                if !actual_icon_path.is_empty() {
-                    section.insert("Icon", actual_icon_path);
-                }
+            section.insert("Exec", format!("{}{}", exec_path.display(), args));
+            section.insert("TryExec", exec_path.display().to_string());
+            if !actual_icon_path.is_empty() {
+                section.insert("Icon", actual_icon_path);
             }
-            let target_desktop = apps_dir.join(format!("{}.desktop", app.name));
-            let _ = conf.write_to_file(target_desktop);
         }
+        let target_desktop = apps_dir.join(format!("{}.desktop", app.name));
+        let _ = conf.write_to_file(target_desktop);
     }
 
     let _ = fs::remove_dir_all(&tmp_dir);
@@ -169,10 +166,10 @@ fn find_desktop_file(root: &Path) -> Option<PathBuf> {
 }
 
 pub fn expand_tilde(path: &str) -> PathBuf {
-    if let Some(stripped) = path.strip_prefix("~/") {
-        if let Some(home) = std::env::var_os("HOME") {
-            return PathBuf::from(home).join(stripped);
-        }
+    if let Some(stripped) = path.strip_prefix("~/")
+        && let Some(home) = std::env::var_os("HOME")
+    {
+        return PathBuf::from(home).join(stripped);
     }
     PathBuf::from(path)
 }
@@ -187,9 +184,9 @@ pub fn rollback(
         let _ = fs::remove_file(failed_new_appimage_path);
     }
 
-    if let Some(old_path) = old_appimage_path {
-        if old_path.exists() {
-            let _ = integrate(app, global, old_path, None);
-        }
+    if let Some(old_path) = old_appimage_path
+        && old_path.exists()
+    {
+        let _ = integrate(app, global, old_path, None);
     }
 }
