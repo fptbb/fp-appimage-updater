@@ -3,6 +3,7 @@ name = "fp-appimage-updater"
 version = "1.2.7"
 edition = "2024"
 
+
 [dependencies]
 pico-args = "=0.5.0"
 serde = { version = "=1.0", features = ["derive"] }
