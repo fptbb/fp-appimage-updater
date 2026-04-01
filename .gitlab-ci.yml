@@ -194,15 +194,25 @@ release:
       
       echo "Creating release $TAG..."
       
+      PACKAGE_REGISTRY_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/fp-appimage-updater/${TAG}"
+
+      for FILE in build/fp-appimage-updater.x64 build/fp-appimage-updater.ARM build/checksums.txt build/fp-appimage-updater.x64.bundle build/fp-appimage-updater.ARM.bundle systemd/fp-appimage-updater.service systemd/fp-appimage-updater.timer; do
+        if [ -f "$FILE" ]; then
+          FILENAME=$(basename $FILE)
+          echo "Uploading $FILENAME to Package Registry..."
+          curl --fail --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "$FILE" "${PACKAGE_REGISTRY_URL}/${FILENAME}"
+        fi
+      done
+      
       release-cli create --name "Release $TAG" --description "./release_notes.md" \
         --tag-name "$TAG" --ref "$CI_COMMIT_SHA" \
-        --assets-link "{\"name\":\"fp-appimage-updater.x64\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.x64\"}" \
-        --assets-link "{\"name\":\"checksums.txt\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/checksums.txt?job=build-and-compress\",\"direct_asset_path\":\"/bin/checksums.txt\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.x64.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64.bundle?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.x64.bundle\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.ARM\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.ARM\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.ARM.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM.bundle?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.ARM.bundle\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.service\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.service?job=build-and-compress\",\"direct_asset_path\":\"/systemd/fp-appimage-updater.service\"}" \
-        --assets-link "{\"name\":\"fp-appimage-updater.timer\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/systemd/fp-appimage-updater.timer?job=build-and-compress\",\"direct_asset_path\":\"/systemd/fp-appimage-updater.timer\"}"
+        --assets-link "{\"name\":\"fp-appimage-updater.x64\",\"url\":\"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64\",\"direct_asset_path\":\"/bin/fp-appimage-updater.x64\"}" \
+        --assets-link "{\"name\":\"checksums.txt\",\"url\":\"${PACKAGE_REGISTRY_URL}/checksums.txt\",\"direct_asset_path\":\"/bin/checksums.txt\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.x64.bundle\",\"url\":\"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64.bundle\",\"direct_asset_path\":\"/bin/fp-appimage-updater.x64.bundle\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.ARM\",\"url\":\"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.ARM\",\"direct_asset_path\":\"/bin/fp-appimage-updater.ARM\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.ARM.bundle\",\"url\":\"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.ARM.bundle\",\"direct_asset_path\":\"/bin/fp-appimage-updater.ARM.bundle\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.service\",\"url\":\"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.service\",\"direct_asset_path\":\"/systemd/fp-appimage-updater.service\"}" \
+        --assets-link "{\"name\":\"fp-appimage-updater.timer\",\"url\":\"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.timer\",\"direct_asset_path\":\"/systemd/fp-appimage-updater.timer\"}"
 
       if [ -n "$GITLAB_API_TOKEN" ]; then
         echo "Locking tag $TAG..."
