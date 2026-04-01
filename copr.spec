@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 
 Name:           fp-appimage-updater
-Version:        1.2.5
+Version:        1.2.6
 Release:        1%{?dist}
 Summary:        A lightweight declarative AppImage updater
 
@@ -49,6 +49,8 @@ install -m 644 systemd/fp-appimage-updater.timer %{buildroot}%{_userunitdir}/
 %license LICENSE
 
 %changelog
+* Wed Apr 01 2026 fp-appimage-updater Maintainer - 1.2.6-1
+- Update to version 1.2.6
 * Sun Mar 29 2026 fp-appimage-updater Maintainer - 1.2.5-1
 - Update to version 1.2.5
 * Sun Mar 29 2026 fp-appimage-updater Maintainer - 1.2.4-1
