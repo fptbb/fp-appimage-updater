@@ -15,7 +15,7 @@ BuildRequires:  gcc
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  upx
 BuildRequires:  openssl-devel
-BuildRequires:  pkgconf-pkg-config
+BuildRequires:  pkgconfig
 
 %description
 fp-appimage-updater is a lightweight, strictly declarative AppImage updater 
