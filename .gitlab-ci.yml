@@ -40,6 +40,8 @@ build-and-compress:
   variables:
     CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
     RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
+    PKG_CONFIG_ALLOW_CROSS: "1"
+    PKG_CONFIG_PATH_aarch64_unknown_linux_gnu: "/usr/lib/aarch64-linux-gnu/pkgconfig"
   id_tokens:
     SIGSTORE_ID_TOKEN:
       aud: sigstore
@@ -51,7 +53,8 @@ build-and-compress:
       - .cargo/git/db/
       - target/
   before_script:
-    - apt-get update && apt-get install -y upx-ucl gcc-aarch64-linux-gnu jq curl wget
+    - dpkg --add-architecture arm64
+    - apt-get update && apt-get install -y upx-ucl gcc-aarch64-linux-gnu jq curl wget pkg-config libssl-dev:arm64
     - wget -O /usr/local/bin/cosign https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
     - chmod +x /usr/local/bin/cosign
     - rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
