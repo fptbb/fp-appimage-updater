@@ -25,35 +25,43 @@ fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed t
 
 ## Installation
 
-### Quick Install (Recommended)
-You can quickly install the latest binary and background systemd service natively utilizing the installation script:
+### 1. Fedora / OpenSUSE (COPR)
+If you are on an RPM-based distribution, the best way to integrate `fp-appimage-updater` is via the official COPR repository.
 
 ```bash
+sudo dnf copr enable fptbb/fp-appimage-updater
+sudo dnf install fp-appimage-updater
+```
+
+### 2. Universal Quick Install Script
+For all other Linux distributions (even atomic/immutables), you can seamlessly install the standalone binary and configure background systemd timers using the native installation script. 
+
+```bash
+# Default user-wide installation (~/.local/bin/ and ~/.config/systemd/user/)
 curl -sL fau.fpt.icu | bash
 ```
-This will install the binary to `~/.local/bin/` and the systemd service to `~/.config/systemd/user/`. The service will run every 12 hours. If you don't want to install the systemd service, you can use the `--no-systemd` flag:
 
+If you do NOT want the automatic `systemd` background checker installed, you can append `--no-systemd`:
 ```bash
 curl -sL fau.fpt.icu | bash -s -- --no-systemd
 ```
 
-If you are building an immutable/atomic OS image or want to install the binary system-wide to `/usr/bin/` with the systemd service in `/usr/lib/systemd/system/`, use the `--system` flag:
-
+To strictly deploy the binary and services **system-wide** (targetting `/usr/bin/` and `/usr/lib/systemd/system/`), you must explicitly elevate the execution. *(Note: If your active environment is strictly immutable, the script will securely reject this request).*
 ```bash
-curl -sL fau.fpt.icu | bash -s -- --system
+curl -sL fau.fpt.icu | sudo bash -s -- --system
 ```
-Note that these flags can work together.
 
-Alternatively, to uninstall it:
+To seamlessly uninstall the updater, its binaries, and gracefully disable its running DBus timers across any scope:
 ```bash
 curl -sL fau.fpt.icu | bash -s -- --uninstall
 ```
 
-### Using Pre-built Binaries
-You can download the latest compiled binaries from the GitHub Releases page. Releases currently provide Linux `x64` and `ARM64` artifacts, and the release workflow also publishes build provenance attestations for those binaries. Make the binary executable and drop it into your `~/.local/bin/` folder. It works as a standalone binary without any dependencies or scheduled services. You can run it manually or integrate it into your own scripts.
+### 3. Using Pre-built Binaries
+You can download the latest compiled binaries from the official [Releases pages](https://gitlab.com/fpsys/fp-appimage-updater/-/releases).
+Drop the binary cleanly into your preferred binary folder (e.g. `~/.local/bin/`), run `chmod +x`, and you're good to go. It functions natively as an isolated, standalone executable capable of integrating into standard POSIX workflows, even the self-update works.
 
 ### Building From Source
-If you wish to compile the tool yourself from the source code, please see the [CONTRIBUTING](CONTRIBUTING.md) guidelines.
+If you wish to compile the tool yourself from the source tree, please review the [CONTRIBUTING](CONTRIBUTING.md) guidelines.
 
 ## Documentation sections:
 *click to expand*
