@@ -1,19 +1,21 @@
 %global debug_package %{nil}
 
 Name:           fp-appimage-updater
-Version:        1.2.7
+Version:        1.2.8
 Release:        1%{?dist}
 Summary:        A lightweight declarative AppImage updater
 
 License:        MIT
-URL:            https://github.com/fptbb/fp-appimage-updater
-Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
+URL:            https://gitlab.com/fpsys/fp-appimage-updater
+Source0:        %{url}/-/archive/v%{version}/%{name}-v%{version}.tar.gz
 
 BuildRequires:  cargo
 BuildRequires:  rust
 BuildRequires:  gcc
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  upx
+BuildRequires:  openssl-devel
+BuildRequires:  pkgconf-pkg-config
 
 %description
 fp-appimage-updater is a lightweight, strictly declarative AppImage updater 
@@ -49,6 +51,8 @@ install -m 644 systemd/fp-appimage-updater.timer %{buildroot}%{_userunitdir}/
 %license LICENSE
 
 %changelog
+* Wed Apr 01 2026 fp-appimage-updater Maintainer - 1.2.8-1
+- Update to version 1.2.8
 * Wed Apr 01 2026 fp-appimage-updater Maintainer - 1.2.7-1
 - Update to version 1.2.7
 * Wed Apr 01 2026 fp-appimage-updater Maintainer - 1.2.6-1
