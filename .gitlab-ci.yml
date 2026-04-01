@@ -63,6 +63,7 @@ build-and-compress:
     - mkdir -p build
     - mv target/x86_64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.x64
     - mv target/aarch64-unknown-linux-gnu/release/fp-appimage-updater build/fp-appimage-updater.ARM
+    - cd build && sha256sum fp-appimage-updater.x64 fp-appimage-updater.ARM > checksums.txt && cd ..
     - cosign sign-blob --yes build/fp-appimage-updater.x64 --bundle build/fp-appimage-updater.x64.bundle
     - cosign sign-blob --yes build/fp-appimage-updater.ARM --bundle build/fp-appimage-updater.ARM.bundle
   artifacts:
@@ -196,6 +197,7 @@ release:
       release-cli create --name "Release $TAG" --description "./release_notes.md" \
         --tag-name "$TAG" --ref "$CI_COMMIT_SHA" \
         --assets-link "{\"name\":\"fp-appimage-updater.x64\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.x64\"}" \
+        --assets-link "{\"name\":\"checksums.txt\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/checksums.txt?job=build-and-compress\",\"direct_asset_path\":\"/bin/checksums.txt\"}" \
         --assets-link "{\"name\":\"fp-appimage-updater.x64.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.x64.bundle?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.x64.bundle\"}" \
         --assets-link "{\"name\":\"fp-appimage-updater.ARM\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.ARM\"}" \
         --assets-link "{\"name\":\"fp-appimage-updater.ARM.bundle\",\"url\":\"${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/build/fp-appimage-updater.ARM.bundle?job=build-and-compress\",\"direct_asset_path\":\"/bin/fp-appimage-updater.ARM.bundle\"}" \
