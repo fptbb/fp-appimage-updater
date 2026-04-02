@@ -28,7 +28,7 @@ pub struct GlobalConfig {
     pub segmented_downloads: bool,
     #[serde(default = "default_respect_rate_limits")]
     pub respect_rate_limits: bool,
-    #[serde(default)]
+    #[serde(default = "default_github_proxy")]
     pub github_proxy: bool,
     #[serde(default = "default_github_proxy_prefix")]
     pub github_proxy_prefix: GithubProxyPrefixes,
@@ -52,8 +52,8 @@ impl Default for GlobalConfig {
             create_symlinks: false,
             segmented_downloads: true,
             respect_rate_limits: true,
-            github_proxy: false,
-            github_proxy_prefix: GithubProxyPrefixes::Single("https://gh-proxy.com/".to_string()),
+            github_proxy: true,
+            github_proxy_prefix: GithubProxyPrefixes::Single("all".to_string()),
             github_release_api_url: None,
             github_release_web_url: None,
             gitlab_release_api_url: None,
@@ -66,8 +66,12 @@ fn default_respect_rate_limits() -> bool {
     true
 }
 
+fn default_github_proxy() -> bool {
+    true
+}
+
 fn default_github_proxy_prefix() -> GithubProxyPrefixes {
-    GithubProxyPrefixes::Single("https://gh-proxy.com/".to_string())
+    GithubProxyPrefixes::Single("all".to_string())
 }
 
 #[derive(Debug, Deserialize, Clone)]
