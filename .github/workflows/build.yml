@@ -46,70 +46,15 @@ jobs:
 
       - name: Get Version from Cargo.toml
         id: get_version
-        run: |
-          VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/')
-          echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
+        run: bash scripts/github/get-version.sh
 
       - name: Resolve Release Metadata
         id: release_meta
         shell: bash
-        run: |
-          VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/version = "(.+)"/\1/')
-          BASE_TAG="v${VERSION}"
-
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [ "${{ github.event_name }}" = "push" ]; then
-            HEAD_MESSAGE=$(git log -1 --pretty=%s | tr -d '\r')
-            EXPECTED_MESSAGE="chore: bump version to ${VERSION} in Cargo.toml"
-
-            if [ "$HEAD_MESSAGE" = "$EXPECTED_MESSAGE" ]; then
-              if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
-                echo "::error::Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before pushing a new release commit."
-                exit 1
-              fi
-
-              echo "should_release=true" >> "$GITHUB_OUTPUT"
-              echo "tag=${BASE_TAG}" >> "$GITHUB_OUTPUT"
-              echo "draft=false" >> "$GITHUB_OUTPUT"
-              echo "prerelease=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "should_release=false" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            if [ "${{ inputs.prerelease }}" = "true" ]; then
-              # Refuse to create an RC for a version that is already stable
-              if git ls-remote --tags origin | grep -q "refs/tags/${BASE_TAG}$"; then
-                echo "::error::Stable tag ${BASE_TAG} already exists. Bump the version in Cargo.toml before creating a new pre-release."
-                exit 1
-              fi
-              # Find the highest existing RC number for this version using git ls-remote
-              HIGHEST=$(git ls-remote --tags origin \
-                | grep -oP "refs/tags/${BASE_TAG}-RC\K[0-9]+" \
-                | sort -n | tail -1)
-              if [ -z "$HIGHEST" ]; then
-                NEXT_RC=1
-              else
-                NEXT_RC=$((HIGHEST + 1))
-              fi
-              TAG="${BASE_TAG}-RC${NEXT_RC}"
-            else
-              TAG="${BASE_TAG}"
-              # For stable releases, ensure the tag doesn't already exist
-              if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
-                echo "::error::Tag ${TAG} already exists. Bump the version in Cargo.toml before releasing."
-                exit 1
-              fi
-            fi
-
-            echo "should_release=true" >> "$GITHUB_OUTPUT"
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-            echo "draft=true" >> "$GITHUB_OUTPUT"
-            echo "prerelease=${{ inputs.prerelease }}" >> "$GITHUB_OUTPUT"
-          fi
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: bash scripts/github/release-meta.sh
 
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
@@ -179,70 +124,22 @@ jobs:
           path: build/fp-appimage-updater.ARM
           retention-days: 7
 
+      - name: Resolve Release Files
+        if: steps.release_meta.outputs.should_release == 'true'
+        id: release_files
+        run: bash scripts/github/release-files.sh
+
       - name: Generate Changelog
         if: steps.release_meta.outputs.should_release == 'true'
         id: changelog
         shell: bash
-        run: |
-          HEAD_SHA=$(git rev-parse --short HEAD)
-          
-          # Determine previous tag
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.prerelease }}" = "true" ]; then
-            PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          else
-            PREV_TAG=$(git tag --sort=-creatordate | grep -v -- '-RC' | head -1)
-          fi
-
-          # Set Base SHA and Comparison URL
-          if [ -z "$PREV_TAG" ]; then
-            BASE_SHA=$(git rev-list --max-parents=0 HEAD --abbrev-commit)
-            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${BASE_SHA}...${HEAD_SHA}"
-            RANGE_SPEC="HEAD"
-          else
-            BASE_SHA=$(git rev-parse --short "${PREV_TAG}")
-            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${HEAD_SHA}"
-            RANGE_SPEC="${PREV_TAG}..HEAD"
-          fi
-
-          # Format string based on author toggle
-          if [ "${{ github.event.inputs.show_authors }}" = "false" ]; then
-            FORMAT="- %s (%h)"
-          else
-            FORMAT="- %s (%h) by %an"
-          fi
-
-          # Logic for Categorization vs Simple List
-          if [ "${{ github.event.inputs.categorize }}" = "true" ]; then
-            LOG_CONTENT=""
-            declare -A COMMIT_GROUPS
-            # handles grouping by prefix case-insensitively
-            while IFS= read -r line; do
-              # Extract prefix or default to 'other'
-              PREFIX=$(echo "$line" | grep -oP "^- \K[^: ]+(?=:)" | tr '[:upper:]' '[:lower:]' || echo "other")
-              COMMIT_GROUPS["$PREFIX"]="${COMMIT_GROUPS["$PREFIX"]}$line"$'\n'
-            done < <(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
-
-            # Build the categorized log
-            for KEY in "${!COMMIT_GROUPS[@]}"; do
-              # Title case the header
-              HEADER_KEY="$(tr '[:lower:]' '[:upper:]' <<< ${KEY:0:1})${KEY:1}"
-              LOG_CONTENT="${LOG_CONTENT}### $HEADER_KEY"$'\n'"${COMMIT_GROUPS[$KEY]}"$'\n'
-            done
-          else
-            LOG_CONTENT=$(git log --pretty=format:"$FORMAT" "$RANGE_SPEC")
-          fi
-
-          HEADER="## What's Changed"
-          RANGE="**Full Changelog**: [${BASE_SHA}...${HEAD_SHA}](${COMPARE_URL})"
-          
-          {
-            echo 'notes<<CHANGELOG_EOF'
-            echo "$HEADER"
-            echo "$RANGE"
-            echo ""
-            echo "$LOG_CONTENT"
-            echo 'CHANGELOG_EOF'
-          } >> "$GITHUB_OUTPUT"
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          SHOW_AUTHORS: ${{ inputs.show_authors }}
+          CATEGORIZE: ${{ inputs.categorize }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash scripts/github/changelog.sh
 
       - name: Create Release and Upload Assets
         if: steps.release_meta.outputs.should_release == 'true'
@@ -252,12 +149,7 @@ jobs:
           tag_name: ${{ steps.release_meta.outputs.tag }}
           name: Release ${{ steps.release_meta.outputs.tag }}
           body: ${{ steps.changelog.outputs.notes }}
-          files: |
-            build/fp-appimage-updater.x64
-            build/fp-appimage-updater.ARM
-            build/checksums.txt
-            systemd/fp-appimage-updater.service
-            systemd/fp-appimage-updater.timer
+          files: ${{ steps.release_files.outputs.files }}
           draft: ${{ steps.release_meta.outputs.draft == 'true' }}
           prerelease: ${{ steps.release_meta.outputs.prerelease == 'true' }}
         env:

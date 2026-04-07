@@ -2,14 +2,14 @@
 set -euo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cargo_toml="$root_dir/Cargo.toml"
 spec_file="$root_dir/copr.spec"
 
-version="$(sed -n 's/^version = "\(.*\)"/\1/p' "$cargo_toml" | head -n1)"
-if [[ -z "$version" ]]; then
-    echo "Could not read the version from Cargo.toml" >&2
-    exit 1
-fi
+# shellcheck disable=SC1091
+source "$root_dir/scripts/ci/lib.sh"
+
+cd "$root_dir"
+ci_read_cargo_version
+version="$CI_VERSION"
 
 current_spec_version="$(sed -n 's/^Version:[[:space:]]*\(.*\)$/\1/p' "$spec_file" | head -n1 | tr -d '[:space:]')"
 current_spec_release="$(sed -n 's/^Release:[[:space:]]*\([0-9][0-9]*\).*$/\1/p' "$spec_file" | head -n1)"
