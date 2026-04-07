@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
+# fp-appimage-updater install script
+# GitLab page: https://gitlab.com/fpsys/fp-appimage-updater
+# Run from terminal:
+#   curl -sL fau.fpt.icu/ig | bash
+#   curl -sL fau.fpt.icu/ig | bash -s -- [OPTIONS]
+#   curl -sL fau.fpt.icu/ig | sudo bash -s -- --system
 set -euo pipefail
 
 main() {
     export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/${UID}/bus}"
-
+    
     REPO="fptbb/fp-appimage-updater"
     APP_NAME="fp-appimage-updater"
-
+    
     INSTALL_SYSTEMD=true
     USE_PRERELEASE=false
     SCOPE="auto"
-
+    
     for arg in "$@"; do
         if [ "$arg" = "--help" ] || [ "$arg" = "-h" ]; then
-            echo "Usage: curl -sL fau.fpt.icu/install-github.sh | bash -s -- [OPTIONS]"
+            echo "Usage: curl -sL fau.fpt.icu/ig | bash -s -- [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --system         Force system-wide installation (/usr/bin/)"
@@ -23,26 +29,26 @@ main() {
             echo "  --uninstall      Remove fp-appimage-updater from the system"
             echo "  -h, --help       Show this help message"
             exit 0
-        elif [ "$arg" = "--no-systemd" ]; then
+            elif [ "$arg" = "--no-systemd" ]; then
             INSTALL_SYSTEMD=false
-        elif [ "$arg" = "--pre-release" ]; then
+            elif [ "$arg" = "--pre-release" ]; then
             USE_PRERELEASE=true
-        elif [ "$arg" = "--system" ]; then
+            elif [ "$arg" = "--system" ]; then
             SCOPE="system"
-        elif [ "$arg" = "--user" ]; then
+            elif [ "$arg" = "--user" ]; then
             SCOPE="user"
-        elif [ "$arg" = "uninstall" ] || [ "$arg" = "--uninstall" ]; then
+            elif [ "$arg" = "uninstall" ] || [ "$arg" = "--uninstall" ]; then
             echo -e "\e[34m[INFO]\e[0m Uninstalling $APP_NAME..."
-
+            
             # disables user-wide active timers gracefully
             systemctl --user disable --now "${APP_NAME}.timer" 2>/dev/null || true
-
+            
             # cleans user-wide paths
             rm -f "$HOME/.local/bin/$APP_NAME"
             rm -f "$HOME/.config/systemd/user/${APP_NAME}.service"
             rm -f "$HOME/.config/systemd/user/${APP_NAME}.timer"
             systemctl --user daemon-reload 2>/dev/null || true
-
+            
             # skips system-wide cleanup entirely on immutable systems or non-root executions
             if [ -w "/usr/bin" ] && [ -w "/usr/lib/systemd/system" ]; then
                 systemctl disable --now "${APP_NAME}.timer" 2>/dev/null || true
@@ -55,7 +61,7 @@ main() {
                     "/etc/systemd/system/${APP_NAME}.service"
                     "/etc/systemd/system/${APP_NAME}.timer"
                 )
-
+                
                 for target in "${SYSTEM_PATHS[@]}"; do
                     if [ -f "$target" ]; then
                         rm -f "$target"
@@ -66,13 +72,13 @@ main() {
             else
                 echo -e "\e[33m[WARN]\e[0m Skipped system-wide cleanup (read-only filesystem or requires root)"
             fi
-
+            
             echo -e "\e[32m[SUCCESS]\e[0m Uninstallation complete!"
             echo "Note: AppImage binaries and configs in ~/.config/fp-appimage-updater were left intact."
             exit 0
         fi
     done
-
+    
     # Systemd Reality Check
     if [ "$INSTALL_SYSTEMD" = true ]; then
         if ! command -v systemctl >/dev/null 2>&1; then
@@ -80,25 +86,25 @@ main() {
             INSTALL_SYSTEMD=false
         fi
     fi
-
+    
     # Native Package Manager Detection
     check_package_manager() {
         local bin_path="$1"
         if [ ! -f "$bin_path" ]; then return 0; fi
-
+        
         local managed=false
         if command -v rpm >/dev/null 2>&1 && rpm -qf "$bin_path" >/dev/null 2>&1; then
             echo -e "\e[31m[ERROR]\e[0m $APP_NAME is managed by RPM (dnf/zypper/COPR). Please use your package manager to update."
             managed=true
         fi
-
+        
         if [ "$managed" = true ]; then
             exit 1
         fi
     }
     check_package_manager "/usr/bin/$APP_NAME"
     check_package_manager "/usr/local/bin/$APP_NAME"
-
+    
     # Immutable Distro Check
     is_immutable() {
         if [ -d "/run/ostree-booted" ]; then
@@ -113,13 +119,13 @@ main() {
         fi
         return 1
     }
-
+    
     # Strict Scope Resolver
     if [ "$SCOPE" = "system" ]; then
         if is_immutable; then
             echo -e "\e[31m[ERROR]\e[0m You requested --system, but the system is immutable or /usr/bin is read-only. Aborting."
             exit 1
-        elif [ ! -w "/usr/bin" ] || [ ! -w "/usr/lib/systemd/system" ]; then
+            elif [ ! -w "/usr/bin" ] || [ ! -w "/usr/lib/systemd/system" ]; then
             echo -e "\e[31m[ERROR]\e[0m You requested --system but lack permissions. Run 'curl ... | sudo bash -s -- --system'. Aborting."
             exit 1
         else
@@ -127,7 +133,7 @@ main() {
             SYSTEMD_DIR="/usr/lib/systemd/system"
             SYSTEMCTL_CMD="systemctl"
         fi
-    elif [ "$SCOPE" = "auto" ]; then
+        elif [ "$SCOPE" = "auto" ]; then
         if is_immutable || [ ! -w "/usr/bin" ] || [ ! -w "/usr/lib/systemd/system" ]; then
             SCOPE="user"
             BIN_DIR="$HOME/.local/bin"
@@ -144,7 +150,7 @@ main() {
         SYSTEMD_DIR="$HOME/.config/systemd/user"
         SYSTEMCTL_CMD="systemctl --user"
     fi
-
+    
     # Cleanup duplicate conflicting installs
     if [ "$SCOPE" = "user" ]; then
         if [ -f "/usr/bin/$APP_NAME" ]; then
@@ -155,7 +161,7 @@ main() {
                 rm -f "/usr/lib/systemd/system/${APP_NAME}.service" "/usr/lib/systemd/system/${APP_NAME}.timer"
                 rm -f "/etc/systemd/system/${APP_NAME}.service" "/etc/systemd/system/${APP_NAME}.timer"
                 systemctl daemon-reload 2>/dev/null || true
-            elif command -v sudo >/dev/null 2>&1; then
+                elif command -v sudo >/dev/null 2>&1; then
                 sudo systemctl disable --now "${APP_NAME}.timer" 2>/dev/null || true
                 sudo rm -f "/usr/bin/$APP_NAME" "/usr/local/bin/$APP_NAME"
                 sudo rm -f "/usr/lib/systemd/system/${APP_NAME}.service" "/usr/lib/systemd/system/${APP_NAME}.timer"
@@ -165,7 +171,7 @@ main() {
                 echo -e "\e[31m[ERROR]\e[0m Insufficient privileges to safely remove system-wide deployment."
             fi
         fi
-    elif [ "$SCOPE" = "system" ]; then
+        elif [ "$SCOPE" = "system" ]; then
         if [ -f "$HOME/.local/bin/$APP_NAME" ]; then
             echo -e "\e[33m[WARN]\e[0m Found conflicting user-wide installation. Cleaning up..."
             systemctl --user disable --now "${APP_NAME}.timer" 2>/dev/null || true
@@ -174,54 +180,54 @@ main() {
             systemctl --user daemon-reload 2>/dev/null || true
         fi
     fi
-
+    
     echo -e "\e[34m[INFO]\e[0m Starting $SCOPE-wide installation of $APP_NAME..."
-
+    
     # detects architecture
     ARCH=$(uname -m)
     case "$ARCH" in
         x86_64|amd64)
             TARGET_ARCH="x64"
-            ;;
+        ;;
         aarch64|arm64)
             TARGET_ARCH="ARM"
-            ;;
+        ;;
         *)
             echo -e "\e[31m[ERROR]\e[0m Unsupported architecture $ARCH"
             exit 1
-            ;;
+        ;;
     esac
-
+    
     # fetches release version
     if [ "$USE_PRERELEASE" = "true" ]; then
         echo -e "\e[34m[INFO]\e[0m Fetching latest release version from GitHub (including pre-releases)..."
         VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases?per_page=1" \
-            | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+        | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
         RELEASE_KIND="release"
     else
         echo -e "\e[34m[INFO]\e[0m Fetching latest stable release version from GitHub..."
         VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
-            | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+        | grep '"tag_name":' | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
         RELEASE_KIND="release"
     fi
-
+    
     if [ -z "$VERSION" ]; then
         echo -e "\e[31m[ERROR]\e[0m Could not determine latest release version. Maybe API rate limited?"
         exit 1
     fi
-
+    
     echo -e "\e[34m[INFO]\e[0m Found latest ${RELEASE_KIND}: $VERSION"
-
+    
     WORK_DIR=$(mktemp -d)
     trap 'rm -rf "$WORK_DIR"' EXIT
-
+    
     # downloads binary
     DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.${TARGET_ARCH}"
     CHECKSUMS_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.txt"
-
+    
     echo -e "\e[34m[INFO]\e[0m Downloading binary and checking checksums..."
     curl -sL --fail --progress-bar "$DOWNLOAD_URL" -o "$WORK_DIR/${APP_NAME}.${TARGET_ARCH}"
-
+    
     if curl -sL --fail "$CHECKSUMS_URL" -o "$WORK_DIR/checksums.txt"; then
         echo -e "\e[34m[INFO]\e[0m Validating checksum..."
         pushd "$WORK_DIR" >/dev/null
@@ -235,25 +241,25 @@ main() {
     else
         echo -e "\e[33m[WARN]\e[0m checksums.txt not found in release assets. Skipping cryptographic validation."
     fi
-
+    
     mkdir -p "$BIN_DIR"
     mv "$WORK_DIR/${APP_NAME}.${TARGET_ARCH}" "$BIN_DIR/$APP_NAME"
     chmod +x "$BIN_DIR/$APP_NAME"
-
+    
     if [ "$INSTALL_SYSTEMD" = true ]; then
         # downloads systemd instances
         echo -e "\e[34m[INFO]\e[0m Setting up background systemd services in $SYSTEMD_DIR..."
         mkdir -p "$SYSTEMD_DIR"
-
+        
         SERVICE_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.service"
         TIMER_URL="https://github.com/${REPO}/releases/download/${VERSION}/${APP_NAME}.timer"
-
+        
         curl -sL --fail "$SERVICE_URL" -o "$SYSTEMD_DIR/${APP_NAME}.service"
         curl -sL --fail "$TIMER_URL" -o "$SYSTEMD_DIR/${APP_NAME}.timer"
-
+        
         # adjusts ExecStart path to match installation directory
         sed -i "s|%h/.local/bin|$BIN_DIR|g" "$SYSTEMD_DIR/${APP_NAME}.service"
-
+        
         # enables and starts systemd services
         if [ "$SYSTEMCTL_CMD" = "systemctl" ]; then
             $SYSTEMCTL_CMD daemon-reload 2>/dev/null || true
@@ -262,7 +268,7 @@ main() {
             $SYSTEMCTL_CMD daemon-reload
             $SYSTEMCTL_CMD enable --now "${APP_NAME}.timer"
         fi
-
+        
         echo ""
         echo -e "\e[32m[SUCCESS]\e[0m Installation complete!"
         echo "Background updates are scheduled via systemd (${APP_NAME}.timer)."
@@ -271,7 +277,7 @@ main() {
         echo -e "\e[32m[SUCCESS]\e[0m Installation complete!"
         echo "Systemd service installation was skipped (--no-systemd specified)."
     fi
-
+    
     # verifies if target directory is in current path
     if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
         echo ""

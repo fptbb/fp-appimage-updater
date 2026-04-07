@@ -38,22 +38,22 @@ For all other Linux distributions (even atomic/immutables), you can seamlessly i
 
 ```bash
 # Default user-wide installation (~/.local/bin/ and ~/.config/systemd/user/)
-curl -sL fau.fpt.icu | bash
+curl -sL fau.fpt.icu/i | bash
 ```
 
 If you do NOT want the automatic `systemd` background checker installed, you can append `--no-systemd`:
 ```bash
-curl -sL fau.fpt.icu | bash -s -- --no-systemd
+curl -sL fau.fpt.icu/i | bash -s -- --no-systemd
 ```
 
 To strictly deploy the binary and services **system-wide** (targetting `/usr/bin/` and `/usr/lib/systemd/system/`), you must explicitly elevate the execution. *(Note: If your active environment is strictly immutable, the script will securely reject this request).*
 ```bash
-curl -sL fau.fpt.icu | sudo bash -s -- --system
+curl -sL fau.fpt.icu/i | sudo bash -s -- --system
 ```
 
 To seamlessly uninstall the updater, its binaries, and gracefully disable its running DBus timers across any scope:
 ```bash
-curl -sL fau.fpt.icu | bash -s -- --uninstall
+curl -sL fau.fpt.icu/i | bash -s -- --uninstall
 ```
 
 ### 3. Using Pre-built Binaries

@@ -50,8 +50,8 @@ done < <(ci_gitlab_release_asset_links)
 if [[ -n "${GITLAB_API_TOKEN:-}" ]]; then
     echo "Locking tag $CI_TAG..."
     curl --request POST --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
-        --url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/protected_tags" \
-        --data "name=$CI_TAG&create_access_level=40" || echo "Failed to lock tag, check API token permissions."
+    --url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/protected_tags" \
+    --data "name=$CI_TAG&create_access_level=40" || echo "Failed to lock tag, check API token permissions."
 else
     echo "GITLAB_API_TOKEN not set, skipping tag protection."
 fi
@@ -63,9 +63,9 @@ else
         echo "Error: COPR_WEBHOOK_UUID is not set."
         exit 1
     fi
-
+    
     copr_webhook_url="https://copr.fedorainfracloud.org/webhooks/custom/226828/${COPR_WEBHOOK_UUID}/fp-appimage-updater/"
-
+    
     echo "Triggering COPR webhook..."
     curl --fail --silent --show-error --request POST "${copr_webhook_url}"
 fi
