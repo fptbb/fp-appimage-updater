@@ -1,3 +1,6 @@
+/// Remove the managed AppImage and desktop integration for an app.
+///
+/// This is intentionally narrow: user config files are left intact.
 use anyhow::Result;
 use std::fs;
 

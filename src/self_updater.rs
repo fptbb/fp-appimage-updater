@@ -1,3 +1,7 @@
+/// Self-update flow for the installed binary.
+///
+/// It resolves the GitLab release, downloads the matching asset, verifies the
+/// checksum, and then swaps the current executable in place.
 use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};
 use std::env;
@@ -17,6 +21,7 @@ const REPO_ENCODED: &str = "fpsys%2Ffp-appimage-updater";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn asset_suffix() -> Result<&'static str> {
+    // The release assets are published with architecture-specific suffixes.
     match std::env::consts::ARCH {
         "x86_64" => Ok("x64"),
         "aarch64" => Ok("ARM"),

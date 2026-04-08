@@ -1,3 +1,7 @@
+/// Shared policy helpers for update/check commands.
+///
+/// This keeps rate-limit handling, GitHub proxy selection, and worker tuning
+/// in one place so the command code stays focused on orchestration.
 use crate::config;
 use crate::resolvers;
 use crate::state::{AppState, StateManager};

@@ -1,3 +1,7 @@
+/// Resolve config and state paths, then load YAML app definitions.
+///
+/// The config directory is user-overridable, while the state directory still
+/// follows the XDG default so runtime cache stays separate from config.
 use anyhow::{Context, Result};
 use glob::glob;
 use serde_yaml::Value;

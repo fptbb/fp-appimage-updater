@@ -1,3 +1,7 @@
+/// Install a downloaded AppImage into the user's environment.
+///
+/// This handles the executable bit, symlink updates, desktop entry extraction,
+/// icon copying, and cleanup of the previous version.
 use anyhow::{Context, Result};
 use std::fs;
 use std::os::unix::fs::{PermissionsExt, symlink};
@@ -34,7 +38,7 @@ pub fn integrate(
         fs::rename(&tmp_symlink, &symlink_path).context("Failed to update symlink")?;
     }
 
-    // Handle desktop integration
+    // Desktop integration is best-effort because some AppImages ship broken metadata.
     let should_integrate = app.integration.unwrap_or(global.manage_desktop_files);
     if should_integrate && let Err(e) = integrate_desktop(app, appimage_path) {
         eprintln!(
@@ -43,7 +47,7 @@ pub fn integrate(
         );
     }
 
-    // Cleanup old version
+    // Remove the old AppImage only after the new one has been installed successfully.
     if let Some(old_path) = old_appimage_path
         && old_path != appimage_path
         && old_path.exists()

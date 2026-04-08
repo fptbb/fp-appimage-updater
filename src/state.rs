@@ -1,3 +1,7 @@
+/// On-disk cache for the last known download state.
+///
+/// This is intentionally lightweight and opportunistic: the app rebuilds it
+/// from successful runs instead of treating it as source-of-truth config.
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
