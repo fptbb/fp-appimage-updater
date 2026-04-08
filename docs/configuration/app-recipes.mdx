@@ -7,7 +7,7 @@ A recipe is a YAML file that tells fp-appimage-updater everything it needs to kn
 
 ## Where recipes live
 
-Place recipe files inside `~/.config/fp-appimage-updater/apps/`. Each file can be a flat `.yml` at the top level, or a subdirectory containing a main recipe file and any supporting scripts.
+Place recipe files inside `~/.config/fp-appimage-updater/apps/`. Each file can be a flat `.yml` at the top level, or a subdirectory containing the recipe file and any supporting scripts.
 
 ```
 ~/.config/fp-appimage-updater/
@@ -15,7 +15,7 @@ Place recipe files inside `~/.config/fp-appimage-updater/apps/`. Each file can b
 └── apps/
     ├── hydra-launcher.yml
     └── hayase/
-        ├── main.yml
+        ├── hayase.yml
         └── resolver.sh
 ```
 

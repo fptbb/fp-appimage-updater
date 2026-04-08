@@ -1,6 +1,7 @@
 # fp-appimage-updater
 
 [![Copr build status](https://copr.fedorainfracloud.org/coprs/fptbb/fp-appimage-updater/package/fp-appimage-updater/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/fptbb/fp-appimage-updater/package/fp-appimage-updater/)
+[![Documentation](https://img.shields.io/badge/docs-fau.fpt.icu-blue)](https://docs.fau.fpt.icu/)
 
 fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed to manage, update, and integrate AppImages entirely through declarative user-provided YAML configurations. Operating strictly in user-space, it is intended to be used with dotfiles and works perfectly with immutable/atomic Linux environments.
 
@@ -62,6 +63,12 @@ Drop the binary cleanly into your preferred binary folder (e.g. `~/.local/bin/`)
 
 ### Building From Source
 If you wish to compile the tool yourself from the source tree, please review the [CONTRIBUTING](CONTRIBUTING.md) guidelines.
+
+## Documentation
+
+The full documentation lives at [docs.fau.fpt.icu](https://docs.fau.fpt.icu/). It covers the step-by-step setup flow, recipe format, update strategies, troubleshooting, and the lower-level details that are easier to keep in a dedicated docs site than in a short README.
+
+If you are trying to understand how a command behaves or why an app is skipped, start there first.
 
 ## Documentation sections:
 *click to expand*

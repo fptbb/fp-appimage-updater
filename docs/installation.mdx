@@ -19,6 +19,12 @@ Choose the method that matches your distribution and preferences.
   <Tab title="Quick install script">
     The install script works on any Linux distribution, including immutable and atomic systems. By default it installs to `~/.local/bin/` and sets up a systemd user timer for background updates.
 
+    In plain terms, the script does three things:
+
+    - puts the binary on your `PATH`
+    - creates the user timer if you allow background updates
+    - leaves your recipes, state, and AppImages in your home directory
+
     ```bash
     curl -sL fau.fpt.icu/i | bash
     ```

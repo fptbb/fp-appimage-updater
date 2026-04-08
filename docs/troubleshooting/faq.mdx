@@ -54,8 +54,14 @@ description: "Answers to common questions about fp-appimage-updater."
     This flag works with every command.
   </Accordion>
 
+  <Accordion title="Where does fp-appimage-updater remember what I already installed?">
+    It keeps a small cache in `~/.local/state/fp-appimage-updater/cache.json`. That file stores the last known version, download metadata, the installed file path, and any rate-limit or capability hints from the previous run.
+
+    If the cache is missing, fp-appimage-updater rebuilds it the next time you run `check` or `update`.
+  </Accordion>
+
   <Accordion title="What is the zsync field in an app recipe?">
-    The `zsync` field enables delta updates, which download only the bytes that changed instead of the full AppImage. Set it to `true` to let fp-appimage-updater auto-detect the `.zsync` URL, or provide an explicit URL:
+    The `zsync` field enables delta updates, which download only the bytes that changed instead of the full AppImage. Set it to `true` to derive the `.zsync` URL from the resolved download URL, or provide an explicit URL:
 
     ```yaml
     zsync: true
@@ -65,7 +71,7 @@ description: "Answers to common questions about fp-appimage-updater."
     zsync: "https://example.com/app.AppImage.zsync"
     ```
 
-    `zsync` must be installed and available on your `PATH` for this to work. Run `fp-appimage-updater doctor` to check.
+    `zsync` must be installed and available on your `PATH` for this to work. fp-appimage-updater only uses it when it already has a local AppImage to compare against, and it falls back to the normal download path if zsync cannot run. Run `fp-appimage-updater doctor` to check.
   </Accordion>
 
   <Accordion title="Why is an app being skipped during updates?">

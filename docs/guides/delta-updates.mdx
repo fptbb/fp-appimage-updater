@@ -23,7 +23,7 @@ fp-appimage-updater doctor
 
 ### Enable per app
 
-Set `zsync: true` in an app recipe to auto-detect the `.zsync` URL from the release:
+Set `zsync: true` in an app recipe to derive the `.zsync` URL from the resolved download URL:
 
 ```yaml
 name: myapp
@@ -44,6 +44,14 @@ strategy:
   url: "https://example.com/myapp.AppImage"
   check_method: etag
 ```
+
+What happens during a zsync update:
+
+1. fp-appimage-updater looks for the previously installed AppImage path in its local state.
+2. It builds the `.zsync` URL from the resolved download URL, or uses the explicit URL you provided.
+3. It runs `zsync` against the old file and a temporary output file.
+4. If that succeeds, it renames the temporary file into place.
+5. If it fails, or if no local AppImage exists yet, it falls back to the normal download path.
 
 ## Segmented downloads (HTTP ranges)
 
