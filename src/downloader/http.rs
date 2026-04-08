@@ -13,6 +13,9 @@ use crate::output::{print_progress, print_warning};
 pub const MAX_SEGMENTED_WORKERS: usize = 4;
 pub const DOWNLOAD_BUFFER_SIZE: usize = 64 * 1024;
 
+/// Run the external `zsync` binary against an existing AppImage and a manifest URL.
+///
+/// If `zsync` fails or is missing, the caller should fall back to the normal HTTP path.
 pub fn try_zsync(
     zsync_url: &str,
     old_file: &Path,
@@ -45,7 +48,7 @@ pub fn try_zsync(
         _ => {
             if !quiet {
                 print_warning(
-                    "zsync failed or not found, falling back to full HTTP download.",
+                    "zsync could not complete, falling back to full HTTP download.",
                     colors,
                 );
             }

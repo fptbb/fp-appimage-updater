@@ -72,6 +72,7 @@ pub fn download_app(
         fs::create_dir_all(parent)?;
     }
 
+    // zsync is a delta path: try an existing AppImage first, then fall back to HTTP.
     let zsync_url = match &app.zsync {
         Some(ZsyncConfig::Enabled(true)) => Some(format!("{}.zsync", update_info.download_url)),
         Some(ZsyncConfig::Url(url)) => Some(url.clone()),

@@ -106,6 +106,25 @@ strategy:
 segmented_downloads: true
 ```
 
+### Zsync Delta Updates
+`zsync` is an optional per-app delta download path. It only runs when the recipe includes a `zsync` field and the updater can find both an existing installed AppImage and the `zsync` binary on `PATH`.
+
+Supported recipe forms:
+- `zsync: true` means the updater will try `<resolved-download-url>.zsync`
+- `zsync: "https://example.org/file.AppImage.zsync"` means the updater will use that exact manifest URL
+
+If the delta update fails for any reason, the updater prints a warning and falls back to the normal HTTP download path.
+
+Example:
+```yaml
+name: my-app
+strategy:
+  strategy: forge
+  repository: https://github.com/example/my-app
+  asset_match: "my-app-*-x86_64.AppImage"
+zsync: true
+```
+
 ### Update Strategies
 
 fp-appimage-updater supports three different strategies for resolving and downloading updates.

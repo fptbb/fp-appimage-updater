@@ -91,10 +91,16 @@ pub struct AppConfig {
     pub strategy: StrategyConfig,
 }
 
+/// Per-app zsync manifest configuration.
+///
+/// `true` means "use the downloader URL with `.zsync` appended".
+/// A string means "use this exact zsync manifest URL".
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum ZsyncConfig {
+    /// Enable zsync by deriving the manifest URL from the resolved download URL.
     Enabled(bool),
+    /// Use an explicit zsync manifest URL.
     Url(String),
 }
 
