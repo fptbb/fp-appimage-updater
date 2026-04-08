@@ -1,0 +1,51 @@
+---
+title: "GitHub Proxy"
+description: "Bypass GitHub API rate limits using proxy fallbacks for release metadata."
+---
+
+Apps using the `forge` strategy with GitHub repositories fetch release metadata from the GitHub API. GitHub enforces rate limits on unauthenticated requests, which can block update checks when you run them frequently or from a shared IP.
+
+fp-appimage-updater solves this by trying one or more proxy base URLs for the release metadata lookup. The actual AppImage download always goes directly from GitHub — only the metadata request is proxied.
+
+<Note>
+  Only GitHub release API metadata goes through the proxy. The AppImage download URL is always fetched directly from GitHub.
+</Note>
+
+## Enable globally
+
+Add the following to your `config.yml` to enable proxy fallback for all `forge` apps:
+
+```yaml
+github_proxy: true
+github_proxy_prefix: "all"  # try all built-in proxies in order
+```
+
+To use specific proxy URLs instead of the built-in list:
+
+```yaml
+github_proxy: true
+github_proxy_prefix:
+  - "https://gh-proxy.com/"
+  - "https://corsproxy.io/?"
+  - "https://api.allorigins.win/raw?url="
+```
+
+fp-appimage-updater tries each proxy in order and stops at the first successful response. Using `"all"` tries every compatible proxy built into the app.
+
+## Override per app
+
+You can set proxy options on individual app recipes to override the global config:
+
+```yaml
+name: hydra-launcher
+github_proxy: true
+github_proxy_prefix: "https://gh-proxy.com/"
+strategy:
+  strategy: forge
+  repository: https://github.com/hydralauncher/hydra
+  asset_match: "hydralauncher-*.AppImage"
+```
+
+<Tip>
+  When fp-appimage-updater hits a rate limit, it records the retry window and skips that app on the next run. To disable this cooldown behavior and always retry, set `respect_rate_limits: false` in your `config.yml` or in the individual app recipe.
+</Tip>

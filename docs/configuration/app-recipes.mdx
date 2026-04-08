@@ -1,0 +1,107 @@
+---
+title: "App Recipes"
+description: "Define your apps with YAML recipes that fp-appimage-updater uses to manage and update them."
+---
+
+A recipe is a YAML file that tells fp-appimage-updater everything it needs to know about one app: what it's called, how to find updates, and how to install it. You write one recipe per app, commit it to your dotfiles, and fp-appimage-updater handles the rest.
+
+## Where recipes live
+
+Place recipe files inside `~/.config/fp-appimage-updater/apps/`. Each file can be a flat `.yml` at the top level, or a subdirectory containing a main recipe file and any supporting scripts.
+
+```
+~/.config/fp-appimage-updater/
+├── config.yml
+└── apps/
+    ├── hydra-launcher.yml
+    └── hayase/
+        ├── main.yml
+        └── resolver.sh
+```
+
+<Tip>
+  Use a subdirectory when your app needs a custom `resolver.sh` script for the [script strategy](/configuration/update-strategies). Place the recipe and the script together in the subdirectory so the `script_path` stays a clean relative path like `./resolver.sh`.
+</Tip>
+
+## Fields
+
+<ParamField path="name" type="string" required>
+  Unique identifier for the app. Used as the filename base, symlink name, and display name in CLI output. Must be unique across all your recipes.
+</ParamField>
+
+<ParamField path="strategy" type="object" required>
+  Defines how fp-appimage-updater finds and downloads updates. See [update strategies](/configuration/update-strategies) for the full reference and examples.
+</ParamField>
+
+<ParamField path="integration" type="boolean">
+  Override the global `manage_desktop_files` setting for this app. Set to `false` to skip `.desktop` file and icon extraction for apps that don't ship a proper AppImage desktop manifest.
+</ParamField>
+
+<ParamField path="create_symlink" type="boolean">
+  Override the global `create_symlinks` setting for this app.
+</ParamField>
+
+<ParamField path="segmented_downloads" type="boolean">
+  Override the global `segmented_downloads` setting for this app. Set to `false` for servers that don't support HTTP range requests.
+</ParamField>
+
+<ParamField path="respect_rate_limits" type="boolean">
+  Override the global `respect_rate_limits` setting for this app. When set to `false`, fp-appimage-updater always attempts the request even if a prior rate limit window hasn't expired.
+</ParamField>
+
+<ParamField path="github_proxy" type="boolean">
+  Override the global `github_proxy` setting for this app.
+</ParamField>
+
+<ParamField path="github_proxy_prefix" type="string | string[]">
+  Override the global `github_proxy_prefix` setting for this app. Accepts a single URL string, a list of URLs, or `all`.
+</ParamField>
+
+<ParamField path="storage_dir" type="string">
+  Override the global `storage_dir` for this app. The AppImage file is stored in this directory instead of the global default.
+</ParamField>
+
+<ParamField path="zsync" type="boolean | string">
+  Enable zsync delta updates for this app. Set to `true` to let fp-appimage-updater detect the zsync URL automatically, or provide a direct zsync URL string to use a specific endpoint.
+
+  ```yaml
+  # Auto-detect zsync URL
+  zsync: true
+
+  # Explicit zsync URL
+  zsync: "https://example.com/app.AppImage.zsync"
+  ```
+
+  Requires `zsync` to be installed on your `PATH`. Run `fp-appimage-updater doctor` to check availability.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```yaml hydra-launcher.yml
+name: hydra-launcher
+strategy:
+  strategy: forge
+  repository: https://github.com/hydralauncher/hydra
+  asset_match: "hydralauncher-*.AppImage"
+```
+
+```yaml whatpulse.yml
+name: whatpulse
+strategy:
+  strategy: direct
+  url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
+  check_method: etag
+segmented_downloads: true
+```
+
+</CodeGroup>
+
+Generate a recipe scaffold for a new app with:
+
+```bash
+fp-appimage-updater init --app <name> --strategy <forge|direct|script>
+```
+
+Use `--force` to overwrite an existing recipe file.

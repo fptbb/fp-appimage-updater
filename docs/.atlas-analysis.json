@@ -1,0 +1,80 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "fp-appimage-updater",
+  "projectDescription": "A declarative, single-binary CLI tool for managing and auto-updating AppImages on Linux using YAML recipes.",
+  "theme": "aspen",
+  "primaryColor": "#fb6c24",
+  "lightColor": "#fba224",
+  "darkColor": "#2f2e6d",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Configuration",
+        "pages": [
+          "configuration/global-config",
+          "configuration/app-recipes",
+          "configuration/update-strategies"
+        ]
+      },
+      {
+        "group": "CLI Reference",
+        "pages": [
+          "cli/overview",
+          "cli/init",
+          "cli/check-update",
+          "cli/manage"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/desktop-integration",
+          "guides/systemd-automation",
+          "guides/github-proxy",
+          "guides/delta-updates"
+        ]
+      },
+      {
+        "group": "Troubleshooting",
+        "pages": [
+          "troubleshooting/doctor",
+          "troubleshooting/faq"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "YAML-based declarative app recipes",
+    "Three update strategies: forge (GitHub/GitLab), direct URL, and custom shell script",
+    "Delta downloads via zsync for bandwidth efficiency",
+    "Segmented HTTP range downloads for large files",
+    "Parallel check and update operations with provider-aware concurrency caps",
+    "GitHub API rate-limit cooldowns and proxy fallback support",
+    "Automatic desktop integration (icons + .desktop files) extracted from AppImages",
+    "Self-update capability",
+    "Systemd timer support for background auto-updates",
+    "Single binary under 1 MB, fully user-space, dotfile-friendly"
+  ],
+  "publicApiSurface": [
+    "fp-appimage-updater init --global",
+    "fp-appimage-updater init --app <name> --strategy <direct|forge|script>",
+    "fp-appimage-updater validate [app-name]",
+    "fp-appimage-updater doctor",
+    "fp-appimage-updater list",
+    "fp-appimage-updater check [app-name]",
+    "fp-appimage-updater update [app-name]",
+    "fp-appimage-updater remove [app-name] [-a]",
+    "fp-appimage-updater self-update [--pre-release]",
+    "fp-appimage-updater completion [shell]",
+    "--json flag for machine-readable output",
+    "-c/--config flag to override config directory"
+  ]
+}

@@ -1,0 +1,76 @@
+---
+title: "Doctor"
+description: "Run health checks to diagnose configuration and tooling issues."
+---
+
+<Tip>
+  Run `doctor` first whenever you experience unexpected behavior. It quickly surfaces missing directories, unparseable recipes, and absent tooling before you dig deeper.
+</Tip>
+
+The `doctor` command inspects your local setup and reports the status of each check:
+
+```bash
+fp-appimage-updater doctor
+```
+
+## Checks performed
+
+| Check | What it verifies |
+|---|---|
+| `config_dir` | The configuration directory exists |
+| `apps_dir` | The apps subdirectory exists |
+| `global_config` | The global `config.yml` file is present and parseable |
+| `state_dir` | The state directory is accessible |
+| `parsed_app_recipes` | Number of recipe files that loaded successfully |
+| `invalid_app_recipes` | Number of recipe files that failed to parse |
+| `zsync_binary` | Whether `zsync` is available on `PATH` |
+
+Each check reports either `ok` or `warn`. A `warn` result does not stop the tool from running, but it may explain unexpected behavior.
+
+<Note>
+  Add `--json` to get machine-readable output suitable for scripting or monitoring:
+
+  ```bash
+  fp-appimage-updater doctor --json
+  ```
+</Note>
+
+## Common issues
+
+**`zsync not found in PATH`**
+
+Install `zsync` via your package manager. On Fedora:
+
+```bash
+sudo dnf install zsync
+```
+
+Delta updates are unavailable without it, but standard downloads continue to work normally.
+
+---
+
+**Recipe files failed to parse**
+
+Run `validate` to identify which files have errors and what the parse error is:
+
+```bash
+fp-appimage-updater validate
+```
+
+To check a single recipe by name:
+
+```bash
+fp-appimage-updater validate <app-name>
+```
+
+---
+
+**Config directory not found**
+
+Initialize the configuration directory with:
+
+```bash
+fp-appimage-updater init --global
+```
+
+This creates the expected directory structure and a starter `config.yml`.

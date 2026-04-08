@@ -1,0 +1,68 @@
+---
+title: "Installation"
+description: "Install fp-appimage-updater via COPR, the quick-install script, or a pre-built binary."
+---
+
+Choose the method that matches your distribution and preferences.
+
+<Tabs>
+  <Tab title="Fedora / OpenSUSE (COPR)">
+    The official COPR repository is the recommended method for RPM-based distributions. It integrates with your package manager and keeps the tool updated automatically.
+
+    ```bash
+    sudo dnf copr enable fptbb/fp-appimage-updater
+    sudo dnf install fp-appimage-updater
+    ```
+
+    After installation, `fp-appimage-updater` is available on your PATH and managed by `dnf`.
+  </Tab>
+  <Tab title="Quick install script">
+    The install script works on any Linux distribution, including immutable and atomic systems. By default it installs to `~/.local/bin/` and sets up a systemd user timer for background updates.
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash
+    ```
+
+    **Options:**
+
+    Skip the systemd background timer if you prefer to run updates manually:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash -s -- --no-systemd
+    ```
+
+    Install system-wide to `/usr/bin/` and `/usr/lib/systemd/system/` (requires root, rejected on strictly immutable systems):
+
+    ```bash
+    curl -sL fau.fpt.icu/i | sudo bash -s -- --system
+    ```
+
+    Uninstall the binary and disable all running systemd timers across any scope:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash -s -- --uninstall
+    ```
+
+    <Note>
+      The uninstall option leaves your AppImage binaries and configuration files in `~/.config/fp-appimage-updater/` intact.
+    </Note>
+  </Tab>
+  <Tab title="Pre-built binaries">
+    Download the latest compiled binary for your architecture directly from the releases page:
+
+    **[https://gitlab.com/fpsys/fp-appimage-updater/-/releases](https://gitlab.com/fpsys/fp-appimage-updater/-/releases)**
+
+    Drop it into your preferred binary directory and make it executable:
+
+    ```bash
+    chmod +x fp-appimage-updater
+    mv fp-appimage-updater ~/.local/bin/
+    ```
+
+    The binary is a fully self-contained executable with no runtime dependencies. Self-update works out of the box — you can run `fp-appimage-updater self-update` to upgrade to the latest release at any time.
+  </Tab>
+</Tabs>
+
+<Note>
+  For a standard user-wide install, `sudo` is never required. The binary and all configuration live entirely in your home directory under `~/.local/` and `~/.config/`.
+</Note>

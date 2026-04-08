@@ -1,0 +1,89 @@
+---
+title: "check & update"
+description: "Check for available updates and install them."
+---
+
+## validate
+
+```bash
+fp-appimage-updater validate [app-name]
+```
+
+Parses all recipe files (or a single named one) and reports which files are valid and which contain errors. Run this after editing a recipe to catch YAML mistakes before they affect `check` or `update`.
+
+```bash
+# Validate all recipes
+fp-appimage-updater validate
+
+# Validate a single recipe
+fp-appimage-updater validate whatpulse
+```
+
+## check
+
+```bash
+fp-appimage-updater check [app-name]
+```
+
+Contacts each app's configured update source and compares it to the locally recorded version. No files are downloaded or changed.
+
+Output includes:
+- Whether a new version is available
+- The version, ETag, or Last-Modified metadata used for comparison
+- Support hints such as HTTP range support for segmented downloads
+
+```bash
+# Check all configured apps
+fp-appimage-updater check
+
+# Check a single app
+fp-appimage-updater check whatpulse
+```
+
+## update
+
+```bash
+fp-appimage-updater update [app-name]
+```
+
+Downloads and installs updates for all configured apps, or for a single named app. Each successful update reports the elapsed time so you can see how long each app took.
+
+If a rate-limit was hit on a previous run, the affected app is skipped until its retry window expires — unless `respect_rate_limits` is disabled globally or for that app.
+
+```bash
+# Update all apps
+fp-appimage-updater update
+
+# Update a single app
+fp-appimage-updater update hydra-launcher
+```
+
+### Flags
+
+<ParamField query="--self-update" type="boolean">
+  Also update the `fp-appimage-updater` binary itself after finishing the app
+  updates.
+</ParamField>
+
+<Note>
+  Both `check` and `update` run multiple apps concurrently. A provider-aware
+  cap limits how many requests go to the same host at once, so a large batch
+  stays fast without overloading any single server.
+</Note>
+
+## doctor
+
+```bash
+fp-appimage-updater doctor
+```
+
+Runs a local health check without contacting any remote servers. It verifies:
+
+- The config directory exists and is readable
+- The apps directory is present
+- The global `config.yml` can be parsed
+- The state directory is accessible
+- Recipe files can be parsed successfully
+- Whether `zsync` is available on `PATH`
+
+Use `doctor` when `check` or `update` behaves unexpectedly to rule out local configuration problems.

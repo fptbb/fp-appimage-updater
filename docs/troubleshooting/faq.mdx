@@ -1,0 +1,86 @@
+---
+title: "FAQ"
+description: "Answers to common questions about fp-appimage-updater."
+---
+
+<AccordionGroup>
+  <Accordion title="Do I need root or sudo to use fp-appimage-updater?">
+    No. fp-appimage-updater operates entirely in user-space. All files — AppImages, symlinks, desktop entries, and icons — go under `~/.local/`. You only need `sudo` if you choose to install the tool itself system-wide using the `--system` flag during installation.
+  </Accordion>
+
+  <Accordion title="Can I use it on an immutable or atomic Linux distribution?">
+    Yes. fp-appimage-updater is designed to work on immutable distributions like Fedora Silverblue and openSUSE MicroOS. All runtime files are written to user-space paths. If you attempt a system-wide install (`--system`) on a strictly immutable environment, the install script will reject the request.
+  </Accordion>
+
+  <Accordion title="How do I stop fp-appimage-updater from updating a specific app automatically?">
+    There is no "disabled" flag. To remove an app from management, delete its recipe file from `~/.config/fp-appimage-updater/apps/`.
+
+    If you want to keep the recipe but skip rate-limit cooldowns, set `respect_rate_limits: false` globally in `config.yml` or per-app in the recipe:
+
+    ```yaml
+    respect_rate_limits: false
+    ```
+  </Accordion>
+
+  <Accordion title="What happens to my AppImage if an update fails mid-download?">
+    The existing AppImage is not replaced until the download completes successfully. A failed or interrupted download leaves the current version intact.
+  </Accordion>
+
+  <Accordion title="Does fp-appimage-updater have a GUI?">
+    No — it is an intentional CLI-only tool and will never have a GUI.
+  </Accordion>
+
+  <Accordion title="How do I update fp-appimage-updater itself?">
+    Run the `self-update` command:
+
+    ```bash
+    fp-appimage-updater self-update
+    ```
+
+    To fetch a pre-release version, add `--pre-release`:
+
+    ```bash
+    fp-appimage-updater self-update --pre-release
+    ```
+  </Accordion>
+
+  <Accordion title="Can I use a custom configuration directory?">
+    Yes. Pass `-c` or `--config` before any subcommand to override the default `~/.config/fp-appimage-updater/` path:
+
+    ```bash
+    fp-appimage-updater -c /path/to/my-config check
+    ```
+
+    This flag works with every command.
+  </Accordion>
+
+  <Accordion title="What is the zsync field in an app recipe?">
+    The `zsync` field enables delta updates, which download only the bytes that changed instead of the full AppImage. Set it to `true` to let fp-appimage-updater auto-detect the `.zsync` URL, or provide an explicit URL:
+
+    ```yaml
+    zsync: true
+    ```
+
+    ```yaml
+    zsync: "https://example.com/app.AppImage.zsync"
+    ```
+
+    `zsync` must be installed and available on your `PATH` for this to work. Run `fp-appimage-updater doctor` to check.
+  </Accordion>
+
+  <Accordion title="Why is an app being skipped during updates?">
+    The app may have been rate-limited on a previous run. When a rate limit is hit, fp-appimage-updater records the retry window and skips that app on subsequent runs until the window expires.
+
+    Check the current status of a specific app:
+
+    ```bash
+    fp-appimage-updater check <app-name>
+    ```
+
+    To disable this behavior globally, set `respect_rate_limits: false` in your `config.yml`. You can also set it per-app in the recipe file.
+  </Accordion>
+
+  <Accordion title="Can I define multiple apps that come from the same repository?">
+    Yes. Each recipe must have a unique `name` field, but multiple recipes can point to different assets from the same repository. As long as each recipe has a distinct `name` and its `asset_match` pattern selects a different file, they are managed independently.
+  </Accordion>
+</AccordionGroup>

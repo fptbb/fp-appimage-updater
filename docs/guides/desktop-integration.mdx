@@ -1,0 +1,50 @@
+---
+title: "Desktop Integration"
+description: "Automatically extract and install .desktop files and icons from AppImages."
+---
+
+Desktop integration lets your AppImages appear in your desktop application launcher automatically. When enabled, fp-appimage-updater extracts the `.desktop` manifest and icons directly from the AppImage using `--appimage-extract`, then installs them into the correct user directories.
+
+## What gets installed
+
+| File type | Destination |
+|---|---|
+| `.desktop` file | `~/.local/share/applications/` |
+| App icons | `~/.local/share/icons/` |
+
+The `Exec` and `Icon` paths inside the `.desktop` file are automatically updated to point to the installed AppImage location, so your launcher always uses the correct binary path.
+
+<Note>
+  Desktop integration requires the AppImage to support `--appimage-extract`. Virtually all modern AppImages support it.
+</Note>
+
+## Enable or disable globally
+
+Desktop integration is enabled by default. Set `manage_desktop_files` in your `config.yml` to control it globally:
+
+```yaml
+manage_desktop_files: true
+```
+
+To disable integration for all apps:
+
+```yaml
+manage_desktop_files: false
+```
+
+## Disable per app
+
+To opt a single app out of desktop integration, set `integration: false` in its recipe:
+
+```yaml
+name: myapp
+integration: false
+strategy:
+  strategy: direct
+  url: "https://example.com/myapp.AppImage"
+  check_method: etag
+```
+
+<Tip>
+  If the app doesn't appear immediately in your launcher after updating, run `update-desktop-database ~/.local/share/applications` to refresh the application menu cache.
+</Tip>

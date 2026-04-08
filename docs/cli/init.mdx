@@ -1,0 +1,70 @@
+---
+title: "init"
+description: "Initialize global configuration or scaffold a new app recipe."
+---
+
+The `init` command creates starter files so you have a working starting point without writing YAML from scratch.
+
+## Initialize global config
+
+```bash
+fp-appimage-updater init --global
+```
+
+Creates `~/.config/fp-appimage-updater/config.yml` with sensible defaults. Run this once before adding any app recipes.
+
+## Scaffold an app recipe
+
+```bash
+fp-appimage-updater init --app <name> --strategy <direct|forge|script>
+```
+
+Creates a recipe file under `~/.config/fp-appimage-updater/apps/` for the named app, pre-filled for the chosen update strategy.
+
+### Flags
+
+<ParamField query="--app <name>" type="string">
+  Name of the app to scaffold. The resulting file is placed at
+  `~/.config/fp-appimage-updater/apps/<name>.yml`.
+</ParamField>
+
+<ParamField query="--strategy <direct|forge|script>" type="string" default="direct">
+  Update strategy to use for the scaffolded recipe.
+
+  - `direct` — static URL checked via ETag or Last-Modified headers
+  - `forge` — GitHub or GitLab release asset
+  - `script` — custom shell script that outputs the download URL and version
+</ParamField>
+
+<ParamField query="--force" type="boolean">
+  Overwrite an existing file. Without this flag, `init` will not replace a
+  file that already exists.
+</ParamField>
+
+<ParamField query="--global" type="boolean">
+  Initialize the global `config.yml` instead of scaffolding an app recipe.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash forge strategy
+fp-appimage-updater init --app hydra-launcher --strategy forge
+```
+
+```bash direct strategy
+fp-appimage-updater init --app whatpulse --strategy direct
+```
+
+```bash script strategy
+fp-appimage-updater init --app hayase --strategy script
+```
+
+</CodeGroup>
+
+<Tip>
+  The scaffolded file is a starting point. Open it and fill in the actual
+  download URL, repository path, or asset pattern for your app before running
+  `check` or `update`.
+</Tip>

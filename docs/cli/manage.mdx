@@ -1,0 +1,88 @@
+---
+title: "list & remove"
+description: "List installed apps and remove them cleanly."
+---
+
+## list
+
+```bash
+fp-appimage-updater list
+```
+
+Shows all configured apps along with their locally recorded version and current integration status (symlink presence, desktop entry, and icon).
+
+## remove
+
+```bash
+fp-appimage-updater remove <app-name>
+fp-appimage-updater remove -a
+```
+
+Removes the binary, symlink, extracted icons, and desktop files for an app. This does not delete the recipe file — the app can be reinstalled by running `update` again.
+
+### Flags
+
+<ParamField query="-a, --all" type="boolean">
+  Remove every installed app at once.
+</ParamField>
+
+```bash
+# Remove a single app
+fp-appimage-updater remove whatpulse
+
+# Remove all installed apps
+fp-appimage-updater remove -a
+```
+
+<Warning>
+  `remove -a` removes all installed AppImages, their symlinks, icons, and
+  desktop entries in one step. This cannot be undone without running `update`
+  again.
+</Warning>
+
+## self-update
+
+```bash
+fp-appimage-updater self-update
+```
+
+Fetches the latest release of `fp-appimage-updater` itself and replaces the current binary.
+
+### Flags
+
+<ParamField query="--pre-release" type="boolean">
+  Include pre-release versions when checking for a newer binary.
+</ParamField>
+
+```bash
+# Update to the latest stable release
+fp-appimage-updater self-update
+
+# Update including pre-release versions
+fp-appimage-updater self-update --pre-release
+```
+
+## completion
+
+```bash
+fp-appimage-updater completion <shell>
+```
+
+Generates a shell completion script for the specified shell and writes it to standard output. Supported shells: `bash`, `zsh`, `fish`.
+
+```bash
+fp-appimage-updater completion bash
+fp-appimage-updater completion zsh
+fp-appimage-updater completion fish
+```
+
+<Tip>
+  Pipe the output directly to your shell configuration file to enable
+  tab-completion permanently:
+
+  ```bash
+  fp-appimage-updater completion bash >> ~/.bashrc
+  ```
+
+  Reload your shell or run `source ~/.bashrc` for the completions to take effect.
+</Tip>

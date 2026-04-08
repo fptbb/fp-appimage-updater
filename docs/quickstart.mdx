@@ -1,0 +1,68 @@
+---
+title: "Quick Start"
+description: "Create your first app recipe and run your first update in under five minutes."
+---
+
+This guide walks you through setting up fp-appimage-updater from scratch: initializing your global config, writing an app recipe, and installing your first AppImage.
+
+<Steps>
+  <Step title="Initialize the global config">
+    Run the `init --global` command to create the default global configuration file:
+
+    ```bash
+    fp-appimage-updater init --global
+    ```
+
+    This creates `~/.config/fp-appimage-updater/config.yml` with sensible defaults for storage paths, desktop integration, segmented downloads, and more. Open the file to review or adjust the settings before continuing.
+  </Step>
+  <Step title="Create your first app recipe">
+    Use `init --app` to scaffold a recipe file for an app. Pass `--strategy` to choose the update strategy. This example uses the `forge` strategy for a GitHub-hosted app:
+
+    ```bash
+    fp-appimage-updater init --app hydra-launcher --strategy forge
+    ```
+
+    This creates `~/.config/fp-appimage-updater/apps/hydra-launcher.yml`. Edit it to match your target repository and asset filename pattern:
+
+    ```yaml
+    name: hydra-launcher
+    strategy:
+      strategy: forge
+      repository: https://github.com/hydralauncher/hydra
+      asset_match: "hydralauncher-*.AppImage"
+    ```
+
+    The `asset_match` field is a wildcard pattern matched against release asset filenames. Adjust it to select the correct AppImage for your architecture.
+  </Step>
+  <Step title="Validate the recipe">
+    Before fetching anything, confirm the recipe parses correctly:
+
+    ```bash
+    fp-appimage-updater validate hydra-launcher
+    ```
+
+    If the file has any syntax errors or missing required fields, the command reports them so you can fix them before running an update.
+  </Step>
+  <Step title="Check for updates">
+    Query the upstream release to see whether a new version is available:
+
+    ```bash
+    fp-appimage-updater check hydra-launcher
+    ```
+
+    The output shows the resolved version, whether a download is needed, and any support hints such as range download availability.
+  </Step>
+  <Step title="Install or update the app">
+    Download and install the AppImage (and its desktop integration if enabled):
+
+    ```bash
+    fp-appimage-updater update hydra-launcher
+    ```
+
+    The command downloads the file to the configured `storage_dir`, extracts the `.desktop` manifest and icons if `manage_desktop_files` is enabled, and reports the elapsed time when done.
+  </Step>
+</Steps>
+
+<Tip>
+  To explore all available recipe fields and strategy options — including `direct` (ETag/Last-Modified) and `script` (custom resolver) — see the [Update Strategies](/configuration/update-strategies) page.
+</Tip>

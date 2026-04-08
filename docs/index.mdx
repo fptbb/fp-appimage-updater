@@ -1,0 +1,55 @@
+---
+title: "fp-appimage-updater"
+description: "Declarative AppImage manager for Linux. YAML recipes, delta downloads, and seamless desktop integration — in a single binary under 1 MB."
+---
+
+Manage all your AppImages declaratively with YAML recipes. Define your apps once, run `fp-appimage-updater update`, and everything stays current — with desktop entries, icons, and symlinks handled automatically.
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install the binary via COPR, the quick-install script, or a pre-built release.
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first app recipe and run your first update in minutes.
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/global-config">
+    Customize storage paths, symlinks, desktop integration, and more.
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="/cli/overview">
+    Full reference for every command and flag.
+  </Card>
+</CardGroup>
+
+## How it works
+
+<Steps>
+  <Step title="Install the binary">
+    Get `fp-appimage-updater` from COPR, the install script, or the releases page.
+  </Step>
+  <Step title="Write a recipe">
+    Create a YAML file under `~/.config/fp-appimage-updater/apps/` describing your app and how to fetch updates.
+  </Step>
+  <Step title="Run an update">
+    Execute `fp-appimage-updater update` to download, install, and integrate your AppImages.
+  </Step>
+  <Step title="Automate with systemd">
+    Enable the bundled systemd timer to keep everything updated automatically in the background.
+  </Step>
+</Steps>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Three Update Strategies" icon="arrows-rotate" href="/configuration/update-strategies">
+    Fetch from GitHub/GitLab releases, a static direct URL, or a custom shell script.
+  </Card>
+  <Card title="Delta Downloads" icon="bolt" href="/guides/delta-updates">
+    Use `zsync` to download only changed bytes, saving bandwidth on large AppImages.
+  </Card>
+  <Card title="Desktop Integration" icon="desktop" href="/guides/desktop-integration">
+    Automatically extract and install `.desktop` files and icons from AppImages.
+  </Card>
+  <Card title="GitHub Proxy" icon="shield" href="/guides/github-proxy">
+    Route GitHub API metadata through proxy fallbacks to avoid rate limits.
+  </Card>
+</CardGroup>

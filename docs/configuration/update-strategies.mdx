@@ -1,0 +1,156 @@
+---
+title: "Update Strategies"
+description: "Choose how fp-appimage-updater finds and downloads updates for each app."
+---
+
+Every app recipe requires a `strategy` block that tells fp-appimage-updater where to look for the latest version and how to download it. Three strategies are available.
+
+<Note>
+  **When to use each strategy:**
+
+  | Strategy | Use when |
+  |----------|----------|
+  | `forge` | The app publishes releases on GitHub or GitLab |
+  | `direct` | The app provides a stable URL that always points to the latest version |
+  | `script` | Neither of the above fits — you need custom logic to find the download URL |
+</Note>
+
+<Tabs>
+  <Tab title="Forge">
+    Use the `forge` strategy for apps distributed through GitHub or GitLab releases. fp-appimage-updater queries the releases API, matches the asset filename against your pattern, and downloads the matching file.
+
+    For GitLab repositories, the resolver uses the permalink latest API at `https://gitlab.com/api/v4/projects/<project-path>/releases/permalink/latest`, reads `assets.links`, and prefers `direct_asset_url` when available.
+
+    ### Fields
+
+    <ParamField path="strategy.strategy" type="string" required>
+      Must be `forge`.
+    </ParamField>
+
+    <ParamField path="strategy.repository" type="string" required>
+      Full URL to the GitHub or GitLab repository (e.g., `https://github.com/owner/repo`).
+    </ParamField>
+
+    <ParamField path="strategy.asset_match" type="string" required>
+      Wildcard pattern to match the release asset filename. Uses shell-style glob syntax (e.g., `"*-amd64.AppImage"`). The first matching asset is selected.
+    </ParamField>
+
+    ### Per-app overrides
+
+    You can also set these fields directly on the app recipe (not inside `strategy`) to override the global config for this app:
+
+    <ParamField path="github_proxy" type="boolean">
+      Enable or disable the GitHub API proxy fallback for this app. When enabled, a rate-limited GitHub metadata request is retried through the configured proxy bases. The actual download URL always uses the direct GitHub asset link.
+    </ParamField>
+
+    <ParamField path="github_proxy_prefix" type="string | string[]">
+      Proxy base URL(s) to use when `github_proxy` is enabled. Accepts a single URL string, a list of URLs, or the string `all` to try every built-in proxy in order.
+    </ParamField>
+
+    <ParamField path="respect_rate_limits" type="boolean">
+      When `false`, fp-appimage-updater ignores a prior rate limit window and always attempts the request.
+    </ParamField>
+
+    ### Example
+
+    ```yaml
+    name: hydra-launcher
+    strategy:
+      strategy: forge
+      repository: https://github.com/hydralauncher/hydra
+      asset_match: "hydralauncher-*.AppImage"
+    segmented_downloads: true
+    ```
+  </Tab>
+
+  <Tab title="Direct">
+    Use the `direct` strategy when the app vendor publishes a stable URL that always resolves to the latest version. fp-appimage-updater checks the HTTP response headers to detect whether the remote file has changed since the last download.
+
+    ### Fields
+
+    <ParamField path="strategy.strategy" type="string" required>
+      Must be `direct`.
+    </ParamField>
+
+    <ParamField path="strategy.url" type="string" required>
+      Static download URL that always points to the latest version of the AppImage.
+    </ParamField>
+
+    <ParamField path="strategy.check_method" type="string" required>
+      HTTP header used to detect remote changes. Accepted values:
+
+      - `etag` — compares the `ETag` response header
+      - `last-modified` — compares the `Last-Modified` response header
+
+      Choose whichever header the server provides. If unsure, try `etag` first.
+    </ParamField>
+
+    ### Example
+
+    ```yaml
+    name: whatpulse
+    strategy:
+      strategy: direct
+      url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
+      check_method: etag
+    segmented_downloads: true
+    ```
+  </Tab>
+
+  <Tab title="Script">
+    Use the `script` strategy when neither `forge` nor `direct` fits — for example, when the app's download URL requires parsing a custom API response or a non-standard releases page.
+
+    You provide a bash script that fp-appimage-updater executes to resolve the current download URL and version. The script must print exactly two lines to stdout:
+
+    1. The download URL
+    2. The version string
+
+    fp-appimage-updater stores the version string locally and compares it on the next run to decide whether an update is needed.
+
+    ### Fields
+
+    <ParamField path="strategy.strategy" type="string" required>
+      Must be `script`.
+    </ParamField>
+
+    <ParamField path="strategy.script_path" type="string" required>
+      Path to the bash script, relative to the recipe's directory.
+    </ParamField>
+
+    <Note>
+      `script_path` is resolved relative to the directory containing the recipe file. If your recipe is at `~/.config/fp-appimage-updater/apps/hayase/main.yml`, then `./resolver.sh` resolves to `~/.config/fp-appimage-updater/apps/hayase/resolver.sh`.
+    </Note>
+
+    ### Example
+
+    ```yaml
+    name: hayase
+    strategy:
+      strategy: script
+      script_path: ./resolver.sh
+    ```
+
+    ```bash
+    #!/usr/bin/env bash
+
+    set -e
+
+    # Fetch the YAML definition
+    YAML_DATA=$(curl -sL "https://api.hayase.watch/files/latest-linux.yml")
+
+    # Use yq or grep to extract version - let's write it generically for systems without yq
+    VERSION=$(echo "$YAML_DATA" | grep "^version:" | awk '{print $2}')
+    FILENAME=$(echo "$YAML_DATA" | grep "'linux-hayase-.*-linux.AppImage'" || echo "$YAML_DATA" | grep 'path:' | awk '{print $2}')
+    # fallback using basic sed
+    if [ -z "$FILENAME" ]; then
+       FILENAME="linux-hayase-${VERSION}-linux.AppImage"
+    fi
+
+    DOWNLOAD_URL="https://api.hayase.watch/files/${FILENAME}"
+
+    # The updater expects "DOWNLOAD_URL" then "VERSION" on consecutive lines of stdout:
+    echo "$DOWNLOAD_URL"
+    echo "$VERSION"
+    ```
+  </Tab>
+</Tabs>

@@ -1,0 +1,108 @@
+---
+title: "Global Config"
+description: "Configure storage paths, symlinks, desktop integration, and download behavior globally."
+---
+
+The global configuration file applies default settings to all managed apps. You can override any of these settings per app inside an [app recipe](/configuration/app-recipes).
+
+## File location
+
+```
+~/.config/fp-appimage-updater/config.yml
+```
+
+Generate a starter file with:
+
+```bash
+fp-appimage-updater init --global
+```
+
+## Example
+
+```yaml
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: '{name}.AppImage'
+manage_desktop_files: true
+create_symlinks: false
+segmented_downloads: true
+respect_rate_limits: true
+github_proxy: true
+github_proxy_prefix: https://gh-proxy.com/
+```
+
+## Fields
+
+<ParamField path="storage_dir" type="string" default="~/.local/bin/AppImages">
+  Directory where downloaded AppImage files are stored.
+</ParamField>
+
+<ParamField path="symlink_dir" type="string" default="~/.local/bin">
+  Directory where symlinks to installed AppImages are created. Only used when `create_symlinks` is `true`.
+</ParamField>
+
+<ParamField path="naming_format" type="string" default="{name}.AppImage">
+  Filename template for stored AppImages. Use the `{name}` placeholder, which is replaced with the app's `name` field from its recipe.
+</ParamField>
+
+<ParamField path="manage_desktop_files" type="boolean" default="true">
+  When enabled, fp-appimage-updater automatically extracts `.desktop` manifests and icons from the AppImage and installs them into `~/.local/share/applications` and `~/.local/share/icons`.
+</ParamField>
+
+<ParamField path="create_symlinks" type="boolean" default="false">
+  When enabled, creates a symlink in `symlink_dir` pointing to the installed AppImage. Useful for putting AppImages on your `PATH` without modifying `storage_dir`.
+</ParamField>
+
+<ParamField path="segmented_downloads" type="boolean" default="true">
+  Splits downloads into parallel HTTP range requests when the server supports it. Speeds up large AppImage downloads on capable servers.
+</ParamField>
+
+<ParamField path="respect_rate_limits" type="boolean" default="true">
+  When enabled, apps that hit a provider rate limit are skipped on subsequent runs until the retry window expires. Set to `false` to always attempt the request regardless of a prior rate limit.
+</ParamField>
+
+<ParamField path="github_proxy" type="boolean" default="true">
+  Enables the GitHub API proxy fallback. When a GitHub release API request is rate limited, fp-appimage-updater retries through the configured proxy bases. The actual AppImage download always uses the direct GitHub asset URL — only metadata lookups are proxied.
+</ParamField>
+
+<ParamField path="github_proxy_prefix" type="string | string[]" default="all">
+  Proxy base URL(s) to use when `github_proxy` is enabled. Accepts a single URL string, a YAML list of URLs, or the string `all` to try every built-in proxy in order.
+
+  ```yaml
+  # Single proxy
+  github_proxy_prefix: "https://gh-proxy.com/"
+
+  # Multiple proxies tried in order
+  github_proxy_prefix:
+    - "https://gh-proxy.com/"
+    - "https://corsproxy.io/?"
+    - "https://api.allorigins.win/raw?url="
+
+  # Try all built-in proxies
+  github_proxy_prefix: all
+  ```
+</ParamField>
+
+## Self-hosted forge URL overrides
+
+These optional fields let you point fp-appimage-updater at a self-hosted GitHub or GitLab instance instead of the public APIs.
+
+<ParamField path="github_release_api_url" type="string">
+  Override the GitHub REST API base URL. Useful when your apps are hosted on GitHub Enterprise Server.
+</ParamField>
+
+<ParamField path="github_release_web_url" type="string">
+  Override the GitHub web base URL used to construct release page links.
+</ParamField>
+
+<ParamField path="gitlab_release_api_url" type="string">
+  Override the GitLab API base URL. Set this when your apps live on a self-managed GitLab instance.
+</ParamField>
+
+<ParamField path="gitlab_release_web_url" type="string">
+  Override the GitLab web base URL used to construct release page links.
+</ParamField>
+
+<Note>
+  Every field in `config.yml` can be overridden for a specific app inside its recipe file. App-level settings always take precedence over the global config. See [app recipes](/configuration/app-recipes) for the full list of per-app overrides.
+</Note>

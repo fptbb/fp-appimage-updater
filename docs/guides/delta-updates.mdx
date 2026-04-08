@@ -1,0 +1,73 @@
+---
+title: "Delta Updates"
+description: "Save bandwidth by downloading only changed bytes with zsync and segmented downloads."
+---
+
+fp-appimage-updater provides two independent features to reduce download size and speed up updates: zsync delta downloads and segmented (parallel range) downloads.
+
+<Note>
+  These two features are complementary. zsync re-uses bytes from a previous local version to reconstruct the new file. Segmented downloads split the download into parallel HTTP range requests to speed up the initial fetch. You can use either or both.
+</Note>
+
+## zsync (delta downloads)
+
+zsync downloads only the blocks that have changed between your locally installed AppImage and the new version, significantly reducing bandwidth for incremental updates.
+
+To use zsync, you need the `zsync` binary available on your `PATH`. Run the following to confirm it is detected:
+
+```bash
+fp-appimage-updater doctor
+```
+
+`doctor` reports whether `zsync` is found on PATH.
+
+### Enable per app
+
+Set `zsync: true` in an app recipe to auto-detect the `.zsync` URL from the release:
+
+```yaml
+name: myapp
+zsync: true
+strategy:
+  strategy: forge
+  repository: https://github.com/example/myapp
+  asset_match: "myapp-*.AppImage"
+```
+
+If you know the `.zsync` URL directly, provide it as a string:
+
+```yaml
+name: myapp
+zsync: "https://example.com/myapp.AppImage.zsync"
+strategy:
+  strategy: direct
+  url: "https://example.com/myapp.AppImage"
+  check_method: etag
+```
+
+## Segmented downloads (HTTP ranges)
+
+Segmented downloads split large files into parallel HTTP range requests, which speeds up downloads from servers that support the `Range` header. This feature is enabled by default.
+
+### Disable globally
+
+To turn off segmented downloads for all apps, set the following in `config.yml`:
+
+```yaml
+segmented_downloads: false
+```
+
+### Override per app
+
+You can override the global setting for a specific app:
+
+```yaml
+name: myapp
+segmented_downloads: false
+strategy:
+  strategy: direct
+  url: "https://example.com/myapp.AppImage"
+  check_method: etag
+```
+
+To check whether a server supports range requests for a given app, run `fp-appimage-updater check`. The output includes range support hints for direct-download apps.

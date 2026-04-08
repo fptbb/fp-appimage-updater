@@ -1,0 +1,72 @@
+---
+title: "Systemd Automation"
+description: "Run automatic background update checks with a systemd timer."
+---
+
+The quick-install script sets up a systemd user timer that runs `fp-appimage-updater update` periodically in the background. The timer activates 15 minutes after boot and then every 12 hours.
+
+Since fp-appimage-updater is designed for user-space operations, always use the `--user` flag when interacting with its systemd units — do **not** use `sudo` for user-wide installs.
+
+## Set up the timer
+
+<Steps>
+  <Step title="Install with systemd support">
+    The default installation sets up the timer automatically:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash
+    ```
+
+    If you want to skip the timer, pass `--no-systemd`:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash -s -- --no-systemd
+    ```
+  </Step>
+
+  <Step title="Check timer status">
+    Verify the timer is active:
+
+    ```bash
+    systemctl --user status fp-appimage-updater.timer
+    ```
+  </Step>
+
+  <Step title="Enable and start the timer manually">
+    If the timer was not enabled during install, start it now:
+
+    ```bash
+    systemctl --user enable --now fp-appimage-updater.timer
+    ```
+  </Step>
+
+  <Step title="View logs">
+    Inspect recent background update runs:
+
+    ```bash
+    journalctl --user -u fp-appimage-updater.service -n 50
+    ```
+  </Step>
+</Steps>
+
+## System-wide installation
+
+To install the binary and systemd units system-wide (targeting `/usr/bin/` and `/usr/lib/systemd/system/`), run the install script with `sudo` and the `--system` flag:
+
+```bash
+curl -sL fau.fpt.icu/i | sudo bash -s -- --system
+```
+
+When installed system-wide, use `sudo` and the `--system` flag instead of `--user` for all `systemctl` commands.
+
+<Warning>
+  If your environment has an immutable filesystem (such as Fedora Silverblue or openSUSE MicroOS), the script will reject system-wide install attempts. Use the user-wide install instead.
+</Warning>
+
+## Uninstall
+
+To remove the binary, disable the timer, and clean up all installed files:
+
+```bash
+curl -sL fau.fpt.icu/i | bash -s -- --uninstall
+```

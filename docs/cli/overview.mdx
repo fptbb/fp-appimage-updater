@@ -1,0 +1,52 @@
+---
+title: "CLI Overview"
+description: "Complete reference for all fp-appimage-updater commands and global flags."
+---
+
+Invoke `fp-appimage-updater` with an optional set of global flags followed by a subcommand:
+
+```bash
+fp-appimage-updater [OPTIONS] <COMMAND>
+```
+
+## Global flags
+
+These flags apply to every command and must be placed before the subcommand.
+
+<ParamField query="-c, --config <PATH>" type="string">
+  Override the default configuration directory. Use this to point to a custom
+  config location instead of `~/.config/fp-appimage-updater/`.
+</ParamField>
+
+<ParamField query="--json" type="boolean">
+  Emit machine-readable JSON output instead of human-readable tables and status
+  lines. Works with `init`, `validate`, `doctor`, `list`, `check`, `update`,
+  and `remove`.
+</ParamField>
+
+<ParamField query="-h, --help" type="boolean">
+  Print help information and exit.
+</ParamField>
+
+<ParamField query="-V, --version" type="boolean">
+  Print the current version and exit.
+</ParamField>
+
+## Commands
+
+| Command | Description |
+|---|---|
+| [`init`](/cli/init) | Initialize starter configuration files |
+| [`validate`](/cli/check-update) | Validate application recipe files |
+| [`doctor`](/cli/check-update) | Run health checks for local setup |
+| [`list`](/cli/manage) | List all configured applications and their status |
+| [`check`](/cli/check-update) | Check for updates |
+| [`update`](/cli/check-update) | Update applications (all, or specify one) |
+| [`remove`](/cli/manage) | Remove an application and its symlink |
+| [`self-update`](/cli/manage) | Update fp-appimage-updater itself |
+| [`completion`](/cli/manage) | Generate shell completion scripts |
+
+<Note>
+  Pass `--json` before any of the following commands to get structured JSON
+  output: `init`, `validate`, `doctor`, `list`, `check`, `update`, `remove`.
+</Note>

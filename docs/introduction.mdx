@@ -1,0 +1,43 @@
+---
+title: "Introduction"
+description: "fp-appimage-updater is a fast, single-binary CLI tool for managing AppImages declaratively through YAML recipes."
+---
+
+fp-appimage-updater is a CLI tool written in Rust that lets you manage, update, and desktop-integrate AppImages entirely through user-provided YAML configuration files. It operates strictly in user-space, requires no GUI, and is small enough to live alongside your dotfiles on any Linux system — including immutable and atomic distributions.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="YAML-based declarative recipes" icon="file-code">
+    Define every app and its update strategy in a plain YAML file. Add, remove, or share apps by editing files — no wizard required.
+  </Card>
+  <Card title="Three update strategies" icon="arrows-rotate">
+    Fetch updates from GitHub or GitLab releases with `forge`, a static URL with `direct`, or a custom shell script with `script`.
+  </Card>
+  <Card title="Delta downloads via zsync" icon="bolt">
+    When `zsync` is available on your PATH, the updater downloads only the bytes that changed — saving bandwidth on large AppImages.
+  </Card>
+  <Card title="Segmented HTTP range downloads" icon="arrow-down-to-line">
+    Large files are split into parallel HTTP range requests when the server supports it. Enabled by default and configurable per-app.
+  </Card>
+  <Card title="Desktop integration" icon="desktop">
+    Extracts exact `.desktop` manifests and icons directly from each AppImage and installs them into `~/.local/share/applications`.
+  </Card>
+  <Card title="Systemd background automation" icon="clock">
+    The install script sets up a systemd timer that runs checks and updates automatically in the background.
+  </Card>
+  <Card title="GitHub proxy fallback" icon="shield">
+    Retry GitHub release API lookups through one or more configured proxy bases when rate limits are hit, without proxying the actual download.
+  </Card>
+  <Card title="Single binary under 1 MB" icon="microchip">
+    The entire tool ships as one compressed standalone binary with no runtime dependencies.
+  </Card>
+</CardGroup>
+
+## Design philosophy
+
+fp-appimage-updater is intentionally narrow in scope. It runs entirely in user-space — no root access required for a standard install. Configuration lives in `~/.config/fp-appimage-updater/`, making it a natural fit for dotfile repositories. There is no GUI, no central recipe registry, and no database: state is driven purely by files on disk. You write your own recipes, keep them wherever you like, and the tool stays out of your way.
+
+<Note>
+  The project will never include a recipe repository. You are expected to write and own your own app recipes.
+</Note>
