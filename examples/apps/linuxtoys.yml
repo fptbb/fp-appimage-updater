@@ -3,4 +3,4 @@ strategy:
   strategy: forge
   repository: https://github.com/pkgforge-dev/LinuxToys-AppImage
   asset_match: "LinuxToys-*-anylinux-x86_64.AppImage"
-  zsync: true
+zsync: true

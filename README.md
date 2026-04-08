@@ -225,6 +225,7 @@ This command checks:
 - the apps directory
 - the global config file
 - the state directory
+- whether the process lock is missing, active, or stale
 - whether any recipe files were parsed successfully
 - whether any recipe files failed to parse
 - whether `zsync` is available on `PATH`
