@@ -3,7 +3,7 @@ use crate::disintegrator;
 use crate::output::{
     RemoveApp, RemoveResponse, RemoveStatus, print_json, print_progress, print_warning,
 };
-use crate::state::StateManager;
+use crate::state::{AppState, StateManager};
 use anyhow::Result;
 
 pub fn run(
@@ -67,7 +67,9 @@ pub fn run(
                         );
                     }
                 } else {
-                    state_manager.state.apps.remove(&app.name);
+                    if let Some(state) = state_manager.state.apps.get_mut(&app.name) {
+                        clear_installed_state(state);
+                    }
                     if json_output {
                         results.push(RemoveApp {
                             name: app.name.clone(),
@@ -126,4 +128,12 @@ pub fn run(
         );
     }
     Ok(())
+}
+
+pub fn clear_installed_state(state: &mut AppState) {
+    state.local_version = None;
+    state.etag = None;
+    state.last_modified = None;
+    state.file_path = None;
+    state.rate_limited_until = None;
 }

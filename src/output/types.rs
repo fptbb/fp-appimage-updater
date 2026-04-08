@@ -52,6 +52,10 @@ pub struct UpdateResponse {
     pub command: &'static str,
     pub apps: Vec<UpdateApp>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_downloaded_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub median_download_speed_bps: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 

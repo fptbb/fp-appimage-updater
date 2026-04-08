@@ -11,5 +11,6 @@ pub mod output;
 pub mod parser;
 pub mod resolvers;
 pub mod self_updater;
+pub mod update;
 pub mod state;
 pub mod validator;

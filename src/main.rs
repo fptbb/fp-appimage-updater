@@ -4,6 +4,7 @@ use fp_appimage_updater::commands;
 use fp_appimage_updater::commands::helpers::build_http_agent;
 use fp_appimage_updater::lock;
 use fp_appimage_updater::output::colors_enabled;
+use fp_appimage_updater::output::print_warning;
 use fp_appimage_updater::parser::{self, ConfigPaths};
 use fp_appimage_updater::state::StateManager;
 
@@ -81,7 +82,7 @@ fn main() -> Result<()> {
                 json_output,
                 color_output,
             )?;
-            state_manager.save()?;
+            save_state_best_effort(&state_manager, color_output);
         }
         Commands::Update {
             app_name,
@@ -97,7 +98,7 @@ fn main() -> Result<()> {
                 json_output,
                 color_output,
             )?;
-            state_manager.save()?;
+            save_state_best_effort(&state_manager, color_output);
 
             // After application updates, handle self-update
             if *self_update {
@@ -117,7 +118,7 @@ fn main() -> Result<()> {
                 json_output,
                 color_output,
             )?;
-            state_manager.save()?;
+            save_state_best_effort(&state_manager, color_output);
         }
         Commands::SelfUpdate { pre_release } => {
             commands::self_update::run(&client, *pre_release, color_output)?;
@@ -128,4 +129,13 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn save_state_best_effort(state_manager: &StateManager, color_output: bool) {
+    if let Err(e) = state_manager.save() {
+        print_warning(
+            &format!("Failed to save state cache, continuing anyway: {:#}", e),
+            color_output,
+        );
+    }
 }

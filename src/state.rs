@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,6 +33,8 @@ pub struct AppState {
     pub forge_repository: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub forge_platform: Option<ForgePlatform>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub download_bytes: Option<u64>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -60,7 +63,13 @@ impl StateManager {
             fs::create_dir_all(parent)?;
         }
         let content = serde_json::to_string_pretty(&self.state)?;
-        fs::write(&self.cache_path, content)?;
+        let tmp_path = self.cache_path.with_extension("json.tmp");
+        {
+            let mut file = fs::File::create(&tmp_path)?;
+            file.write_all(content.as_bytes())?;
+            file.sync_all()?;
+        }
+        fs::rename(&tmp_path, &self.cache_path)?;
         Ok(())
     }
 

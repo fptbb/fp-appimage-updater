@@ -359,13 +359,25 @@ pub fn download_http(
     if let Some(_total_len) = total_len {
         let mut reader = response.into_body().into_reader();
         let mut buffer = [0u8; DOWNLOAD_BUFFER_SIZE];
+        let mut bytes_written = 0u64;
 
         loop {
-            let bytes_read = reader.read(&mut buffer)?;
+            let bytes_read = match reader.read(&mut buffer) {
+                Ok(bytes_read) => bytes_read,
+                Err(err) => {
+                    if total_len.is_some_and(|expected_len| bytes_written == expected_len)
+                        && is_retryable_chunk_completion_error(&err.to_string())
+                    {
+                        break;
+                    }
+                    return Err(err.into());
+                }
+            };
             if bytes_read == 0 {
                 break;
             }
             file.write_all(&buffer[..bytes_read])?;
+            bytes_written = bytes_written.saturating_add(bytes_read as u64);
             progress_update(progress.handle, bytes_read as u64)?;
         }
     } else {
@@ -399,4 +411,22 @@ fn progress_update(handle: Option<ProgressHandle>, amount: u64) -> Result<()> {
         ui.inc(handle.id, amount)?;
     }
     Ok(())
+}
+
+fn is_retryable_chunk_completion_error(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    [
+        "chunk length cannot be read as a number",
+        "chunk expected crlf as next character",
+        "chunk length is not ascii",
+        "body content after finish",
+        "unexpected eof",
+        "connection reset",
+        "connection aborted",
+        "broken pipe",
+        "timed out",
+        "failed to fill whole buffer",
+    ]
+    .iter()
+    .any(|needle| message.contains(needle))
 }
