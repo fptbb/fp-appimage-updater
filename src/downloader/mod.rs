@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use std::fs;
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use ureq::Agent;
@@ -126,6 +127,11 @@ pub fn download_app(
             progress_completion_rendered |= download_progress_completion_rendered;
         }
 
+        if let Err(err) = ensure_downloaded_appimage_matches_host(&tmp_path) {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(err);
+        }
+
         std::fs::rename(&tmp_path, &final_path)
             .context("Failed to rename tmp file to final destination")?;
 
@@ -142,6 +148,11 @@ pub fn download_app(
         });
     }
 
+    if let Err(err) = ensure_downloaded_appimage_matches_host(&tmp_path) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(err);
+    }
+
     std::fs::rename(&tmp_path, &final_path)
         .context("Failed to rename tmp file to final destination")?;
 
@@ -156,4 +167,136 @@ pub fn download_app(
         downloaded_bytes,
         download_elapsed: None,
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ElfMachineArch {
+    X86_64,
+    AArch64,
+    X86,
+    Arm,
+    Riscv64,
+    PowerPc64,
+}
+
+impl ElfMachineArch {
+    fn label(self) -> &'static str {
+        match self {
+            Self::X86_64 => "x86_64",
+            Self::AArch64 => "aarch64",
+            Self::X86 => "x86",
+            Self::Arm => "arm",
+            Self::Riscv64 => "riscv64",
+            Self::PowerPc64 => "powerpc64",
+        }
+    }
+}
+
+fn ensure_downloaded_appimage_matches_host(path: &Path) -> Result<()> {
+    let Some(detected_arch) = detect_elf_machine_arch(path)? else {
+        return Ok(());
+    };
+    let host_arch = host_elf_machine_arch()?;
+
+    if detected_arch != host_arch {
+        anyhow::bail!(
+            "Downloaded AppImage targets {}, but this machine is {}. The update was skipped and the existing AppImage was left unchanged.",
+            detected_arch.label(),
+            host_arch.label()
+        );
+    }
+
+    Ok(())
+}
+
+fn host_elf_machine_arch() -> Result<ElfMachineArch> {
+    match std::env::consts::ARCH {
+        "x86_64" => Ok(ElfMachineArch::X86_64),
+        "aarch64" => Ok(ElfMachineArch::AArch64),
+        "x86" => Ok(ElfMachineArch::X86),
+        "arm" => Ok(ElfMachineArch::Arm),
+        "riscv64" => Ok(ElfMachineArch::Riscv64),
+        "powerpc64" => Ok(ElfMachineArch::PowerPc64),
+        arch => anyhow::bail!("Unsupported host architecture for AppImage validation: {}", arch),
+    }
+}
+
+fn detect_elf_machine_arch(path: &Path) -> Result<Option<ElfMachineArch>> {
+    let mut file = fs::File::open(path)
+        .with_context(|| format!("Failed to open downloaded AppImage {}", path.display()))?;
+    let mut header = [0u8; 20];
+    if let Err(err) = file.read_exact(&mut header) {
+        if err.kind() == ErrorKind::UnexpectedEof {
+            return Ok(None);
+        }
+        return Err(err).with_context(|| format!("Failed to read ELF header from {}", path.display()));
+    }
+    detect_elf_machine_arch_from_bytes(&header)
+        .map(Some)
+        .or_else(|err| {
+            if format!("{:#}", err).contains("not an ELF executable") {
+                Ok(None)
+            } else {
+                Err(err)
+            }
+        })
+}
+
+fn detect_elf_machine_arch_from_bytes(header: &[u8]) -> Result<ElfMachineArch> {
+    if header.len() < 20 || &header[..4] != b"\x7FELF" {
+        anyhow::bail!("Downloaded file is not an ELF executable");
+    }
+
+    let machine = match header[5] {
+        1 => u16::from_le_bytes([header[18], header[19]]),
+        2 => u16::from_be_bytes([header[18], header[19]]),
+        other => anyhow::bail!("Unsupported ELF data encoding: {}", other),
+    };
+
+    let arch = match machine {
+        3 => ElfMachineArch::X86,
+        40 => ElfMachineArch::Arm,
+        62 => ElfMachineArch::X86_64,
+        183 => ElfMachineArch::AArch64,
+        21 => ElfMachineArch::PowerPc64,
+        243 => ElfMachineArch::Riscv64,
+        other => anyhow::bail!("Unsupported ELF machine type: {}", other),
+    };
+
+    Ok(arch)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn elf_header_for_machine(machine: u16) -> [u8; 20] {
+        let mut header = [0u8; 20];
+        header[..4].copy_from_slice(b"\x7FELF");
+        header[4] = 2;
+        header[5] = 1;
+        header[18..20].copy_from_slice(&machine.to_le_bytes());
+        header
+    }
+
+    #[test]
+    fn detects_x86_64_elf_machine() {
+        let arch = detect_elf_machine_arch_from_bytes(&elf_header_for_machine(62))
+            .expect("missing arch");
+        assert_eq!(arch, ElfMachineArch::X86_64);
+    }
+
+    #[test]
+    fn detects_aarch64_elf_machine() {
+        let arch = detect_elf_machine_arch_from_bytes(&elf_header_for_machine(183))
+            .expect("missing arch");
+        assert_eq!(arch, ElfMachineArch::AArch64);
+    }
+
+    #[test]
+    fn skips_non_elf_files() {
+        let err = detect_elf_machine_arch_from_bytes(b"not an elf")
+            .expect_err("expected non-elf file to fail");
+        assert!(format!("{:#}", err).contains("not an ELF executable"));
+    }
 }
