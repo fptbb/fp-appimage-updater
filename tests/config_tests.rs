@@ -1,4 +1,4 @@
-use fp_appimage_updater::config::{AppConfig, GithubProxyPrefixes, GlobalConfig};
+use fp_appimage_updater::config::{AppConfig, GithubProxyPrefixes, GlobalConfig, StrategyConfig};
 
 #[test]
 fn global_proxy_prefix_accepts_string_or_array() {
@@ -78,6 +78,35 @@ strategy:
         multiple.github_proxy_prefix,
         Some(GithubProxyPrefixes::Multiple(_))
     ));
+}
+
+#[test]
+fn forge_asset_match_defaults_when_regex_is_used() {
+    let app: AppConfig = serde_yaml::from_str(
+        r#"
+name: obsidian
+strategy:
+  strategy: forge
+  repository: "https://github.com/obsidianmd/obsidian-releases"
+  asset_match_regex: "^Obsidian-[0-9.]+\\.AppImage$"
+"#,
+    )
+    .expect("expected regex-only forge recipe to parse");
+
+    match app.strategy {
+        StrategyConfig::Forge {
+            asset_match,
+            asset_match_regex,
+            ..
+        } => {
+            assert_eq!(asset_match, "*");
+            assert_eq!(
+                asset_match_regex.as_deref(),
+                Some("^Obsidian-[0-9.]+\\.AppImage$")
+            );
+        }
+        _ => panic!("expected forge strategy"),
+    }
 }
 
 #[test]

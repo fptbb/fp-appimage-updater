@@ -109,7 +109,10 @@ pub enum ZsyncConfig {
 pub enum StrategyConfig {
     Forge {
         repository: String,
+        #[serde(default = "default_forge_asset_match")]
         asset_match: String,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        asset_match_regex: Option<String>,
     },
     Direct {
         url: String,
@@ -118,6 +121,10 @@ pub enum StrategyConfig {
     Script {
         script_path: String,
     },
+}
+
+fn default_forge_asset_match() -> String {
+    "*".to_string()
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]

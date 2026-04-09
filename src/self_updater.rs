@@ -6,7 +6,7 @@ use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};
 use std::env;
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use ureq::Agent;
@@ -111,7 +111,14 @@ fn is_writable_by_user(path: &PathBuf) -> bool {
 fn verify_checksum(binary_path: &PathBuf, checksums_content: &str, asset_name: &str) -> Result<()> {
     let mut file = fs::File::open(binary_path)?;
     let mut hasher = Sha256::new();
-    std::io::copy(&mut file, &mut hasher)?;
+    let mut buffer = [0u8; 8192];
+    loop {
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
     let hash = hasher.finalize();
     let hash_hex = hex::encode(hash);
 
@@ -186,9 +193,15 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
     {
         let mut tmp_file = fs::File::create(&tmp_path)
             .context("Failed to create temporary file for new binary")?;
-
-        std::io::copy(&mut response.into_body().into_reader(), &mut tmp_file)
-            .context("Failed to write buffer to temp file")?;
+        let mut reader = response.into_body().into_reader();
+        let mut buffer = [0u8; 8192];
+        loop {
+            let bytes_read = reader.read(&mut buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+            tmp_file.write_all(&buffer[..bytes_read])?;
+        }
     }
 
     // Download and verify checksum

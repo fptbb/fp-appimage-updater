@@ -2,6 +2,7 @@ use crate::config::GlobalConfig;
 use crate::state::AppState;
 use anyhow::{Context, Result, anyhow};
 use ureq::Agent;
+use regex_lite::Regex;
 
 use super::{CheckResult, UpdateInfo, dedupe_capabilities, rate_limit_info_from_headers};
 
@@ -11,6 +12,57 @@ pub use crate::state::ForgePlatform as ForgeHost;
 pub struct ReleaseAsset {
     pub name: String,
     pub download_url: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum AssetMatcher {
+    Glob(glob::Pattern),
+    Regex { pattern: String, regex: Regex },
+}
+
+impl AssetMatcher {
+    pub fn from_config(
+        asset_match: &str,
+        asset_match_regex: Option<&str>,
+        repository: &str,
+    ) -> Result<Self> {
+        if let Some(regex_pattern) = asset_match_regex {
+            let anchored = format!("^(?:{})$", regex_pattern);
+            let regex = Regex::new(&anchored).with_context(|| {
+                format!(
+                    "Invalid asset_match_regex pattern '{}' for {}",
+                    regex_pattern, repository
+                )
+            })?;
+            return Ok(Self::Regex {
+                pattern: regex_pattern.to_string(),
+                regex,
+            });
+        }
+
+        let pattern = glob::Pattern::new(asset_match).with_context(|| {
+            format!(
+                "Invalid asset_match pattern '{}' for {}",
+                asset_match, repository
+            )
+        })?;
+
+        Ok(Self::Glob(pattern))
+    }
+
+    pub fn matches(&self, asset_name: &str) -> bool {
+        match self {
+            Self::Glob(pattern) => pattern.matches(asset_name),
+            Self::Regex { regex, .. } => regex.is_match(asset_name),
+        }
+    }
+
+    pub fn description(&self) -> &str {
+        match self {
+            Self::Glob(pattern) => pattern.as_str(),
+            Self::Regex { pattern, .. } => pattern,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -126,19 +178,15 @@ pub fn resolve(
     client: &Agent,
     repository: &str,
     asset_match: &str,
+    asset_match_regex: Option<&str>,
     state: Option<&AppState>,
     github_proxy: bool,
     github_proxy_prefixes: &[String],
     global_config: &GlobalConfig,
 ) -> Result<CheckResult> {
+    let matcher = AssetMatcher::from_config(asset_match, asset_match_regex, repository)?;
     let host = forge_host(client, repository, state)?;
     let url = release_api_url_with_config(host, repository, global_config)?;
-    let pattern = glob::Pattern::new(asset_match).with_context(|| {
-        format!(
-            "Invalid asset_match pattern '{}' for {}",
-            asset_match, repository
-        )
-    })?;
 
     let response = client
         .get(&url)
@@ -166,7 +214,7 @@ pub fn resolve(
             return resolve_via_github_proxy(
                 client,
                 repository,
-                &pattern,
+                &matcher,
                 state,
                 github_proxy_prefixes,
                 global_config,
@@ -201,7 +249,7 @@ pub fn resolve(
             return resolve_from_github_release_page(
                 client,
                 repository,
-                &pattern,
+                &matcher,
                 &html,
                 state,
                 global_config,
@@ -249,7 +297,7 @@ pub fn resolve(
     resolve_from_release_assets(
         client,
         repository,
-        &pattern,
+        &matcher,
         version,
         &assets,
         state,
@@ -573,7 +621,7 @@ pub fn release_assets(
 fn resolve_from_release_assets(
     client: &Agent,
     repository: &str,
-    pattern: &glob::Pattern,
+    matcher: &AssetMatcher,
     version: &str,
     assets: &[ReleaseAsset],
     state: Option<&AppState>,
@@ -595,7 +643,7 @@ fn resolve_from_release_assets(
         ForgeHost::Gitea | ForgeHost::Forgejo => repository.trim_end_matches('/').to_string(),
     };
     for asset in assets {
-        if pattern.matches(&asset.name) {
+        if matcher.matches(&asset.name) {
             let download_url = if host == ForgeHost::GitHub && github_proxy {
                 let Some(github_proxy_prefix) = github_proxy_prefixes.first() else {
                     return Err(anyhow!(
@@ -636,7 +684,7 @@ fn resolve_from_release_assets(
     Err(anyhow!(
         "No matching asset found for repository {} with pattern '{}'. Available assets: {}",
         repository,
-        pattern.as_str(),
+        matcher.description(),
         if available_assets.is_empty() {
             "<none>".to_string()
         } else {
@@ -648,7 +696,7 @@ fn resolve_from_release_assets(
 fn resolve_via_github_proxy(
     client: &Agent,
     repository: &str,
-    pattern: &glob::Pattern,
+    matcher: &AssetMatcher,
     state: Option<&AppState>,
     github_proxy_prefixes: &[String],
     global_config: &GlobalConfig,
@@ -660,7 +708,7 @@ fn resolve_via_github_proxy(
         match resolve_via_single_github_proxy(
             client,
             repository,
-            pattern,
+            matcher,
             state,
             github_proxy_prefix,
             global_config,
@@ -693,7 +741,7 @@ fn resolve_via_github_proxy(
 fn resolve_via_single_github_proxy(
     client: &Agent,
     repository: &str,
-    pattern: &glob::Pattern,
+    matcher: &AssetMatcher,
     state: Option<&AppState>,
     github_proxy_prefix: &str,
     global_config: &GlobalConfig,
@@ -746,7 +794,7 @@ fn resolve_via_single_github_proxy(
     resolve_from_release_assets(
         client,
         repository,
-        pattern,
+        matcher,
         version,
         &assets,
         state,
@@ -760,19 +808,19 @@ fn resolve_via_single_github_proxy(
 fn resolve_from_github_release_page(
     client: &Agent,
     repository: &str,
-    pattern: &glob::Pattern,
+    matcher: &AssetMatcher,
     html: &str,
     state: Option<&AppState>,
     global_config: &GlobalConfig,
 ) -> Result<CheckResult> {
     let release_web_url = github_release_web_url_with_config(repository, global_config)?;
     let Some((version, download_url)) =
-        find_release_asset_in_html_with_base(html, &release_web_url, pattern)
+        find_release_asset_in_html_with_base_and_matcher(html, &release_web_url, matcher)
     else {
         return Err(anyhow!(
             "Rate limited for {} and no matching asset was found on the release page for pattern '{}'",
             repository,
-            pattern.as_str()
+            matcher.description()
         ));
     };
 
@@ -844,14 +892,32 @@ pub fn find_release_asset_in_html(
     repo_path: &str,
     pattern: &glob::Pattern,
 ) -> Option<(String, String)> {
+    let matcher = AssetMatcher::Glob(pattern.clone());
+    find_release_asset_in_html_with_matcher(html, repo_path, &matcher)
+}
+
+pub fn find_release_asset_in_html_with_matcher(
+    html: &str,
+    repo_path: &str,
+    matcher: &AssetMatcher,
+) -> Option<(String, String)> {
     let release_web_url = format!("https://github.com/{}", repo_path.trim_start_matches('/'));
-    find_release_asset_in_html_with_base(html, &release_web_url, pattern)
+    find_release_asset_in_html_with_base_and_matcher(html, &release_web_url, matcher)
 }
 
 pub fn find_release_asset_in_html_with_base(
     html: &str,
     release_web_url: &str,
     pattern: &glob::Pattern,
+) -> Option<(String, String)> {
+    let matcher = AssetMatcher::Glob(pattern.clone());
+    find_release_asset_in_html_with_base_and_matcher(html, release_web_url, &matcher)
+}
+
+pub fn find_release_asset_in_html_with_base_and_matcher(
+    html: &str,
+    release_web_url: &str,
+    matcher: &AssetMatcher,
 ) -> Option<(String, String)> {
     let absolute_needle = format!(
         "{}/releases/download/",
@@ -877,7 +943,7 @@ pub fn find_release_asset_in_html_with_base(
                 .unwrap_or(after_tag.len());
             let asset_name = &after_tag[..file_end];
 
-            if pattern.matches(asset_name) {
+            if matcher.matches(asset_name) {
                 let download_url = format!(
                     "{}/releases/download/{}/{}",
                     release_web_url.trim_end_matches('/'),

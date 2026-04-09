@@ -7,6 +7,7 @@ use std::thread;
 use std::time::Instant;
 use ureq::Agent;
 
+use crate::commands::helpers::build_http_agent;
 use crate::downloader::progress::*;
 use crate::output::{print_progress, print_warning};
 
@@ -332,6 +333,33 @@ fn download_range(
 }
 
 pub fn download_http(
+    client: &Agent,
+    app_name: &str,
+    version: &str,
+    url: &str,
+    target_path: &Path,
+    quiet: bool,
+    _colors: bool,
+) -> Result<(bool, bool)> {
+    match download_http_once(client, app_name, version, url, target_path, quiet, _colors) {
+        Ok(result) => Ok(result),
+        Err(err) if is_retryable_chunk_completion_error(&format!("{:#}", err)) => {
+            let fresh_client = build_http_agent();
+            download_http_once(
+                &fresh_client,
+                app_name,
+                version,
+                url,
+                target_path,
+                quiet,
+                _colors,
+            )
+        }
+        Err(err) => Err(err),
+    }
+}
+
+fn download_http_once(
     client: &Agent,
     app_name: &str,
     version: &str,

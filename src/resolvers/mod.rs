@@ -107,10 +107,12 @@ pub fn check_for_updates(
         StrategyConfig::Forge {
             repository,
             asset_match,
+            asset_match_regex,
         } => forge::resolve(
             client,
             repository,
             asset_match,
+            asset_match_regex.as_deref(),
             state,
             github_proxy,
             github_proxy_prefixes,

@@ -140,6 +140,7 @@ fp-appimage-updater supports three different strategies for resolving and downlo
 Used for downloading from GitHub or GitLab releases.
 - `repository`: The URL to the GitHub or GitLab repository.
 - `asset_match`: A wildcard string to match the specific asset name in the release (e.g., `"*-amd64.AppImage"`).
+- `asset_match_regex`: Optional regex matcher for the asset filename. Use this when a glob would match too many release assets. The regex is matched against the full asset name.
 - `github_proxy`: Optional per-app GitHub-only metadata proxy fallback. When enabled, `fp-appimage-updater` retries the GitHub release API through the configured proxy bases if the direct request is rate limited. The final download still uses the direct GitHub asset URL.
 - `github_proxy_prefix`: Optional proxy base URL, array of base URLs, or the string `all` used when `github_proxy` is enabled. Defaults to `https://gh-proxy.com/`. The app tries them in order until one works. Use `all` to try every compatible proxy built into the app.
 - `respect_rate_limits`: Optional per-app override that tells the updater to skip apps until the retry window expires when a rate limit is hit. Defaults to `true`.
@@ -154,6 +155,17 @@ strategy:
   asset_match: "hydralauncher-*.AppImage"
 segmented_downloads: true
 ```
+
+**Regex edge-case example:**
+```yaml
+name: obsidian
+strategy:
+  strategy: forge
+  repository: "https://github.com/obsidianmd/obsidian-releases"
+  asset_match_regex: "^Obsidian-[0-9.]+\\.AppImage$"
+```
+
+This regex matches `Obsidian-1.12.7.AppImage` and avoids the `Obsidian-1.12.7-arm64.AppImage` release asset.
 
 #### 2. direct
 Used when the application provides a direct download URL that always points to the latest version.

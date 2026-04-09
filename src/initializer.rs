@@ -88,7 +88,7 @@ fn app_template(name: &str, strategy: InitStrategy) -> String {
             "name: {name}\nstrategy:\n  strategy: direct\n  url: \"https://example.org/{name}.AppImage\"\n  check_method: etag\n"
         ),
         InitStrategy::Forge => format!(
-            "name: {name}\nstrategy:\n  strategy: forge\n  repository: \"https://github.com/OWNER/REPO\"\n  asset_match: \"*-x86_64.AppImage\"\n"
+            "name: {name}\nstrategy:\n  strategy: forge\n  repository: \"https://github.com/OWNER/REPO\"\n  asset_match: \"*-x86_64.AppImage\"\n  # Optional: use a regex when release names are ambiguous.\n  # asset_match_regex: \"^Obsidian-[0-9.]+\\\\.AppImage$\"\n"
         ),
         InitStrategy::Script => format!(
             "name: {name}\nstrategy:\n  strategy: script\n  script_path: ./{name}/resolver.sh\n"

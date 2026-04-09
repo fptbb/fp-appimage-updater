@@ -1,0 +1,5 @@
+name: obsidian
+strategy:
+  strategy: forge
+  repository: "https://github.com/obsidianmd/obsidian-releases"
+  asset_match_regex: "^Obsidian-[0-9.]+\\.AppImage$"

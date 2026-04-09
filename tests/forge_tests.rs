@@ -1,10 +1,10 @@
 use fp_appimage_updater::commands::helpers::cache_app_metadata;
 use fp_appimage_updater::config::GlobalConfig;
 use fp_appimage_updater::resolvers::forge::{
-    ForgeHost, find_release_asset_in_html, find_release_asset_in_html_with_base,
-    forge_platform_from_swagger_title, github_release_web_url_with_config, release_api_url,
-    release_api_url_with_config, release_assets, sanitize_github_proxy_url,
-    validate_github_proxy_metadata,
+    AssetMatcher, ForgeHost, find_release_asset_in_html, find_release_asset_in_html_with_base,
+    find_release_asset_in_html_with_base_and_matcher, forge_platform_from_swagger_title,
+    github_release_web_url_with_config, release_api_url, release_api_url_with_config,
+    release_assets, sanitize_github_proxy_url, validate_github_proxy_metadata,
 };
 use fp_appimage_updater::state::AppState;
 use ureq::Agent;
@@ -17,6 +17,7 @@ fn invalid_asset_pattern_is_reported_before_network() {
         "https://github.com/fptbb/fp-appimage-updater",
         "[",
         None,
+        None,
         false,
         &[String::from("https://gh-proxy.com/")],
         &GlobalConfig::default(),
@@ -25,6 +26,26 @@ fn invalid_asset_pattern_is_reported_before_network() {
 
     let message = format!("{:#}", err);
     assert!(message.contains("Invalid asset_match pattern"));
+    assert!(message.contains("https://github.com/fptbb/fp-appimage-updater"));
+}
+
+#[test]
+fn invalid_asset_regex_is_reported_before_network() {
+    let client = Agent::new_with_defaults();
+    let err = fp_appimage_updater::resolvers::forge::resolve(
+        &client,
+        "https://github.com/fptbb/fp-appimage-updater",
+        "*",
+        Some("["),
+        None,
+        false,
+        &[String::from("https://gh-proxy.com/")],
+        &GlobalConfig::default(),
+    )
+    .expect_err("expected invalid asset regex to fail");
+
+    let message = format!("{:#}", err);
+    assert!(message.contains("Invalid asset_match_regex pattern"));
     assert!(message.contains("https://github.com/fptbb/fp-appimage-updater"));
 }
 
@@ -187,6 +208,34 @@ fn html_fallback_uses_custom_release_base() {
     assert_eq!(
         download_url,
         "https://example.com/owner/repo/releases/download/v1.2.3/app-x86_64.AppImage"
+    );
+}
+
+#[test]
+fn regex_asset_matcher_excludes_arm64_suffix() {
+    let matcher = AssetMatcher::from_config(
+        "*",
+        Some(r"Obsidian-[0-9.]+\.AppImage"),
+        "https://github.com/obsidianmd/obsidian-releases",
+    )
+    .expect("expected regex matcher");
+
+    let html = r#"
+        <a href="/obsidianmd/obsidian-releases/releases/download/v1.12.7/Obsidian-1.12.7-arm64.AppImage">download</a>
+        <a href="/obsidianmd/obsidian-releases/releases/download/v1.12.7/Obsidian-1.12.7.AppImage">download</a>
+    "#;
+
+    let (version, download_url) = find_release_asset_in_html_with_base_and_matcher(
+        html,
+        "https://github.com/obsidianmd/obsidian-releases",
+        &matcher,
+    )
+    .expect("expected regex matcher to find the generic asset");
+
+    assert_eq!(version, "v1.12.7");
+    assert_eq!(
+        download_url,
+        "https://github.com/obsidianmd/obsidian-releases/releases/download/v1.12.7/Obsidian-1.12.7.AppImage"
     );
 }
 
