@@ -9,4 +9,4 @@ pub use heuristics::{
     should_retry_download_error, update_work_elapsed,
 };
 pub use run::run;
-pub use types::{UpdateDownloadJob, UpdateEvent, UpdateWorkResult};
+pub use types::{ForcedUpdateInfo, UpdateDownloadJob, UpdateEvent, UpdateWorkResult};

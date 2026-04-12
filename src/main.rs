@@ -87,6 +87,8 @@ fn main() -> Result<()> {
         Commands::Update {
             app_name,
             self_update,
+            debug_download_url,
+            debug_version,
         } => {
             commands::update::run(
                 &app_configs,
@@ -95,6 +97,8 @@ fn main() -> Result<()> {
                 &mut state_manager,
                 &client,
                 app_name.as_deref(),
+                debug_download_url.as_deref(),
+                debug_version.as_deref(),
                 json_output,
                 color_output,
             )?;

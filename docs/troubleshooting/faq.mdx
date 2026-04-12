@@ -71,7 +71,7 @@ description: "Answers to common questions about fp-appimage-updater."
     zsync: "https://example.com/app.AppImage.zsync"
     ```
 
-    `zsync` must be installed and available on your `PATH` for this to work. fp-appimage-updater only uses it when it already has a local AppImage to compare against, and it falls back to the normal download path if zsync cannot run. Run `fp-appimage-updater doctor` to check.
+    fp-appimage-updater uses its built-in `zsync-rs` backend for this, so you do not need to install a separate `zsync` system package. It only uses the delta path when it already has a local AppImage to compare against, and it falls back to the normal download path if the delta update cannot run.
   </Accordion>
 
   <Accordion title="Why is an app being skipped during updates?">

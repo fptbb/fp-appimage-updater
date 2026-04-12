@@ -24,7 +24,6 @@ fp-appimage-updater doctor
 | `parsed_app_recipes` | Number of recipe files that loaded successfully |
 | `invalid_app_recipes` | Number of recipe files that failed to parse |
 | `process_lock` | Whether the current lockfile is missing, active, or stale |
-| `zsync_binary` | Whether `zsync` is available on `PATH` |
 
 Each check reports either `ok` or `warn`. A `warn` result does not stop the tool from running, but it may explain unexpected behavior.
 
@@ -41,18 +40,6 @@ Each check reports either `ok` or `warn`. A `warn` result does not stop the tool
 </Note>
 
 ## Common issues
-
-**`zsync not found in PATH`**
-
-Install `zsync` via your package manager. On Fedora:
-
-```bash
-sudo dnf install zsync
-```
-
-Delta updates are unavailable without it, but standard downloads continue to work normally.
-
----
 
 **Recipe files failed to parse**
 

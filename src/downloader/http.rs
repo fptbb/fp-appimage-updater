@@ -2,13 +2,14 @@ use anyhow::{Context, Result, bail};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 use ureq::Agent;
 
 use crate::commands::helpers::build_http_agent;
 use crate::downloader::progress::*;
-use crate::output::{print_progress, print_warning};
+use crate::output::print_warning;
 use zsync_rs::ZsyncAssembly;
 
 pub const MAX_SEGMENTED_WORKERS: usize = 4;
@@ -21,16 +22,13 @@ pub fn try_zsync(
     zsync_url: &str,
     old_file: &Path,
     target_file: &Path,
+    app_name: &str,
+    version: &str,
+    was_update: bool,
     quiet: bool,
     colors: bool,
-) -> bool {
-    if !quiet {
-        print_progress(
-            &format!("Attempting zsync update using: {}", zsync_url),
-            colors,
-        );
-    }
-
+) -> (bool, bool) {
+    let started_at = Instant::now();
     let mut assembly = match ZsyncAssembly::from_url(zsync_url, target_file) {
         Ok(assembly) => assembly,
         Err(_) => {
@@ -40,9 +38,32 @@ pub fn try_zsync(
                     colors,
                 );
             }
-            return false;
+            return (false, false);
         }
     };
+
+    let mut progress = ProgressGuard::new(
+        new_progress_bar(assembly.progress().1, app_name, quiet),
+        app_name,
+        version,
+    );
+    let progress_displayed = progress.handle.is_some();
+    let last_reported = Arc::new(Mutex::new(0u64));
+
+    if let Some(handle) = progress.handle {
+        let last_reported_cb = Arc::clone(&last_reported);
+        assembly.set_progress_callback(move |done, _total| {
+            if let Ok(mut last) = last_reported_cb.lock() {
+                let delta = done.saturating_sub(*last);
+                *last = done;
+                if delta > 0
+                    && let Ok(mut ui) = progress_ui().lock()
+                {
+                    let _ = ui.inc(handle.id, delta);
+                }
+            }
+        });
+    }
 
     if let Err(_) = assembly.submit_source_file(old_file) {
         if !quiet {
@@ -52,7 +73,23 @@ pub fn try_zsync(
             );
         }
         assembly.abort();
-        return false;
+        return (false, false);
+    }
+
+    if progress_displayed {
+        let (done, _) = assembly.progress();
+        if done > 0
+            && let Some(handle) = progress.handle
+            && let Ok(mut last) = last_reported.lock()
+        {
+            let delta = done.saturating_sub(*last);
+            *last = done;
+            if delta > 0
+                && let Ok(mut ui) = progress_ui().lock()
+            {
+                let _ = ui.inc(handle.id, delta);
+            }
+        }
     }
 
     while !assembly.is_complete() {
@@ -67,17 +104,39 @@ pub fn try_zsync(
                     );
                 }
                 assembly.abort();
-                return false;
+                return (false, false);
             }
         }
     }
 
     match assembly.complete() {
         Ok(()) => {
-            if !quiet {
-                print_progress("Successfully updated via zsync!", colors);
+            let downloaded_bytes = fs::metadata(target_file)
+                .map(|meta| meta.len())
+                .unwrap_or(0);
+            let elapsed = started_at.elapsed();
+
+            if progress_displayed {
+                let action = if was_update {
+                    "updated to"
+                } else {
+                    "downloaded"
+                };
+                let seconds = elapsed.as_secs_f64().max(0.001);
+                let speed = downloaded_bytes as f64 / seconds;
+                let summary = format!(
+                    "{} {} {} in {:.2}s ({}, {})",
+                    app_name,
+                    action,
+                    version,
+                    seconds,
+                    human_bytes(downloaded_bytes),
+                    human_rate(speed)
+                );
+                let _ = progress.finish_with_summary(downloaded_bytes, elapsed, summary);
             }
-            true
+
+            (true, progress_displayed)
         }
         Err(_) => {
             if !quiet {
@@ -87,7 +146,7 @@ pub fn try_zsync(
                 );
             }
             let _ = std::fs::remove_file(target_file.with_extension("zsync-tmp"));
-            false
+            (false, false)
         }
     }
 }

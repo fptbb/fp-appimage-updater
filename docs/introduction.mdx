@@ -15,7 +15,7 @@ fp-appimage-updater is a CLI tool written in Rust that lets you manage, update, 
     Fetch updates from GitHub or GitLab releases with `forge`, a static URL with `direct`, or a custom shell script with `script`.
   </Card>
   <Card title="Delta downloads via zsync" icon="bolt">
-    When `zsync` is available on your PATH, the updater downloads only the bytes that changed — saving bandwidth on large AppImages.
+    When an app recipe enables `zsync`, the updater uses its built-in `zsync-rs` backend to download only the bytes that changed — saving bandwidth on large AppImages.
   </Card>
   <Card title="Segmented HTTP range downloads" icon="arrow-down-to-line">
     Large files are split into parallel HTTP range requests when the server supports it. Enabled by default and configurable per-app.

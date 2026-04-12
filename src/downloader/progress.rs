@@ -44,12 +44,20 @@ impl ProgressGuard {
     }
 
     pub fn finish(&mut self, bytes: u64, elapsed: Duration) -> Result<bool> {
+        self.finish_with_summary(bytes, elapsed, format_finished_line(&self.app_name, &self.version, bytes, elapsed))
+    }
+
+    pub fn finish_with_summary(
+        &mut self,
+        _bytes: u64,
+        _elapsed: Duration,
+        summary: String,
+    ) -> Result<bool> {
         if self.finished {
             return Ok(false);
         }
         self.finished = true;
         if let Some(handle) = self.handle {
-            let summary = format_finished_line(&self.app_name, &self.version, bytes, elapsed);
             if let Ok(mut ui) = progress_ui().lock() {
                 return ui.finish(handle.id, summary);
             }

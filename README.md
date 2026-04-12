@@ -8,13 +8,13 @@ fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed t
 ## Features
 - **Data-Driven:** All apps and their update strategies are defined in YAML files.
 - **Update Resolvers:** Fetch the latest version via Forge Releases (GitHub/GitLab), Direct Links (ETag/Last-Modified HTTP Headers), or Custom Shell Scripts.
-- **Delta Updates:** Uses `zsync` when available to download only modified bytes.
+- **Delta Updates:** Uses the built-in `zsync-rs` backend to download only modified bytes when an app recipe enables it.
 - **Segmented Downloads:** Split large direct downloads into HTTP ranges when the server supports them. Enabled by default.
 - **Parallel Operations:** `check` and `update` run multiple apps concurrently to keep large batches fast, with provider-aware caps to avoid hammering the same host.
 - **Rate-Limit Cooldowns:** Apps that hit rate limits are skipped until their retry time unless you opt out.
 - **GitHub Proxy Fallback:** Optional GitHub metadata proxy support can bypass GitHub API rate limits without proxying the actual download, and can try multiple proxy bases in order.
 - **Desktop Integration:** Extracts exact `.desktop` manifests and icons directly from the AppImage using `--appimage-extract` and seamlessly inserts them into your `.local/share/applications` application menu.
-- **Local Health Checks:** `doctor` checks the local configuration, required directories, and optional tooling like `zsync`.
+- **Local Health Checks:** `doctor` checks the local configuration, required directories, and other local setup issues.
 - **Global & Local Configs:** Override storage paths, integration behaviors, symlinking, segmented downloads, rate-limit cooldowns, and GitHub proxy settings per-app or globally.
 
 ## Project Facts
@@ -114,7 +114,7 @@ segmented_downloads: true
 ```
 
 ### Zsync Delta Updates
-`zsync` is an optional per-app delta download path. It only runs when the recipe includes a `zsync` field and the updater can find both an existing installed AppImage and the `zsync` binary on `PATH`.
+`zsync` is an optional per-app delta download path powered by the built-in `zsync-rs` backend. It only runs when the recipe includes a `zsync` field and the updater can find both an existing installed AppImage and a matching `.zsync` manifest.
 
 Supported recipe forms:
 - `zsync: true` means the updater will try `<resolved-download-url>.zsync`
@@ -266,7 +266,7 @@ This command checks:
 - whether the process lock is missing, active, or stale
 - whether any recipe files were parsed successfully
 - whether any recipe files failed to parse
-- whether `zsync` is available on `PATH`
+- whether local setup looks sane for update operations
 
 Check the status of all your configured recipes to see if new versions are available remotely:
 ```bash

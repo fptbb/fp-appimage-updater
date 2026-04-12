@@ -11,7 +11,7 @@ use crate::config::GlobalConfig;
 use crate::config::{AppConfig, StrategyConfig};
 use crate::state::{AppState, ForgePlatform};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UpdateInfo {
     pub download_url: String,
     pub version: String,

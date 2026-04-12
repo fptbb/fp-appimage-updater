@@ -1,8 +1,9 @@
 mod engine;
 
 pub use engine::{
-    UpdateDownloadJob, UpdateEvent, UpdateWorkResult, adapt_download_limit, download_provider_key,
-    estimate_download_bytes, median_speed_bps, should_retry_download_error, update_work_elapsed,
+    ForcedUpdateInfo, UpdateDownloadJob, UpdateEvent, UpdateWorkResult, adapt_download_limit,
+    download_provider_key, estimate_download_bytes, median_speed_bps, should_retry_download_error,
+    update_work_elapsed,
 };
 
 pub fn run(
@@ -12,6 +13,7 @@ pub fn run(
     state_manager: &mut crate::state::StateManager,
     client: &ureq::Agent,
     app_name: Option<&str>,
+    forced_update: Option<engine::ForcedUpdateInfo>,
     json_output: bool,
     color_output: bool,
 ) -> anyhow::Result<()> {
@@ -22,6 +24,7 @@ pub fn run(
         state_manager,
         client,
         app_name,
+        forced_update,
         json_output,
         color_output,
     )

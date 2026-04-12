@@ -50,6 +50,7 @@ fn spawn_zsync_test_server(
     let range_hits_thread = Arc::clone(&range_hits);
     let head_hits_thread = Arc::clone(&head_hits);
     let target_body_thread = Arc::clone(&target_body);
+    let last_modified = "Tue, 21 Oct 2025 07:28:00 GMT";
 
     thread::spawn(move || {
         let target_body = target_body_thread;
@@ -98,8 +99,9 @@ fn spawn_zsync_test_server(
             } else if method == "HEAD" && path == "/dummy.AppImage" {
                 head_hits_thread.fetch_add(1, Ordering::SeqCst);
                 format!(
-                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n",
-                    target_body.len()
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nLast-Modified: {}\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n",
+                    target_body.len(),
+                    last_modified
                 )
                 .into_bytes()
             } else if method == "GET" && path == "/dummy.AppImage" {
@@ -116,11 +118,12 @@ fn spawn_zsync_test_server(
                     Vec::new()
                 };
                 format!(
-                    "HTTP/1.1 206 Partial Content\r\nContent-Length: {}\r\nContent-Range: bytes {}-{}/{}\r\nAccept-Ranges: bytes\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n",
+                    "HTTP/1.1 206 Partial Content\r\nContent-Length: {}\r\nContent-Range: bytes {}-{}/{}\r\nAccept-Ranges: bytes\r\nLast-Modified: {}\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n",
                     body.len(),
                     start,
                     end,
-                    target_body.len()
+                    target_body.len(),
+                    last_modified
                 )
                 .into_bytes()
                 .into_iter()

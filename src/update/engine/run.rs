@@ -3,7 +3,7 @@ use super::heuristics::{
     update_work_elapsed,
 };
 use super::queue::{DownloadQueues, ProviderDownloadScheduler, UpdateErrorStage};
-use super::types::{UpdateDownloadJob, UpdateEvent, UpdateWorkResult};
+use super::types::{ForcedUpdateInfo, UpdateDownloadJob, UpdateEvent, UpdateWorkResult};
 use super::workers::{process_update_check_job, process_update_download_job};
 use crate::commands::helpers::*;
 use crate::config;
@@ -25,6 +25,7 @@ pub fn run(
     state_manager: &mut StateManager,
     client: &ureq::Agent,
     app_name: Option<&str>,
+    forced_update: Option<ForcedUpdateInfo>,
     json_output: bool,
     color_output: bool,
 ) -> Result<()> {
@@ -111,11 +112,13 @@ pub fn run(
                               github_proxy_prefixes: Vec<String>,
                               global_config: config::GlobalConfig,
                               tx: mpsc::Sender<UpdateEvent>| {
+        let forced_update = forced_update.clone();
         std::thread::spawn(move || {
             let _ = tx.send(UpdateEvent::Check(process_update_check_job(
                 &client,
                 app,
                 state,
+                forced_update.clone(),
                 github_proxy,
                 github_proxy_prefixes,
                 &global_config,
@@ -339,6 +342,7 @@ pub fn run(
                             forge_repository,
                             forge_platform,
                             retry_without_segmented_downloads: false,
+                            forced_update: forced_update.clone(),
                         });
                     }
                     UpdateWorkResult::UpToDate {

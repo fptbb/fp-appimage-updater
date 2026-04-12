@@ -37,7 +37,11 @@ pub const COMMAND_DEFS: &[CmdInfo] = &[
     CmdInfo {
         name: "update",
         desc: "Update applications (all, or specify one)",
-        opts: &["--self-update"],
+        opts: &[
+            "--self-update",
+            "--debug-download-url <URL>",
+            "--debug-version <VER>",
+        ],
     },
     CmdInfo {
         name: "remove",
@@ -116,6 +120,8 @@ pub enum Commands {
     Update {
         app_name: Option<String>,
         self_update: bool,
+        debug_download_url: Option<String>,
+        debug_version: Option<String>,
     },
     Remove {
         app_name: Option<String>,
@@ -194,9 +200,14 @@ impl Cli {
             },
             "update" => {
                 let self_update = args.contains("--self-update");
+                let debug_download_url: Option<String> =
+                    args.opt_value_from_str("--debug-download-url")?;
+                let debug_version: Option<String> = args.opt_value_from_str("--debug-version")?;
                 Commands::Update {
                     app_name: args.opt_free_from_str()?,
                     self_update,
+                    debug_download_url,
+                    debug_version,
                 }
             }
             "remove" => {

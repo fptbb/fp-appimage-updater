@@ -1,6 +1,6 @@
 use super::heuristics::should_retry_download_error;
 use super::queue::UpdateErrorStage;
-use super::types::{UpdateDownloadJob, UpdateWorkResult};
+use super::types::{ForcedUpdateInfo, UpdateDownloadJob, UpdateWorkResult};
 use crate::commands::helpers::rate_limit_from_error;
 use crate::config;
 use crate::downloader;
@@ -12,6 +12,7 @@ pub(crate) fn process_update_check_job(
     client: &ureq::Agent,
     app: config::AppConfig,
     state: Option<AppState>,
+    forced_update: Option<ForcedUpdateInfo>,
     github_proxy: bool,
     github_proxy_prefixes: Vec<String>,
     global_config: &config::GlobalConfig,
@@ -20,6 +21,27 @@ pub(crate) fn process_update_check_job(
     let app_name = app.name.clone();
     let from_version = state.as_ref().and_then(|s| s.local_version.clone());
     let current_path = state.as_ref().and_then(|s| s.file_path.clone());
+
+    if let Some(forced_update) = forced_update {
+        let state_for_download = state.clone().unwrap_or_default();
+        return UpdateWorkResult::ReadyToDownload {
+            app,
+            state: state_for_download,
+            from_version,
+            current_path,
+            info: resolvers::UpdateInfo {
+                download_url: forced_update.download_url.clone(),
+                version: forced_update.version.clone(),
+                new_etag: None,
+                new_last_modified: None,
+            },
+            elapsed: started_at.elapsed(),
+            capabilities: Vec::new(),
+            segmented_downloads: state.as_ref().and_then(|s| s.segmented_downloads),
+            forge_repository: None,
+            forge_platform: None,
+        };
+    }
 
     match resolvers::check_for_updates(
         &app,
@@ -118,19 +140,33 @@ pub(crate) fn process_update_download_job(
         forge_repository,
         forge_platform,
         retry_without_segmented_downloads,
+        forced_update,
     } = job;
     let app_name = app.name.clone();
-    let to_version = info.version.clone();
+    let to_version = forced_update
+        .as_ref()
+        .map(|forced| forced.version.clone())
+        .unwrap_or_else(|| info.version.clone());
     let segmented_downloads = if retry_without_segmented_downloads {
         false
     } else {
         segmented_downloads
     };
 
+    let download_info = forced_update
+        .as_ref()
+        .map(|forced| resolvers::UpdateInfo {
+            download_url: forced.download_url.clone(),
+            version: forced.version.clone(),
+            new_etag: None,
+            new_last_modified: None,
+        })
+        .unwrap_or_else(|| info.clone());
+
     match downloader::download_app(
         client,
         &app,
-        &info,
+        &download_info,
         &storage_dir,
         &naming_format,
         Some(&state),
@@ -141,7 +177,7 @@ pub(crate) fn process_update_download_job(
         Ok(download_result) => UpdateWorkResult::Updated {
             app,
             from_version,
-            info,
+            info: download_info,
             new_path: download_result.path,
             old_path: current_path.map(std::path::PathBuf::from),
             elapsed: started_at.elapsed(),
@@ -169,6 +205,7 @@ pub(crate) fn process_update_download_job(
                     forge_repository: forge_repository.clone(),
                     forge_platform: forge_platform.clone(),
                     retry_without_segmented_downloads: true,
+                    forced_update: forced_update.clone(),
                 })
             } else {
                 None

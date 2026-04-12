@@ -4,6 +4,12 @@ use crate::resolvers;
 use crate::state::AppState;
 use std::time::Duration;
 
+#[derive(Clone)]
+pub struct ForcedUpdateInfo {
+    pub download_url: String,
+    pub version: String,
+}
+
 pub enum UpdateWorkResult {
     ReadyToDownload {
         app: config::AppConfig,
@@ -87,4 +93,5 @@ pub struct UpdateDownloadJob {
     pub forge_repository: Option<String>,
     pub forge_platform: Option<crate::state::ForgePlatform>,
     pub retry_without_segmented_downloads: bool,
+    pub forced_update: Option<ForcedUpdateInfo>,
 }

@@ -11,15 +11,9 @@ fp-appimage-updater provides two independent features to reduce download size an
 
 ## zsync (delta downloads)
 
-zsync downloads only the blocks that have changed between your locally installed AppImage and the new version, significantly reducing bandwidth for incremental updates.
+zsync downloads only the blocks that have changed between your locally installed AppImage and the new version, significantly reducing bandwidth for incremental updates. fp-appimage-updater handles this through its built-in `zsync-rs` backend, so you do not need a separate system `zsync` package.
 
-To use zsync, you need the `zsync` binary available on your `PATH`. Run the following to confirm it is detected:
-
-```bash
-fp-appimage-updater doctor
-```
-
-`doctor` reports whether `zsync` is found on PATH.
+The delta path is automatic when the recipe enables it and a local AppImage is available.
 
 ### Enable per app
 
@@ -49,7 +43,7 @@ What happens during a zsync update:
 
 1. fp-appimage-updater looks for the previously installed AppImage path in its local state.
 2. It builds the `.zsync` URL from the resolved download URL, or uses the explicit URL you provided.
-3. It runs `zsync` against the old file and a temporary output file.
+3. It runs the built-in zsync backend against the old file and a temporary output file.
 4. If that succeeds, it renames the temporary file into place.
 5. If it fails, or if no local AppImage exists yet, it falls back to the normal download path.
 

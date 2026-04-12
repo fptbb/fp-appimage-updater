@@ -59,7 +59,7 @@ This guide walks you through setting up fp-appimage-updater from scratch: initia
     fp-appimage-updater update hydra-launcher
     ```
 
-    The command follows the same check-first flow, then downloads the new AppImage only if needed. It prefers `zsync` when you have a local AppImage and the recipe enables it, falls back to segmented HTTP or a normal download, then marks the file executable, updates the symlink if enabled, rewrites the desktop entry and icon if enabled, and finally saves the new state.
+    The command follows the same check-first flow, then downloads the new AppImage only if needed. It prefers the built-in `zsync-rs` delta path when you have a local AppImage and the recipe enables it, falls back to segmented HTTP or a normal download, then marks the file executable, updates the symlink if enabled, rewrites the desktop entry and icon if enabled, and finally saves the new state.
   </Step>
 </Steps>
 

@@ -73,6 +73,8 @@ pub fn download_app(
         fs::create_dir_all(parent)?;
     }
 
+    let download_started = Instant::now();
+
     // zsync is a delta path: try an existing AppImage first, then fall back to HTTP.
     let zsync_url = match &app.zsync {
         Some(ZsyncConfig::Enabled(true)) => Some(format!("{}.zsync", update_info.download_url)),
@@ -81,19 +83,57 @@ pub fn download_app(
     };
 
     let mut zsync_success = false;
+    let mut zsync_completion_rendered = false;
     let mut segmented_downloads_support = state.and_then(|s| s.segmented_downloads);
 
     if let Some(zurl) = zsync_url
         && let Some(old_path_str) = state.and_then(|s| s.file_path.as_ref())
     {
         let old_path = Path::new(old_path_str);
-        if old_path.exists() && try_zsync(&zurl, old_path, &tmp_path, quiet, colors) {
-            zsync_success = true;
+        if old_path.exists() {
+            let was_update = state
+                .and_then(|s| s.local_version.as_ref())
+                .is_some();
+            let (success, completion_rendered) = try_zsync(
+                &zurl,
+                old_path,
+                &tmp_path,
+                &app.name,
+                &update_info.version,
+                was_update,
+                quiet,
+                colors,
+            );
+            if success {
+                zsync_success = true;
+                zsync_completion_rendered = completion_rendered;
+            }
         }
     }
 
+    if zsync_success {
+        if let Err(err) = ensure_downloaded_appimage_matches_host(&tmp_path) {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(err);
+        }
+
+        std::fs::rename(&tmp_path, &final_path)
+            .context("Failed to rename tmp file to final destination")?;
+
+        let downloaded_bytes = fs::metadata(&final_path)
+            .map(|meta| meta.len())
+            .unwrap_or(0);
+
+        return Ok(DownloadResult {
+            path: final_path,
+            segmented_downloads: segmented_downloads_support,
+            progress_completion_rendered: zsync_completion_rendered,
+            downloaded_bytes,
+            download_elapsed: Some(download_started.elapsed()),
+        });
+    }
+
     if !zsync_success {
-        let download_started = Instant::now();
         let mut progress_completion_rendered = false;
         let (segmented_success, segmented_support, segmented_progress_displayed) =
             if segmented_downloads {
@@ -148,25 +188,7 @@ pub fn download_app(
         });
     }
 
-    if let Err(err) = ensure_downloaded_appimage_matches_host(&tmp_path) {
-        let _ = fs::remove_file(&tmp_path);
-        return Err(err);
-    }
-
-    std::fs::rename(&tmp_path, &final_path)
-        .context("Failed to rename tmp file to final destination")?;
-
-    let downloaded_bytes = fs::metadata(&final_path)
-        .map(|meta| meta.len())
-        .unwrap_or(0);
-
-    Ok(DownloadResult {
-        path: final_path,
-        segmented_downloads: segmented_downloads_support,
-        progress_completion_rendered: false,
-        downloaded_bytes,
-        download_elapsed: None,
-    })
+    unreachable!("zsync or HTTP download should have returned")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
