@@ -1,4 +1,3 @@
-use std::env;
 use std::path::Path;
 
 use crate::lock::{self, LockState};
@@ -50,20 +49,6 @@ pub fn run(paths: &ConfigPaths, app_count: usize, parse_error_count: usize) -> V
         detail: format!("{parse_error_count} invalid recipe(s)"),
     });
 
-    checks.push(DoctorCheck {
-        name: "zsync_binary".to_string(),
-        status: if command_exists("zsync") {
-            DoctorStatus::Ok
-        } else {
-            DoctorStatus::Warn
-        },
-        detail: if command_exists("zsync") {
-            "zsync found in PATH".to_string()
-        } else {
-            "zsync not found in PATH (delta updates may be unavailable)".to_string()
-        },
-    });
-
     checks
 }
 
@@ -82,13 +67,6 @@ fn path_check(name: &str, path: &Path) -> DoctorCheck {
             format!("missing: {}", path.display())
         },
     }
-}
-
-fn command_exists(cmd: &str) -> bool {
-    let Some(path_var) = env::var_os("PATH") else {
-        return false;
-    };
-    env::split_paths(&path_var).any(|dir| dir.join(cmd).is_file())
 }
 
 fn lock_check(path: &Path) -> DoctorCheck {

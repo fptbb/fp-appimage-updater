@@ -1,7 +1,11 @@
 use crate::cli::{COMMAND_DEFS, GLOBAL_OPTS};
 
 pub fn run(shell: &str) -> anyhow::Result<()> {
-    let cmds_str = COMMAND_DEFS.iter().map(|c| c.name).collect::<Vec<_>>().join(" ");
+    let cmds_str = COMMAND_DEFS
+        .iter()
+        .map(|c| c.name)
+        .collect::<Vec<_>>()
+        .join(" ");
     let global_opts_str = GLOBAL_OPTS.join(" ");
 
     let script = match shell {
@@ -9,9 +13,13 @@ pub fn run(shell: &str) -> anyhow::Result<()> {
             let mut cases = String::new();
             for cmd in COMMAND_DEFS {
                 let opts_joined = cmd.opts.join(" ");
-                cases.push_str(&format!("        {})\n            opts=\"{opts_joined}\"\n            ;;\n", cmd.name));
+                cases.push_str(&format!(
+                    "        {})\n            opts=\"{opts_joined}\"\n            ;;\n",
+                    cmd.name
+                ));
             }
-            format!(r#"
+            format!(
+                r#"
 _fp_appimage_updater() {{
     local cur prev cmds opts global_opts subcommand
     COMPREPLY=()
@@ -44,15 +52,20 @@ _fp_appimage_updater() {{
     fi
 }}
 complete -F _fp_appimage_updater fp-appimage-updater
-"#)
-        },
+"#
+            )
+        }
         "zsh" => {
             let mut cases = String::new();
             for cmd in COMMAND_DEFS {
                 let opts_joined = cmd.opts.join(" ");
-                cases.push_str(&format!("                {}) _arguments '*: :({opts_joined})' ;;\n", cmd.name));
+                cases.push_str(&format!(
+                    "                {}) _arguments '*: :({opts_joined})' ;;\n",
+                    cmd.name
+                ));
             }
-            format!(r#"
+            format!(
+                r#"
 #compdef fp-appimage-updater
 _fp_appimage_updater() {{
     local curcontext="$curcontext" state line
@@ -74,19 +87,26 @@ if [[ "$funcstack[1]" == "_fp_appimage_updater" ]]; then
 else
     compdef _fp_appimage_updater fp-appimage-updater
 fi
-"#)
-        },
+"#
+            )
+        }
         "fish" => {
             let mut s = String::from("complete -c fp-appimage-updater -f\n");
             for opt in GLOBAL_OPTS {
-                if let Some(stripped) = opt.strip_prefix("--") { s.push_str(&format!("complete -c fp-appimage-updater -n 'not __fish_seen_subcommand_from {cmds_str}' -l '{stripped}'\n")); } 
-                else if let Some(stripped) = opt.strip_prefix('-') { s.push_str(&format!("complete -c fp-appimage-updater -n 'not __fish_seen_subcommand_from {cmds_str}' -o '{stripped}'\n")); }
+                if let Some(stripped) = opt.strip_prefix("--") {
+                    s.push_str(&format!("complete -c fp-appimage-updater -n 'not __fish_seen_subcommand_from {cmds_str}' -l '{stripped}'\n"));
+                } else if let Some(stripped) = opt.strip_prefix('-') {
+                    s.push_str(&format!("complete -c fp-appimage-updater -n 'not __fish_seen_subcommand_from {cmds_str}' -o '{stripped}'\n"));
+                }
             }
-            for cmd in COMMAND_DEFS { 
-                s.push_str(&format!("complete -c fp-appimage-updater -n 'not __fish_seen_subcommand_from {cmds_str}' -a '{}'\n", cmd.name)); 
+            for cmd in COMMAND_DEFS {
+                s.push_str(&format!("complete -c fp-appimage-updater -n 'not __fish_seen_subcommand_from {cmds_str}' -a '{}'\n", cmd.name));
                 for opt in cmd.opts {
-                    if let Some(stripped) = opt.strip_prefix("--") { s.push_str(&format!("complete -c fp-appimage-updater -n '__fish_seen_subcommand_from {}' -l '{stripped}'\n", cmd.name)); } 
-                    else if let Some(stripped) = opt.strip_prefix('-') { s.push_str(&format!("complete -c fp-appimage-updater -n '__fish_seen_subcommand_from {}' -o '{stripped}'\n", cmd.name)); }
+                    if let Some(stripped) = opt.strip_prefix("--") {
+                        s.push_str(&format!("complete -c fp-appimage-updater -n '__fish_seen_subcommand_from {}' -l '{stripped}'\n", cmd.name));
+                    } else if let Some(stripped) = opt.strip_prefix('-') {
+                        s.push_str(&format!("complete -c fp-appimage-updater -n '__fish_seen_subcommand_from {}' -o '{stripped}'\n", cmd.name));
+                    }
                 }
             }
             s

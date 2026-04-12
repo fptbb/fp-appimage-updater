@@ -1,7 +1,150 @@
 mod common;
 
-use common::{run_updater_success, setup_fedora_container, write_file_in_container};
+use common::{run_updater_success, setup_fedora_container};
+use hex::encode as hex_encode;
+use std::io::{Read, Write};
+use std::net::{SocketAddr, TcpListener};
 use std::process::Command;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread;
+use zsync_rs::{
+    checksum::{calc_md4, calc_sha1},
+    rsum::calc_rsum_block,
+};
+
+fn build_zsync_manifest_bytes(control_url: &str, target_body: &[u8], blocksize: usize) -> Vec<u8> {
+    let mut manifest = format!(
+        "zsync: 0.6.2\nFilename: dummy.AppImage\nBlocksize: {blocksize}\nLength: {}\nHash-Lengths: 1,4,16\nURL: {control_url}\nSHA-1: {}\n\n",
+        target_body.len(),
+        hex_encode(calc_sha1(target_body))
+    )
+    .into_bytes();
+
+    for chunk in target_body.chunks(blocksize) {
+        let mut block = vec![0u8; blocksize];
+        block[..chunk.len()].copy_from_slice(chunk);
+        let rsum = calc_rsum_block(&block);
+        manifest.extend_from_slice(&rsum.a.to_be_bytes());
+        manifest.extend_from_slice(&rsum.b.to_be_bytes());
+        manifest.extend_from_slice(&calc_md4(&block));
+    }
+
+    manifest
+}
+
+fn spawn_zsync_test_server(
+    target_body: Vec<u8>,
+    blocksize: usize,
+) -> (SocketAddr, Arc<AtomicUsize>, Arc<AtomicUsize>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind test server");
+    let addr = listener
+        .local_addr()
+        .expect("failed to read test server addr");
+    let zsync_hits = Arc::new(AtomicUsize::new(0));
+    let range_hits = Arc::new(AtomicUsize::new(0));
+    let head_hits = Arc::new(AtomicUsize::new(0));
+    let target_body = Arc::new(target_body);
+
+    let zsync_hits_thread = Arc::clone(&zsync_hits);
+    let range_hits_thread = Arc::clone(&range_hits);
+    let head_hits_thread = Arc::clone(&head_hits);
+    let target_body_thread = Arc::clone(&target_body);
+
+    thread::spawn(move || {
+        let target_body = target_body_thread;
+        for connection in listener.incoming() {
+            let Ok(mut stream) = connection else {
+                continue;
+            };
+
+            let mut request = Vec::new();
+            let mut buf = [0u8; 1024];
+            loop {
+                let read = stream.read(&mut buf).unwrap_or(0);
+                if read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buf[..read]);
+                if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                    break;
+                }
+            }
+
+            let request_text = String::from_utf8_lossy(&request);
+            let mut lines = request_text.lines();
+            let request_line = lines.next().unwrap_or("");
+            let mut parts = request_line.split_whitespace();
+            let method = parts.next().unwrap_or("");
+            let path = parts.next().unwrap_or("");
+            let range_header = lines
+                .clone()
+                .find(|line| line.starts_with("Range:"))
+                .map(|line| line.trim_start_matches("Range:").trim().to_string());
+
+            let response = if method == "GET" && path == "/dummy.AppImage.zsync" {
+                zsync_hits_thread.fetch_add(1, Ordering::SeqCst);
+                let control_url = format!("http://{}:{}/dummy.AppImage", addr.ip(), addr.port());
+                let manifest =
+                    build_zsync_manifest_bytes(&control_url, target_body.as_slice(), blocksize);
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n",
+                    manifest.len()
+                )
+                .into_bytes()
+                .into_iter()
+                .chain(manifest)
+                .collect::<Vec<u8>>()
+            } else if method == "HEAD" && path == "/dummy.AppImage" {
+                head_hits_thread.fetch_add(1, Ordering::SeqCst);
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n",
+                    target_body.len()
+                )
+                .into_bytes()
+            } else if method == "GET" && path == "/dummy.AppImage" {
+                range_hits_thread.fetch_add(1, Ordering::SeqCst);
+                let (start, end) = range_header
+                    .as_deref()
+                    .and_then(parse_range_header)
+                    .unwrap_or((0, target_body.len().saturating_sub(1)));
+                let start = start.min(target_body.len());
+                let end = end.min(target_body.len().saturating_sub(1));
+                let body = if start <= end {
+                    target_body[start..=end].to_vec()
+                } else {
+                    Vec::new()
+                };
+                format!(
+                    "HTTP/1.1 206 Partial Content\r\nContent-Length: {}\r\nContent-Range: bytes {}-{}/{}\r\nAccept-Ranges: bytes\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n",
+                    body.len(),
+                    start,
+                    end,
+                    target_body.len()
+                )
+                .into_bytes()
+                .into_iter()
+                .chain(body)
+                .collect::<Vec<u8>>()
+            } else {
+                b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
+            };
+
+            let _ = stream.write_all(&response);
+            let _ = stream.flush();
+        }
+    });
+
+    (addr, zsync_hits, range_hits)
+}
+
+fn parse_range_header(header: &str) -> Option<(usize, usize)> {
+    let value = header.strip_prefix("bytes=")?;
+    let (start, end) = value.split_once('-')?;
+    let start = start.parse().ok()?;
+    let end = end.parse().ok()?;
+    Some((start, end))
+}
 
 #[tokio::test]
 async fn test_direct_resolver() {
@@ -111,120 +254,22 @@ async fn test_zsync_download_with_mock_server() {
     let container = setup_fedora_container().await;
     let container_id = container.id();
 
-    let mock_container = common::setup_wiremock_container().await;
-    let mock_port = mock_container
-        .get_host_port_ipv4(8080)
-        .await
-        .expect("Failed to get wiremock port");
-    let mock_url = format!("http://127.0.0.1:{}", mock_port);
-
-    let client = reqwest::Client::new();
-
-    let head_stub = serde_json::json!({
-        "request": { "method": "HEAD", "url": "/dummy.AppImage" },
-        "response": {
-            "status": 200,
-            "headers": {
-                "Content-Length": "20",
-                "Last-Modified": "Wed, 21 Oct 2026 07:28:00 GMT",
-                "Content-Type": "application/octet-stream"
-            }
-        }
-    });
-    client
-        .post(format!("{}/__admin/mappings", mock_url))
-        .json(&head_stub)
-        .send()
-        .await
-        .expect("Failed to configure HEAD stub");
-
-    let get_stub = serde_json::json!({
-        "request": { "method": "GET", "url": "/dummy.AppImage" },
-        "response": {
-            "status": 200,
-            "body": "new_appimage_content",
-            "headers": { "Content-Type": "application/octet-stream" }
-        }
-    });
-    client
-        .post(format!("{}/__admin/mappings", mock_url))
-        .json(&get_stub)
-        .send()
-        .await
-        .expect("Failed to configure GET stub");
-
-    let zsync_stub = serde_json::json!({
-        "request": { "method": "GET", "url": "/dummy.AppImage.zsync" },
-        "response": {
-            "status": 200,
-            "body": "zsync_content",
-            "headers": { "Content-Type": "application/octet-stream" }
-        }
-    });
-    client
-        .post(format!("{}/__admin/mappings", mock_url))
-        .json(&zsync_stub)
-        .send()
-        .await
-        .expect("Failed to configure ZSYNC stub");
-
-    // Keep this stub minimal so the test exercises request wiring, not zsync parsing.
-    let fake_zsync_script = r#"#!/bin/sh
-target=""
-url=""
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        -o)
-            target="$2"
-            shift 2
-            ;;
-        -i)
-            shift 2
-            ;;
-        *)
-            url="$1"
-            shift
-            ;;
-    esac
-done
-
-python3 - "$url" "$target" <<'PY'
-import pathlib
-import sys
-import urllib.request
-
-url = sys.argv[1]
-target = sys.argv[2]
-
-if url:
-    urllib.request.urlopen(url).read()
-
-if target:
-    pathlib.Path(target).write_bytes(b"fake zsync output\n")
-PY
-"#;
-    write_file_in_container(&container, "/tmp/fake-bin/zsync", fake_zsync_script);
-
-    let status = Command::new("docker")
-        .arg("exec")
-        .arg(container_id)
-        .arg("chmod")
-        .arg("+x")
-        .arg("/tmp/fake-bin/zsync")
-        .status()
-        .expect("Failed to chmod fake zsync");
-    assert!(status.success(), "Failed to make fake zsync executable");
+    let target_body = std::fs::read("/bin/true")
+        .or_else(|_| std::fs::read("/usr/bin/true"))
+        .expect("Failed to read a host ELF binary for zsync testing");
+    let (server_addr, zsync_hits, range_hits) = spawn_zsync_test_server(target_body, 512);
+    let mock_url = format!("http://{}/dummy.AppImage", server_addr);
 
     let dummy_config = format!(
         r#"name: dummy-direct
 strategy:
   strategy: direct
-  url: http://localhost:{}/dummy.AppImage
+  url: {}
   check_method: last-modified
 zsync: true
 integration: false
 "#,
-        mock_port
+        mock_url
     );
 
     Command::new("docker")
@@ -244,7 +289,7 @@ integration: false
         .arg(container_id)
         .arg("sh")
         .arg("-c")
-        .arg("mkdir -p /root/.local/bin/AppImages && echo 'old content' > /root/.local/bin/AppImages/dummy-direct.AppImage")
+        .arg("mkdir -p /root/.local/bin/AppImages && head -c 4096 /dev/zero > /root/.local/bin/AppImages/dummy-direct.AppImage")
         .status()
         .expect("Failed to create old AppImage file");
 
@@ -266,37 +311,26 @@ integration: false
         .status()
         .expect("Failed to create state file");
 
-    println!("Testing zsync capability with WireMock server (dummy-direct)...");
+    println!("Testing zsync capability with local zsync server (dummy-direct)...");
 
     let status = Command::new("docker")
         .arg("exec")
         .arg(container_id)
-        .arg("sh")
-        .arg("-lc")
-        .arg("PATH=/tmp/fake-bin:$PATH fp-appimage-updater update dummy-direct")
+        .arg("fp-appimage-updater")
+        .arg("update")
+        .arg("dummy-direct")
         .status()
         .expect("Failed to execute updater for dummy-direct");
 
     assert!(status.success(), "Updater failed to process dummy app");
-
-    let count_query = serde_json::json!({
-        "method": "GET",
-        "url": "/dummy.AppImage.zsync"
-    });
-    let res = client
-        .post(format!("{}/__admin/requests/count", mock_url))
-        .json(&count_query)
-        .send()
-        .await
-        .expect("Failed to query request count");
-
-    let stats: serde_json::Value = res.json().await.expect("Failed to parse count response");
-    let count = stats["count"].as_i64().expect("Count was not a number");
-
     assert_eq!(
-        count, 1,
-        "Downloader did not request the .zsync endpoint (actual: {})",
-        count
+        zsync_hits.load(Ordering::SeqCst),
+        1,
+        "Downloader did not request the .zsync endpoint"
+    );
+    assert!(
+        range_hits.load(Ordering::SeqCst) >= 1,
+        "Downloader did not request ranged AppImage bytes"
     );
 }
 

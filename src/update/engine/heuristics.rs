@@ -38,15 +38,13 @@ pub fn adapt_download_limit(
     hard_max: usize,
 ) -> usize {
     let mut next = match download_bps {
-        Some(download_bps) => {
-            adapt_worker_limit_for_speed(
-                current,
-                Some(download_bps),
-                peak_download_bps,
-                pending,
-                hard_max,
-            )
-        }
+        Some(download_bps) => adapt_worker_limit_for_speed(
+            current,
+            Some(download_bps),
+            peak_download_bps,
+            pending,
+            hard_max,
+        ),
         None => current,
     };
 
@@ -94,13 +92,11 @@ pub fn download_provider_key(url: &str) -> String {
 }
 
 pub fn estimate_download_bytes(state: &AppState, current_path: Option<&str>) -> Option<u64> {
-    state
-        .download_bytes
-        .or_else(|| {
-            current_path
-                .and_then(|path| std::fs::metadata(path).ok())
-                .map(|meta| meta.len())
-        })
+    state.download_bytes.or_else(|| {
+        current_path
+            .and_then(|path| std::fs::metadata(path).ok())
+            .map(|meta| meta.len())
+    })
 }
 
 pub(crate) fn is_large_download(estimated_download_bytes: Option<u64>) -> bool {
@@ -126,7 +122,11 @@ fn download_job_sort_key(job: &UpdateDownloadJob) -> (u8, u64, u8, String) {
         0
     };
     let size_key = job.estimated_download_bytes.unwrap_or(u64::MAX);
-    let retry_key = if job.retry_without_segmented_downloads { 1 } else { 0 };
+    let retry_key = if job.retry_without_segmented_downloads {
+        1
+    } else {
+        0
+    };
     let provider_key = job.provider.clone();
     (large_bucket, size_key, retry_key, provider_key)
 }

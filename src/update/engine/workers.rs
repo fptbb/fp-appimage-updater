@@ -154,25 +154,25 @@ pub(crate) fn process_update_download_job(
             forge_platform,
         },
         Err(e) => {
-            let retry_job =
-                if !retry_without_segmented_downloads && should_retry_download_error(&e) {
-                    Some(UpdateDownloadJob {
-                        app,
-                        state,
-                        from_version: from_version.clone(),
-                        current_path,
-                        info,
-                        capabilities: capabilities.clone(),
-                        segmented_downloads: segmented_support,
-                        estimated_download_bytes,
-                        provider,
-                        forge_repository: forge_repository.clone(),
-                        forge_platform: forge_platform.clone(),
-                        retry_without_segmented_downloads: true,
-                    })
-                } else {
-                    None
-                };
+            let retry_job = if !retry_without_segmented_downloads && should_retry_download_error(&e)
+            {
+                Some(UpdateDownloadJob {
+                    app,
+                    state,
+                    from_version: from_version.clone(),
+                    current_path,
+                    info,
+                    capabilities: capabilities.clone(),
+                    segmented_downloads: segmented_support,
+                    estimated_download_bytes,
+                    provider,
+                    forge_repository: forge_repository.clone(),
+                    forge_platform: forge_platform.clone(),
+                    retry_without_segmented_downloads: true,
+                })
+            } else {
+                None
+            };
 
             UpdateWorkResult::Error {
                 stage: UpdateErrorStage::Download,

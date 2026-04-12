@@ -10,8 +10,8 @@ use crate::config;
 use crate::downloader;
 use crate::integrator;
 use crate::output::{
-    format_rate_limit_retry_text, print_json, print_progress, print_success, print_warning,
-    UpdateApp, UpdateResponse, UpdateStatus,
+    UpdateApp, UpdateResponse, UpdateStatus, format_rate_limit_retry_text, print_json,
+    print_progress, print_success, print_warning,
 };
 use crate::parser::AppConfigLoadError;
 use crate::state::{AppState, StateManager};
@@ -579,9 +579,11 @@ pub fn run(
                         if let Some(download_elapsed) = download_elapsed
                             && !download_elapsed.is_zero()
                         {
-                            let speed = downloaded_bytes as f64 / download_elapsed.as_secs_f64().max(0.001);
+                            let speed =
+                                downloaded_bytes as f64 / download_elapsed.as_secs_f64().max(0.001);
                             download_speed_samples.push(speed);
-                            peak_download_bps = Some(peak_download_bps.map_or(speed, |peak| peak.max(speed)));
+                            peak_download_bps =
+                                Some(peak_download_bps.map_or(speed, |peak| peak.max(speed)));
                         }
 
                         download_limit = if let Some(download_bps) = download_bps {

@@ -1,8 +1,8 @@
 use crate::config::GlobalConfig;
 use crate::state::AppState;
 use anyhow::{Context, Result, anyhow};
-use ureq::Agent;
 use regex_lite::Regex;
+use ureq::Agent;
 
 use super::{CheckResult, UpdateInfo, dedupe_capabilities, rate_limit_info_from_headers};
 

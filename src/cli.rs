@@ -9,21 +9,66 @@ pub struct CmdInfo {
 }
 
 pub const COMMAND_DEFS: &[CmdInfo] = &[
-    CmdInfo { name: "init", desc: "Initialize starter configuration files", opts: &["--global", "--app", "--strategy", "--force"] },
-    CmdInfo { name: "validate", desc: "Validate application recipe files", opts: &[] },
-    CmdInfo { name: "doctor", desc: "Run health checks for local setup", opts: &[] },
-    CmdInfo { name: "list", desc: "List all configured applications and their status", opts: &[] },
-    CmdInfo { name: "check", desc: "Check for updates", opts: &[] },
-    CmdInfo { name: "update", desc: "Update applications (all, or specify one)", opts: &["--self-update"] },
-    CmdInfo { name: "remove", desc: "Remove an application and its symlink", opts: &["-a", "--all"] },
-    CmdInfo { name: "self-update", desc: "Update fp-appimage-updater itself", opts: &["--pre-release"] },
-    CmdInfo { name: "completion", desc: "Generate shell completion scripts", opts: &[] },
+    CmdInfo {
+        name: "init",
+        desc: "Initialize starter configuration files",
+        opts: &["--global", "--app", "--strategy", "--force"],
+    },
+    CmdInfo {
+        name: "validate",
+        desc: "Validate application recipe files",
+        opts: &[],
+    },
+    CmdInfo {
+        name: "doctor",
+        desc: "Run health checks for local setup",
+        opts: &[],
+    },
+    CmdInfo {
+        name: "list",
+        desc: "List all configured applications and their status",
+        opts: &[],
+    },
+    CmdInfo {
+        name: "check",
+        desc: "Check for updates",
+        opts: &[],
+    },
+    CmdInfo {
+        name: "update",
+        desc: "Update applications (all, or specify one)",
+        opts: &["--self-update"],
+    },
+    CmdInfo {
+        name: "remove",
+        desc: "Remove an application and its symlink",
+        opts: &["-a", "--all"],
+    },
+    CmdInfo {
+        name: "self-update",
+        desc: "Update fp-appimage-updater itself",
+        opts: &["--pre-release"],
+    },
+    CmdInfo {
+        name: "completion",
+        desc: "Generate shell completion scripts",
+        opts: &[],
+    },
 ];
 
-pub const GLOBAL_OPTS: &[&str] = &["-c", "--config", "--json", "-h", "--help", "-V", "--version"];
+pub const GLOBAL_OPTS: &[&str] = &[
+    "-c",
+    "--config",
+    "--json",
+    "-h",
+    "--help",
+    "-V",
+    "--version",
+];
 
 pub fn print_help() {
-    println!("fp-appimage-updater {}
+    println!(
+        "fp-appimage-updater {}
 Data-Driven AppImage Manager
 
 USAGE:
@@ -35,8 +80,10 @@ OPTIONS:
     -h, --help           Print help information
     -V, --version        Print version information
 
-COMMANDS:", env!("CARGO_PKG_VERSION"));
-    
+COMMANDS:",
+        env!("CARGO_PKG_VERSION")
+    );
+
     for cmd in COMMAND_DEFS {
         println!("    {:<12} {}", cmd.name, cmd.desc);
         if !cmd.opts.is_empty() {

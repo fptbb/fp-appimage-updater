@@ -1,8 +1,8 @@
+use super::queue::UpdateErrorStage;
 use crate::config;
 use crate::resolvers;
 use crate::state::AppState;
 use std::time::Duration;
-use super::queue::UpdateErrorStage;
 
 pub enum UpdateWorkResult {
     ReadyToDownload {

@@ -2,7 +2,6 @@ use anyhow::{Context, Result, bail};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
-use std::process::Command;
 use std::thread;
 use std::time::Instant;
 use ureq::Agent;
@@ -10,13 +9,14 @@ use ureq::Agent;
 use crate::commands::helpers::build_http_agent;
 use crate::downloader::progress::*;
 use crate::output::{print_progress, print_warning};
+use zsync_rs::ZsyncAssembly;
 
 pub const MAX_SEGMENTED_WORKERS: usize = 4;
 pub const DOWNLOAD_BUFFER_SIZE: usize = 64 * 1024;
 
-/// Run the external `zsync` binary against an existing AppImage and a manifest URL.
+/// Run zsync-rs against an existing AppImage and a manifest URL.
 ///
-/// If `zsync` fails or is missing, the caller should fall back to the normal HTTP path.
+/// If the zsync backend fails, the caller should fall back to the normal HTTP path.
 pub fn try_zsync(
     zsync_url: &str,
     old_file: &Path,
@@ -31,28 +31,62 @@ pub fn try_zsync(
         );
     }
 
-    let status = Command::new("zsync")
-        .arg("-i")
-        .arg(old_file)
-        .arg("-o")
-        .arg(target_file)
-        .arg(zsync_url)
-        .status();
+    let mut assembly = match ZsyncAssembly::from_url(zsync_url, target_file) {
+        Ok(assembly) => assembly,
+        Err(_) => {
+            if !quiet {
+                print_warning(
+                    "zsync could not initialize, falling back to full HTTP download.",
+                    colors,
+                );
+            }
+            return false;
+        }
+    };
 
-    match status {
-        Ok(s) if s.success() => {
+    if let Err(_) = assembly.submit_source_file(old_file) {
+        if !quiet {
+            print_warning(
+                "zsync could not seed from the existing AppImage, falling back to full HTTP download.",
+                colors,
+            );
+        }
+        assembly.abort();
+        return false;
+    }
+
+    while !assembly.is_complete() {
+        match assembly.download_missing_blocks() {
+            Ok(0) => break,
+            Ok(_) => {}
+            Err(_) => {
+                if !quiet {
+                    print_warning(
+                        "zsync could not complete, falling back to full HTTP download.",
+                        colors,
+                    );
+                }
+                assembly.abort();
+                return false;
+            }
+        }
+    }
+
+    match assembly.complete() {
+        Ok(()) => {
             if !quiet {
                 print_progress("Successfully updated via zsync!", colors);
             }
             true
         }
-        _ => {
+        Err(_) => {
             if !quiet {
                 print_warning(
                     "zsync could not complete, falling back to full HTTP download.",
                     colors,
                 );
             }
+            let _ = std::fs::remove_file(target_file.with_extension("zsync-tmp"));
             false
         }
     }

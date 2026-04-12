@@ -1,9 +1,8 @@
 mod engine;
 
 pub use engine::{
-    adapt_download_limit, download_provider_key, estimate_download_bytes, median_speed_bps,
-    should_retry_download_error, update_work_elapsed, UpdateDownloadJob, UpdateEvent,
-    UpdateWorkResult,
+    UpdateDownloadJob, UpdateEvent, UpdateWorkResult, adapt_download_limit, download_provider_key,
+    estimate_download_bytes, median_speed_bps, should_retry_download_error, update_work_elapsed,
 };
 
 pub fn run(

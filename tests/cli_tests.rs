@@ -77,7 +77,8 @@ fn test_cli_update_json() {
         let container = setup_fedora_container().await;
 
         let stdout = run_updater_success(&container, &["--json", "update", "whatpulse"]).await;
-        let payload: Value = serde_json::from_str(&stdout).expect("Update output was not valid JSON");
+        let payload: Value =
+            serde_json::from_str(&stdout).expect("Update output was not valid JSON");
 
         assert_eq!(payload["command"], "update");
         assert!(payload["apps"].is_array());

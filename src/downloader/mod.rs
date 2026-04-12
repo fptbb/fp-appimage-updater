@@ -217,7 +217,10 @@ fn host_elf_machine_arch() -> Result<ElfMachineArch> {
         "arm" => Ok(ElfMachineArch::Arm),
         "riscv64" => Ok(ElfMachineArch::Riscv64),
         "powerpc64" => Ok(ElfMachineArch::PowerPc64),
-        arch => anyhow::bail!("Unsupported host architecture for AppImage validation: {}", arch),
+        arch => anyhow::bail!(
+            "Unsupported host architecture for AppImage validation: {}",
+            arch
+        ),
     }
 }
 
@@ -229,7 +232,8 @@ fn detect_elf_machine_arch(path: &Path) -> Result<Option<ElfMachineArch>> {
         if err.kind() == ErrorKind::UnexpectedEof {
             return Ok(None);
         }
-        return Err(err).with_context(|| format!("Failed to read ELF header from {}", path.display()));
+        return Err(err)
+            .with_context(|| format!("Failed to read ELF header from {}", path.display()));
     }
     detect_elf_machine_arch_from_bytes(&header)
         .map(Some)
@@ -281,15 +285,15 @@ mod tests {
 
     #[test]
     fn detects_x86_64_elf_machine() {
-        let arch = detect_elf_machine_arch_from_bytes(&elf_header_for_machine(62))
-            .expect("missing arch");
+        let arch =
+            detect_elf_machine_arch_from_bytes(&elf_header_for_machine(62)).expect("missing arch");
         assert_eq!(arch, ElfMachineArch::X86_64);
     }
 
     #[test]
     fn detects_aarch64_elf_machine() {
-        let arch = detect_elf_machine_arch_from_bytes(&elf_header_for_machine(183))
-            .expect("missing arch");
+        let arch =
+            detect_elf_machine_arch_from_bytes(&elf_header_for_machine(183)).expect("missing arch");
         assert_eq!(arch, ElfMachineArch::AArch64);
     }
 
