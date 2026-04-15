@@ -13,6 +13,12 @@ prepare:
     #!/usr/bin/env bash
     mkdir -p {{BUILD_DIR}}
 
+alias do := dev
+
+dev it commands:
+    #!/usr/bin/env bash
+    cargo watch -x "run -- {{commands}}"
+
 clean-root:
     #!/usr/bin/env bash
     rm -f {{APP_NAME}} {{APP_NAME}}.x64 {{APP_NAME}}.ARM
