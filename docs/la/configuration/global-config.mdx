@@ -1,0 +1,108 @@
+---
+title: "Configuratio globalis"
+description: "Configura vias repositorii, symlinks, integrationem desktopi et comportamentum dēscriptionis globaliter."
+---
+
+Fasciculus configurationis globalis applicat defalta omnibus applicationibus administratis. Potes superare quamlibet harum configurationum per applicationem intra [formulam applicationis](/la/configuration/app-recipes).
+
+## Locus fasciculi
+
+```
+~/.config/fp-appimage-updater/config.yml
+```
+
+Genera fasciculum initialem cum:
+
+```bash
+fp-appimage-updater init --global
+```
+
+## Exemplum
+
+```yaml
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: '{name}.AppImage'
+manage_desktop_files: true
+create_symlinks: false
+segmented_downloads: true
+respect_rate_limits: true
+github_proxy: true
+github_proxy_prefix: https://gh-proxy.com/
+```
+
+## Campi
+
+<ParamField path="storage_dir" type="string" default="~/.local/bin/AppImages">
+  Directorium ubi fasciculi AppImage dēscripti reponuntur.
+</ParamField>
+
+<ParamField path="symlink_dir" type="string" default="~/.local/bin">
+  Directorium ubi symlinks ad AppImages installatos creantur. Adhibetur solum cum `create_symlinks` est `true`.
+</ParamField>
+
+<ParamField path="naming_format" type="string" default="{name}.AppImage">
+  Forma nominis fasciculi pro AppImages repositis. Utere signo `{name}`, quod substituetur campo `name` applicationis in formula tua.
+</ParamField>
+
+<ParamField path="manage_desktop_files" type="boolean" default="true">
+  Cum habilitatum, fp-appimage-updater automatice extrahit manifesta `.desktop` et icones ex AppImage et ea installat in `~/.local/share/applications` et `~/.local/share/icons`.
+</ParamField>
+
+<ParamField path="create_symlinks" type="boolean" default="false">
+  Cum habilitatum, creat symlink in `symlink_dir` indicantem ad AppImage installatum. Utile ad ponendum AppImages in `PATH` tuo sine modificatione `storage_dir`.
+</ParamField>
+
+<ParamField path="segmented_downloads" type="boolean" default="true">
+  Dividit downloads in petitiones HTTP range parallelas cum servitor sustinet. Accelerat downloads magnos AppImage in servitoribus capabilibus.
+</ParamField>
+
+<ParamField path="respect_rate_limits" type="boolean" default="true">
+  Cum habilitatum, applicationes quae limitem rate providentis attingunt praetermittuntur in exsecutionibus subsequentibus donec fenestra tentaminis novi exspiret. Pone ad `false` ad semper temptandum petitionem independenter a priore limite rate.
+</ParamField>
+
+<ParamField path="github_proxy" type="boolean" default="true">
+  Habilitat subsidiarium procuratoris API GitHub. Cum petitio API emissionum GitHub limite rate adficitur, fp-appimage-updater tentat iterum per bases procuratorum configuratas. Download realis AppImage semper utitur URL directa assetis GitHub - solae interrogationes metadata procurantur.
+</ParamField>
+
+<ParamField path="github_proxy_prefix" type="string | string[]" default="all">
+  URL(s) basis procuratoris utendas cum `github_proxy` habilitatum est. Accipit unicam stringam URL, enumerationem YAML URLium, vel stringam `all` ad temptandum quemque procuratorem integrum in ordine.
+
+  ```yaml
+  # Procurator unicus
+  github_proxy_prefix: "https://gh-proxy.com/"
+
+  # Plures procuratores tentati in ordine
+  github_proxy_prefix:
+    - "https://gh-proxy.com/"
+    - "https://corsproxy.io/?"
+    - "https://api.allorigins.win/raw?url="
+
+  # Temptare omnes procuratores integratos
+  github_proxy_prefix: all
+  ```
+</ParamField>
+
+## Superationes URL forge auto-hospitatae
+
+Hi campi optionales permittunt indicare fp-appimage-updater ad instantiam GitHub vel GitLab auto-hospitatam loco APIum publicarum.
+
+<ParamField path="github_release_api_url" type="string">
+  Superat URL basim API REST GitHub. Utile cum applicationes tuae in GitHub Enterprise Server hospitantur.
+</ParamField>
+
+<ParamField path="github_release_web_url" type="string">
+  Superat URL basim rete GitHub adhibitam ad construendos nexus paginae emissionis.
+</ParamField>
+
+<ParamField path="gitlab_release_api_url" type="string">
+  Superat URL basim API GitLab. Pone hoc cum applicationes tuae in instantia GitLab autoprocurata sint.
+</ParamField>
+
+<ParamField path="gitlab_release_web_url" type="string">
+  Superat URL basim rete GitLab adhibitam ad construendos nexus paginae emissionis.
+</ParamField>
+
+<Note>
+  Quilibet campus in `config.yml` superari potest pro applicatione specifica intra fasciculum formulae eius. Configurationes in gradu applicationis semper praecedunt configurationem globalem. Vide [formulas applicationis](/la/configuration/app-recipes) pro enumeratione completa superationum per applicationem.
+</Note>

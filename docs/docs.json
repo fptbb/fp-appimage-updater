@@ -108,6 +108,52 @@
             ]
           }
         ]
+      },
+      {
+        "language": "la",
+        "groups": [
+          {
+            "group": "Initium",
+            "pages": [
+              "la/introduction",
+              "la/installation",
+              "la/quickstart"
+            ]
+          },
+          {
+            "group": "Configuratio",
+            "pages": [
+              "la/configuration/global-config",
+              "la/configuration/app-recipes",
+              "la/configuration/update-strategies"
+            ]
+          },
+          {
+            "group": "CLI Referentia",
+            "pages": [
+              "la/cli/overview",
+              "la/cli/init",
+              "la/cli/check-update",
+              "la/cli/manage"
+            ]
+          },
+          {
+            "group": "Duces",
+            "pages": [
+              "la/guides/desktop-integration",
+              "la/guides/systemd-automation",
+              "la/guides/github-proxy",
+              "la/guides/delta-updates"
+            ]
+          },
+          {
+            "group": "Solutio Problematum",
+            "pages": [
+              "la/troubleshooting/doctor",
+              "la/troubleshooting/faq"
+            ]
+          }
+        ]
       }
     ]
   },

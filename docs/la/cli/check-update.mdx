@@ -1,0 +1,87 @@
+---
+title: "verificare et renovare"
+description: "Verifica si renovationes praesto sint et installa eas."
+---
+
+## validate
+
+```bash
+fp-appimage-updater validate [nomen-app]
+```
+
+Analysi subicit omnes fasciculos formulae (vel unum nominatum) et refert qui fasciculi validi sint et qui errores contineant. Exsequere hoc post editionem formulae ad capiendos errores YAML antequam `check` vel `update` afficiant.
+
+```bash
+# Validare omnes formulas
+fp-appimage-updater validate
+
+# Validare unicam formulam
+fp-appimage-updater validate whatpulse
+```
+
+## check
+
+```bash
+fp-appimage-updater check [nomen-app]
+```
+
+Conectitur ad fontem renovationis configuratum cuiusque applicationis et eum comparat cum versione localiter registrata. Nulli fasciculi dēscribuntur aut mutantur.
+
+Exitus includit:
+- Si nova versio praesto est
+- Versionem, ETag vel metadata Last-Modified adhibita ad comparationem
+- Indicia subsidii, ut subsidium HTTP range pro downloads segmentatis
+
+```bash
+# Verificare omnes applicationes configuratas
+fp-appimage-updater check
+
+# Verificare unicam applicationem
+fp-appimage-updater check whatpulse
+```
+
+## update
+
+```bash
+fp-appimage-updater update [nomen-app]
+```
+
+Dēscribit et installet renovationes pro omnibus applicationibus configuratis, vel pro unica applicatione nominata. Quaeque renovatio prospera refert tempus transactum ut videre possis quantum temporis quaeque applicatio sumpserit.
+
+Si limes rate in exsecutione priore attactus est, applicatio affecta praetermittitur donec fenestra tentaminis novi exspiret - nisi `respect_rate_limits` globaliter vel pro ea applicatione dishabilita sit.
+
+```bash
+# Renovare omnes applicationes
+fp-appimage-updater update
+
+# Renovare unicam applicationem
+fp-appimage-updater update hydra-launcher
+```
+
+### Vexilla
+
+<ParamField query="--self-update" type="boolean">
+  Etiam renovat ipsum binarium `fp-appimage-updater` postquam renovationes applicationum perficiuntur.
+</ParamField>
+
+<Note>
+  Tam `check` quam `update` plures applicationes concurrenter exsequuntur. Limes conscius de provisore limitat quot petitiones ad idem hospitium simul eant, ut magnus fasciculus celer maneat sine onerando unum servitorem.
+</Note>
+
+## doctor
+
+```bash
+fp-appimage-updater doctor
+```
+
+Exsequitur verificationem sanitatis localem sine contactu ullius servitoris remoti. Verificat:
+
+- Si directorium configurationis existit et legibile est
+- Si subdirectorium applicationum adest
+- Si `config.yml` globalis analysi subici potest
+- Si directorium status accessibile est
+- Si lock processus abest, activus vel obsoletus est
+- Si fasciculi formulae analysi subici possunt cum successu
+- Si praecondiciones renovationis locales rectae videntur
+
+Utere `doctor` cum `check` vel `update` modo inopinato se gerunt ad excludendos problemata configurationis localis.

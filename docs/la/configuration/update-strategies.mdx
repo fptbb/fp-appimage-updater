@@ -1,0 +1,156 @@
+---
+title: "Strategiae renovationis"
+description: "Elige quomodo fp-appimage-updater renovationes pro quaque applicatione inveniat et dēscribat."
+---
+
+Omnis formula applicationis requirit blocum `strategy` qui dicit fp-appimage-updater ubi quaerere versionem recentissimam et quomodo eam dēscribere. Tres strategiae praesto sunt.
+
+<Note>
+  **Quando quaque strategia utendum:**
+
+  | Strategia | Utere cum |
+  |------------|------------|
+  | `forge` | Applicatio emissiones in GitHub vel GitLab publicat |
+  | `direct` | Applicatio praebet URL stabilem quae semper indicat ad versionem recentissimam |
+  | `script` | Neutrum ex superioribus convenit - logica personalis necessaria est ad inveniendam URL dēscriptionis |
+</Note>
+
+<Tabs>
+  <Tab title="Forge">
+    Utere strategia `forge` pro applicationibus distributis per emissiones GitHub vel GitLab. fp-appimage-updater consulit API emissionum, formulae nomini fasciculi assetis tuae respondet et fasciculum correspondentem dēscribit.
+
+    Pro repositoriis GitLab, resolver adhibet API latest permalink in `https://gitlab.com/api/v4/projects/<project-path>/releases/permalink/latest`, legit `assets.links` et praefert `direct_asset_url` cum praesto est.
+
+    ### Campi
+
+    <ParamField path="strategy.strategy" type="string" required>
+      Debet esse `forge`.
+    </ParamField>
+
+    <ParamField path="strategy.repository" type="string" required>
+      URL completa ad repositorium GitHub vel GitLab (exempli gratia, `https://github.com/owner/repo`).
+    </ParamField>
+
+    <ParamField path="strategy.asset_match" type="string" required>
+      Formula substitutiva ad respondendum nomini fasciculi assetis emissionis. Adhibet syntaxim glob styli shell (exempli gratia, `"*-amd64.AppImage"`). Primus asset respondens eligitur.
+    </ParamField>
+
+    ### Superationes per applicationem
+
+    Etiam potes definire hos campos directe in formula applicationis (non intra `strategy`) ad superandum configurationem globalem pro hac applicatione:
+
+    <ParamField path="github_proxy" type="boolean">
+      Habilitat vel dishabilitat subsidiarium procuratoris API GitHub pro hac applicatione. Cum habilitatum, petitio metadata GitHub limite rate adfecta repetitur per bases procuratorum configuratas. URL realis dēscriptionis semper utitur nexu directo assetis GitHub.
+    </ParamField>
+
+    <ParamField path="github_proxy_prefix" type="string | string[]">
+      URL(s) basis procuratoris utendas cum `github_proxy` habilitatum est. Accipit unicam stringam URL, enumerationem URLium vel stringam `all` ad temptandum quemque procuratorem integrum in ordine.
+    </ParamField>
+
+    <ParamField path="respect_rate_limits" type="boolean">
+      Cum `false`, fp-appimage-updater ignorat fenestram priorem limitis rate et semper temptat petitionem.
+    </ParamField>
+
+    ### Exemplum
+
+    ```yaml
+    name: hydra-launcher
+    strategy:
+      strategy: forge
+      repository: https://github.com/hydralauncher/hydra
+      asset_match: "hydralauncher-*.AppImage"
+    segmented_downloads: true
+    ```
+  </Tab>
+
+  <Tab title="Direct">
+    Utere strategia `direct` cum provisor applicationis publicat URL stabilem quae semper ad versionem recentissimam resolvitur. fp-appimage-updater capita HTTP responsionis verificat ad detegendum si fasciculus remotus mutavit post ultimam dēscriptionem.
+
+    ### Campi
+
+    <ParamField path="strategy.strategy" type="string" required>
+      Debet esse `direct`.
+    </ParamField>
+
+    <ParamField path="strategy.url" type="string" required>
+      URL dēscriptionis statica quae semper indicat ad versionem recentissimam AppImage.
+    </ParamField>
+
+    <ParamField path="strategy.check_method" type="string" required>
+      Caput HTTP adhibitum ad detegendas mutationes remotas. Valores accepti:
+
+      - `etag` — comparat caput responsionis `ETag`
+      - `last-modified` — comparat caput responsionis `Last-Modified`
+
+      Elige caput quod servitor praebet. Si incertus es, proba `etag` primum.
+    </ParamField>
+
+    ### Exemplum
+
+    ```yaml
+    name: whatpulse
+    strategy:
+      strategy: direct
+      url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
+      check_method: etag
+    segmented_downloads: true
+    ```
+  </Tab>
+
+  <Tab title="Script">
+    Utere strategia `script` cum neque `forge` neque `direct` convenit - exempli gratia, cum URL dēscriptionis applicationis requirit analysim responsionis API personalis vel paginae emissionum non normativae.
+
+    Praebis scriptum bash quod fp-appimage-updater exsequitur ad resolvendum URL dēscriptionis et versionem currentes. Scriptum debet imprimere exacte duas lineas in stdout:
+
+    1. URL dēscriptionis
+    2. Stringam versionis
+
+    fp-appimage-updater stringam versionis localiter reponit et eam in exsecutione proxima comparat ad decidendum si renovatio necessaria sit.
+
+    ### Campi
+
+    <ParamField path="strategy.strategy" type="string" required>
+      Debet esse `script`.
+    </ParamField>
+
+    <ParamField path="strategy.script_path" type="string" required>
+      Via ad scriptum bash, relativa ad directorium formulae.
+    </ParamField>
+
+    <Note>
+      `script_path` resolvitur relative ad directorium continens fasciculum formulae. Si formula tua est in `~/.config/fp-appimage-updater/apps/hayase/hayase.yml`, tunc `./resolver.sh` resolvitur ad `~/.config/fp-appimage-updater/apps/hayase/resolver.sh`.
+    </Note>
+
+    ### Exemplum
+
+    ```yaml
+    name: hayase
+    strategy:
+      strategy: script
+      script_path: ./resolver.sh
+    ```
+
+    ```bash
+    #!/usr/bin/env bash
+
+    set -e
+
+    # Pete definitionem YAML
+    YAML_DATA=$(curl -sL "https://api.hayase.watch/files/latest-linux.yml")
+
+    # Utere yq vel grep ad extrahendum versionem - scribemus hoc modo generico pro systematibus sine yq
+    VERSION=$(echo "$YAML_DATA" | grep "^version:" | awk '{print $2}')
+    FILENAME=$(echo "$YAML_DATA" | grep "'linux-hayase-.*-linux.AppImage'" || echo "$YAML_DATA" | grep 'path:' | awk '{print $2}')
+    # subsidiarium utendo sed basicum
+    if [ -z "$FILENAME" ]; then
+       FILENAME="linux-hayase-${VERSION}-linux.AppImage"
+    fi
+
+    DOWNLOAD_URL="https://api.hayase.watch/files/${FILENAME}"
+
+    # Renovator exspectat "DOWNLOAD_URL" deinde "VERSION" in lineis consecutivis stdout:
+    echo "$DOWNLOAD_URL"
+    echo "$VERSION"
+    ```
+  </Tab>
+</Tabs>

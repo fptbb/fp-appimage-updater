@@ -1,0 +1,72 @@
+---
+title: "Automatio cum systemd"
+description: "Exsequere verificatiónes automaticas renovationis in fundo cum horologio systemd."
+---
+
+Scriptum installationis celeris configurat horologium systemd usori quod `fp-appimage-updater update` periodice in fundo exsequitur. Horologium activatur 15 minutis post initializationem et deinde quaque 12 horas.
+
+Quia fp-appimage-updater designatus est pro operationibus spatii usori, semper adhibeto vexillum `--user` cum interagis cum unitatibus systemd tuis - noli uti `sudo` pro installationibus per usorem.
+
+## Configura horologium
+
+<Steps>
+  <Step title="Installa cum subsidio systemd">
+    Installatio defalta horologium automatice configurat:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash
+    ```
+
+    Si vis omittere horologium, transmitte `--no-systemd`:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash -s -- --no-systemd
+    ```
+  </Step>
+
+  <Step title="Verifica statum horologiii">
+    Verifica si horologium activum est:
+
+    ```bash
+    systemctl --user status fp-appimage-updater.timer
+    ```
+  </Step>
+
+  <Step title="Habilita et inicia horologium manualiter">
+    Si horologium durante installatione habilitatum non est, inca nunc:
+
+    ```bash
+    systemctl --user enable --now fp-appimage-updater.timer
+    ```
+  </Step>
+
+  <Step title="Vide acta">
+    Inspice exsecutiónes renovationis recentes in fundo:
+
+    ```bash
+    journalctl --user -u fp-appimage-updater.service -n 50
+    ```
+  </Step>
+</Steps>
+
+## Installatio in gradu systematis
+
+Ad installandum binarium et unitates systemd in gradu systematis (dirigens ad `/usr/bin/` et `/usr/lib/systemd/system/`), exsequere scriptum installationis cum `sudo` et vexillo `--system`:
+
+```bash
+curl -sL fau.fpt.icu/i | sudo bash -s -- --system
+```
+
+Cum installatum in gradu systematis, utere `sudo` et vexillo `--system` loco `--user` pro omnibus mandatis `systemctl`.
+
+<Warning>
+  Si ambitus tuus habet systema fasciculorum immutabile (ut Fedora Silverblue vel openSUSE MicroOS), scriptum tentationes installationis in gradu systematis reiciet. Utere installatione per usorem loco eius.
+</Warning>
+
+## Desinstallatio
+
+Ad removendum binarium, dishabilitandum horologium et purgandos omnes fasciculos installatos:
+
+```bash
+curl -sL fau.fpt.icu/i | bash -s -- --uninstall
+```

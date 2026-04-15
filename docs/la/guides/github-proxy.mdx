@@ -1,0 +1,51 @@
+---
+title: "Procurator GitHub"
+description: "Evita limites rate API GitHub utendo subsidiariis procuratoribus pro metadata emissionis."
+---
+
+Applicationes quae strategia `forge` utuntur cum repositoriis GitHub petunt metadata emissionis ex API GitHub. GitHub limites rate imponit petitionibus non authenticatis, quod verificatiónes renovationis obstruere potest cum eas frequenter vel ex IP communicato exsequuntur.
+
+fp-appimage-updater hoc solvit temptando unam vel plures URLs basis procuratoris pro interrogatione metadata emissionis. Download realis AppImage semper directe ex GitHub exit - sola petitio metadata procuratur.
+
+<Note>
+  Sola metadata API emissionum GitHub per procuratorem transeunt. URL dēscriptionis AppImage semper directe ex GitHub petitur.
+</Note>
+
+## Habilita globaliter
+
+Adde sequens ad `config.yml` tuum ad habilitandum subsidiarium procuratoris pro omnibus applicationibus `forge`:
+
+```yaml
+github_proxy: true
+github_proxy_prefix: "all"  # temptare omnes procuratores integratos in ordine
+```
+
+Ad utendas URLs procuratoris specificis loco enumerationis integratae:
+
+```yaml
+github_proxy: true
+github_proxy_prefix:
+  - "https://gh-proxy.com/"
+  - "https://corsproxy.io/?"
+  - "https://api.allorigins.win/raw?url="
+```
+
+fp-appimage-updater tentat quemque procuratorem in ordine et desinit in prima responsione prospera. Utendo `"all"` tentat quemque procuratorem compatibilem integratum in applicatione.
+
+## Supera per applicationem
+
+Potes definire optiones procuratoris in formulis applicationum individualium ad superandum configurationem globalem:
+
+```yaml
+name: hydra-launcher
+github_proxy: true
+github_proxy_prefix: "https://gh-proxy.com/"
+strategy:
+  strategy: forge
+  repository: https://github.com/hydralauncher/hydra
+  asset_match: "hydralauncher-*.AppImage"
+```
+
+<Tip>
+  Cum fp-appimage-updater limitem rate attingit, fenestram tentaminis novi registrat et eam applicationem in exsecutione proxima praetermittit. Ad dishabilitandum hoc comportamentum refrigerationis et semper iterum temptandum, pone `respect_rate_limits: false` in `config.yml` tuo vel in formula applicationis individualis.
+</Tip>

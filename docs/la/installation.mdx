@@ -1,0 +1,74 @@
+---
+title: "Installatio"
+description: "Installa fp-appimage-updater per COPR, scriptum installationis celeris vel binarium praecompilatum."
+---
+
+Elige methodum quae distributioni tuae et praeferentiis tuis respondeat.
+
+<Tabs>
+  <Tab title="Fedora / OpenSUSE (COPR)">
+    Repositorium officiale COPR est methodus commendanda pro distributionibus RPM-fundatis. Integrat se cum procuratore packetorum tuo et instrumentum automatice renovatum tenet.
+
+    ```bash
+    sudo dnf copr enable fptbb/fp-appimage-updater
+    sudo dnf install fp-appimage-updater
+    ```
+
+    Post installationem, `fp-appimage-updater` praesto est in PATH tuo et administratur per `dnf`.
+  </Tab>
+  <Tab title="Scriptum Installationis Celeris">
+    Scriptum installationis operatur in quavis distributione Linux, inclusis systematis immutabilibus et atomicis. Per defaltam, installit in `~/.local/bin/` et configurat horologium systemd usori pro renovationibus in fundo.
+
+    Verbis simplicibus, scriptum tria facit:
+
+    - ponit binarium in PATH tuo
+    - creat horologium usori si permittis renovationes in fundo
+    - servat formulas tuas, statum et AppImages in directorio home tuo
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash
+    ```
+
+    **Optiones:**
+
+    Omitte horologium systemd in fundo si mavis renovationes manualiter exsequi:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash -s -- --no-systemd
+    ```
+
+    Installa in systemate in `/usr/bin/` et `/usr/lib/systemd/system/` (requirit root, reiectum in systematis stricte immutabilibus):
+
+    ```bash
+    curl -sL fau.fpt.icu/i | sudo bash -s -- --system
+    ```
+
+    Desinstalla binarium et dishabilita omnia horologia systemd currentia in quovis ambitu:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash -s -- --uninstall
+    ```
+
+    <Note>
+      Optio desinstallationis relinquit binaria AppImage et fasciculos configurationis in `~/.config/fp-appimage-updater/` intactos.
+    </Note>
+  </Tab>
+  <Tab title="Binaria Praecompilata">
+    Dēscribe binarium compilatum recentissimum pro architectura tua directe ex pagina emissionum:
+
+    **[https://gitlab.com/fpsys/fp-appimage-updater/-/releases](https://gitlab.com/fpsys/fp-appimage-updater/-/releases)**
+
+    Pone id in directorio binariorum praeferito tuo et fac id exsequibile:
+
+    ```bash
+    chmod +x fp-appimage-updater
+    mv fp-appimage-updater ~/.local/bin/
+    ```
+
+    Binarium est exsequibile omnino per se contentum, sine dependentiis in tempore exsecutionis. Auto-renovatio statim operatur - potes exsequere `fp-appimage-updater self-update` ad renovandum ad emissionem recentissimam quandocumque.
+  </Tab>
+</Tabs>
+
+<Note>
+  Pro installatione normali per usorem, `sudo` numquam necessarius est. Binarium et omnis configuratio vivunt omnino in directorio home tuo in `~/.local/` et `~/.config/`.
+</Note>

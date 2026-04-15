@@ -1,0 +1,43 @@
+---
+title: "Introductio"
+description: "fp-appimage-updater est instrumentum CLI celerum et in unico binario ad AppImages declarative administrandos per formulas YAML."
+---
+
+fp-appimage-updater est instrumentum CLI scriptum in Rust quod permittit te AppImages administrare, renovare et integrare in desktop omnino per fasciculos configurationis YAML a usore datos. Operatur stricte in spatio usori, non requirit GUI et est tam parvum ut vivat iuxta dotfiles tuos in quovis systemate Linux - inclusis distributionibus immutabilibus et atomicis.
+
+## Proprietates Praecipuae
+
+<CardGroup cols={2}>
+  <Card title="Formulae Declarativae per YAML" icon="file-code">
+    Define quemque app et eius strategiam renovationis in fasciculo YAML simplici. Adde, remove vel communica apps edendo fasciculos - nullo auxilio necessario.
+  </Card>
+  <Card title="Tres Strategiae Renovationis" icon="arrows-rotate">
+    Pete renovationes in emissionibus GitHub vel GitLab cum `forge`, URL stabili cum `direct`, vel scripto shell personali cum `script`.
+  </Card>
+  <Card title="Downloads Delta per zsync" icon="bolt">
+    Cum formula app habilitat `zsync`, renovator utitur suo backend integrato `zsync-rs` ad dēscribendos solos bytes qui mutaverunt - servans latitudinem fasciae in AppImages magnis.
+  </Card>
+  <Card title="Downloads HTTP Range Segmentati" icon="arrow-down-to-line">
+    Fasciculi magni dividuntur in petitiones HTTP range parallelas cum servitor sustinet. Habilitatus per defaltam et configurabilis per app.
+  </Card>
+  <Card title="Integratio Desktopi" icon="desktop">
+    Extrahit manifesta `.desktop` exacta et icones directe ex quoque AppImage et ea installet in `~/.local/share/applications`.
+  </Card>
+  <Card title="Automatio in Fundo cum systemd" icon="clock">
+    Scriptum installationis configurat horologium systemd quod verificatiónes et renovationes automatice in fundo exsequitur.
+  </Card>
+  <Card title="Subsidiarium Procuratoris GitHub" icon="shield">
+    Retentat interrogationes API emissionum GitHub per unam vel plures bases procuratorum configuratas cum limites rate attinguntur, sine procuratione downloads realis.
+  </Card>
+  <Card title="Binarium Unicum Infra 1 MB" icon="microchip">
+    Totum instrumentum distribuitur ut unicum binarium independens compressum, sine dependentiis in tempore exsecutionis.
+  </Card>
+</CardGroup>
+
+## Philosophia Designi
+
+fp-appimage-updater est intentionaliter angustum in ambitu. Exsequitur omnino in spatio usori - nullus accessus root necessarius est pro installatione normali. Configuratio vivit in `~/.config/fp-appimage-updater/`, quod id facit electionem naturalem pro repositories dotfiles. Nulla GUI est, nec registrum centrale formularum, nec basis datorum: status ducitur pure per fasciculos in disco. Tu scribis formulas tuas proprias, eas servas ubi vis et instrumentum ex via tua recedit.
+
+<Note>
+  Proiectum numquam includet repositorium formularum. Exspectatur ut tu scribas et possideas formulas proprias app tuarum.
+</Note>

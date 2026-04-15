@@ -1,0 +1,48 @@
+---
+title: "Conspectus CLI"
+description: "Referentia completa pro omnibus mandatis et vexillis globalibus fp-appimage-updater."
+---
+
+Invoca `fp-appimage-updater` cum conspectu optionali vexillorum globalium ante submandatum:
+
+```bash
+fp-appimage-updater [OPTIONS] <COMMAND>
+```
+
+## Vexilla Globalia
+
+Haec vexilla applicantur omni mandato et ante submandatum collocanda sunt.
+
+<ParamField query="-c, --config <PATH>" type="string">
+  Superat directorium configurationis defaltum. Utere hoc ad indicandum locum configurationis personalis loco `~/.config/fp-appimage-updater/`.
+</ParamField>
+
+<ParamField query="--json" type="boolean">
+  Emittit exitum JSON legibilem a machina loco tabularum et linearum status legibilium ab hominibus. Operatur cum `init`, `validate`, `doctor`, `list`, `check`, `update` et `remove`.
+</ParamField>
+
+<ParamField query="-h, --help" type="boolean">
+  Ostendit informationes auxilii et exit.
+</ParamField>
+
+<ParamField query="-V, --version" type="boolean">
+  Ostendit versionem currentem et exit.
+</ParamField>
+
+## Mandata
+
+| Mandatum | Descriptio |
+|---|---|
+| [`init`](/la/cli/init) | Initialisa fasciculos configurationis initiales |
+| [`validate`](/la/cli/check-update) | Validat fasciculos formulae applicationis |
+| [`doctor`](/la/cli/check-update) | Exsequitur verificatiónes sanitatis pro configuratione locali |
+| [`list`](/la/cli/manage) | Enumerat omnes applicationes configuratas et earum statum |
+| [`check`](/la/cli/check-update) | Verificat renovationes |
+| [`update`](/la/cli/check-update) | Renovat applicationes (omnes, vel specifica unam) |
+| [`remove`](/la/cli/manage) | Removet applicationem et eius symlink |
+| [`self-update`](/la/cli/manage) | Renovat ipsum fp-appimage-updater |
+| [`completion`](/la/cli/manage) | Generat scripta completionis shell |
+
+<Note>
+  Transmitte `--json` ante quodlibet mandatum sequens ad obtinendum exitum JSON structuratum: `init`, `validate`, `doctor`, `list`, `check`, `update`, `remove`.
+</Note>

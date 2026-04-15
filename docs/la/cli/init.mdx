@@ -1,0 +1,66 @@
+---
+title: "init"
+description: "Initialisa configurationem globalem vel genera novam formulam applicationis."
+---
+
+Mandatum `init` creat fasciculos initiales ut habeas punctum initiale functionale sine YAML ab initio scribendo.
+
+## Initialisa configurationem globalem
+
+```bash
+fp-appimage-updater init --global
+```
+
+Creat `~/.config/fp-appimage-updater/config.yml` cum defaltis prudentibus. Exsequere hoc semel antequam ulla formula applicationis addatur.
+
+## Genera formulam applicationis
+
+```bash
+fp-appimage-updater init --app <nomen> --strategy <direct|forge|script>
+```
+
+Creat fasciculum formulae in `~/.config/fp-appimage-updater/apps/` pro applicatione nominata, iam praeparatum pro strategia renovationis electa.
+
+### Vexilla
+
+<ParamField query="--app <nomen>" type="string">
+  Nomen applicationis generandae. Fasciculus resultans ponitur in `~/.config/fp-appimage-updater/apps/<nomen>.yml`.
+</ParamField>
+
+<ParamField query="--strategy <direct|forge|script>" type="string" default="direct">
+  Strategia renovationis utenda pro formula generata.
+
+  - `direct` — URL statica verificata per capita ETag vel Last-Modified
+  - `forge` — asset emissionis GitHub vel GitLab
+  - `script` — scriptum shell personale quod URL dēscriptionis et versionem producit
+</ParamField>
+
+<ParamField query="--force" type="boolean">
+  Superat fasciculum existentem. Sine hoc vexillo, `init` fasciculum qui iam existit non substituet.
+</ParamField>
+
+<ParamField query="--global" type="boolean">
+  Initialisa `config.yml` globalem loco generandi formulam applicationis.
+</ParamField>
+
+## Exempla
+
+<CodeGroup>
+
+```bash strategia forge
+fp-appimage-updater init --app hydra-launcher --strategy forge
+```
+
+```bash strategia direct
+fp-appimage-updater init --app whatpulse --strategy direct
+```
+
+```bash strategia script
+fp-appimage-updater init --app hayase --strategy script
+```
+
+</CodeGroup>
+
+<Tip>
+  Fasciculus generatus est punctum initiale. Aperi eum et comple URL dēscriptionis realem, viam repositorii vel formulam assetis pro applicatione tua antequam `check` vel `update` exsequaris.
+</Tip>
