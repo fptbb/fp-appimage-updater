@@ -1,0 +1,50 @@
+---
+title: "Integratio desktopi"
+description: "Extrahe et installa automatice fasciculos .desktop et icones ex AppImages."
+---
+
+Integratio desktopi permittit AppImages tuos apparere automatice in initiantis applicationum desktopi tui. Cum habilitata, fp-appimage-updater extrahit manifestum `.desktop` et icones directe ex AppImage utendo `--appimage-extract`, et deinde ea installat in directoriis usori rectis.
+
+## Quid installatur
+
+| Typus fasciculi | Destinatio |
+|---|---|
+| Fasciculus `.desktop` | `~/.local/share/applications/` |
+| Icones applicationis | `~/.local/share/icons/` |
+
+Viae `Exec` et `Icon` intra fasciculum `.desktop` automatice renovantur ad indicandum locum installatum AppImage, ita initiator tuus semper utitur via binarii recta.
+
+<Note>
+  Integratio desktopi requirit ut AppImage `--appimage-extract` sustineat. Prope omnes AppImages moderni hoc sustinent.
+</Note>
+
+## Habilita vel dishabilita globaliter
+
+Integratio desktopi per defaltam habilitata est. Pone `manage_desktop_files` in `config.yml` tuo ad eam globaliter moderandam:
+
+```yaml
+manage_desktop_files: true
+```
+
+Ad dishabilitandum integrationem pro omnibus applicationibus:
+
+```yaml
+manage_desktop_files: false
+```
+
+## Dishabilita per applicationem
+
+Ad excludendum unicam applicationem ab integratione desktopi, pone `integration: false` in formula eius:
+
+```yaml
+name: myapp
+integration: false
+strategy:
+  strategy: direct
+  url: "https://example.com/myapp.AppImage"
+  check_method: etag
+```
+
+<Tip>
+  Si applicatio non apparet statim in initiantis tuo post renovationem, exsequere `update-desktop-database ~/.local/share/applications` ad renovandum antepositum menu applicationum.
+</Tip>

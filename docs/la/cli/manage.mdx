@@ -1,0 +1,85 @@
+---
+title: "enumerare et removere"
+description: "Enumera applicationes installatas et remove eas munde."
+---
+
+## list
+
+```bash
+fp-appimage-updater list
+```
+
+Ostendit omnes applicationes configuratas una cum versione earum localiter registrata et statu integrationis currenti (praesentia symlink, inscriptio desktopi et icon).
+
+## remove
+
+```bash
+fp-appimage-updater remove <nomen-app>
+fp-appimage-updater remove -a
+```
+
+Removet binarium, symlink, icones extractos et fasciculos desktopi applicationis. Hoc non delet fasciculum formulae - applicatio reinstallari potest exsequendo `update` iterum.
+
+### Vexilla
+
+<ParamField query="-a, --all" type="boolean">
+  Removet omnes applicationes installatas simul.
+</ParamField>
+
+```bash
+# Removere unicam applicationem
+fp-appimage-updater remove whatpulse
+
+# Removere omnes applicationes installatas
+fp-appimage-updater remove -a
+```
+
+<Warning>
+  `remove -a` removet omnes AppImages installatos, eorum symlinks, icones et inscriptiones desktopi in unico gradu. Hoc reverti non potest sine exsecutione `update` iterum.
+</Warning>
+
+## self-update
+
+```bash
+fp-appimage-updater self-update
+```
+
+Petit emissionem recentissimam ipsius `fp-appimage-updater` et binarium currentem substituit.
+
+### Vexilla
+
+<ParamField query="--pre-release" type="boolean">
+  Includit versiones prae-emissas cum verificando si binarium recentius adest.
+</ParamField>
+
+```bash
+# Renovare ad emissionem stabilem recentissimam
+fp-appimage-updater self-update
+
+# Renovare includens versiones prae-emissas
+fp-appimage-updater self-update --pre-release
+```
+
+## completion
+
+```bash
+fp-appimage-updater completion <shell>
+```
+
+Generat scriptum completionis shell pro shell specificato et scribit id in exitum normalem. Shell sustenta: `bash`, `zsh`, `fish`.
+
+```bash
+fp-appimage-updater completion bash
+fp-appimage-updater completion zsh
+fp-appimage-updater completion fish
+```
+
+<Tip>
+  Transmitte exitum directe ad fasciculum configurationis shell tui ad habilitem completionem per tabulam permanenter:
+
+  ```bash
+  fp-appimage-updater completion bash >> ~/.bashrc
+  ```
+
+  Recarica shell tuum vel exsequere `source ~/.bashrc` ut completiones effectum habeant.
+</Tip>

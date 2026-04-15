@@ -1,0 +1,68 @@
+---
+title: "Doctor"
+description: "Exsequere verificatiónes sanitatis ad diagnosticandum problemata configurationis et instrumentorum."
+---
+
+<Tip>
+  Exsequere `doctor` primum quotiens comportamentum inopinatum reperis. Cito exponit directoria absentia, formulas quae analysi subici non possunt, lockfile obsoletum et instrumenta absentia antequam altius te immergas.
+</Tip>
+
+Mandatum `doctor` configurationem localem tuam inspicit et statum cuiusque verificationis refert:
+
+```bash
+fp-appimage-updater doctor
+```
+
+## Verificationes exsecutae
+
+| Verificatio | Quid verificat |
+|---|---|
+| `config_dir` | Directorium configurationis existit |
+| `apps_dir` | Subdirectorium applicationum existit |
+| `global_config` | Fasciculus globalis `config.yml` adest et analysi subici potest |
+| `state_dir` | Directorium status accessibile est |
+| `parsed_app_recipes` | Numerus fasciculorum formulae qui cum successu cargarunt |
+| `invalid_app_recipes` | Numerus fasciculorum formulae qui in analysi defecerunt |
+| `process_lock` | Si lockfile currentis abest, activus vel obsoletus est |
+
+Quaeque verificatio refert `ok` vel `warn`. Resultatum `warn` instrumentum currere non impedit, sed comportamentum inopinatum explicare potest.
+
+`process_lock` refert `warn` cum lockfile obsoletus vel malformatus videtur. Hoc plerumque significat exsecutionem priorem inopinate finitam esse, et proxima exsecutio eum purgare poterit.
+
+`doctor` solos fasciculos locales et instrumenta localia verificat. Non contat emissiones fontem, ita tutum est eum exsecutioni mandare cum offline es.
+
+<Note>
+  Adde `--json` ad obtinendum exitum legibilem a machina idoneum pro scriptis vel monitione:
+
+  ```bash
+  fp-appimage-updater doctor --json
+  ```
+</Note>
+
+## Problemata communia
+
+**Fasciculi formulae in analysi defecerunt**
+
+Exsequere `validate` ad identificandos qui fasciculi errores habent et quis error analysis sit:
+
+```bash
+fp-appimage-updater validate
+```
+
+Ad verificandum unicam formulam per nomen:
+
+```bash
+fp-appimage-updater validate <nomen-app>
+```
+
+---
+
+**Directorium configurationis non inventum**
+
+Initialisa directorium configurationis cum:
+
+```bash
+fp-appimage-updater init --global
+```
+
+Hoc creat structuram directoriorum exspectatam et `config.yml` initialem.

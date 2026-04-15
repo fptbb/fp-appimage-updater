@@ -1,0 +1,75 @@
+---
+title: "Downloads delta"
+description: "Serva latitudinem fasciae dēscribendo solos bytes mutatos cum zsync et downloads segmentatis."
+---
+
+fp-appimage-updater praebet duas proprietates independentes ad reducendum magnitudinem dēscriptionis et accelerandas renovationes: downloads delta zsync et downloads segmentati (paralleli per range).
+
+<Note>
+  Hae duae proprietates complementariae sunt. zsync reutilizat bytes ex versione locali priori ad reconstruendum novum fasciculum. Downloads segmentati dividunt dēscriptionem in petitiones HTTP range parallelas ad accelerandum petitionem initialem. Potes uti una, altera vel ambabus.
+</Note>
+
+## zsync (downloads delta)
+
+zsync dēscribit solos blocos qui mutaverunt inter AppImage localiter installatum et novam versionem, latitudinem fasciae pro renovationibus incrementalibus significanter reducens. fp-appimage-updater hoc tractat per backend integrum suum `zsync-rs`, ita packetum systematis `zsync` separatum non opus est.
+
+Via delta automatica est cum formula eam habilitat et AppImage localis praesto est.
+
+### Habilita per applicationem
+
+Pone `zsync: true` in formula applicationis ad derivandam URL `.zsync` ex URL dēscriptionis solutae:
+
+```yaml
+name: myapp
+zsync: true
+strategy:
+  strategy: forge
+  repository: https://github.com/example/myapp
+  asset_match: "myapp-*.AppImage"
+```
+
+Si URL `.zsync` directe scis, praebe eam ut stringam:
+
+```yaml
+name: myapp
+zsync: "https://example.com/myapp.AppImage.zsync"
+strategy:
+  strategy: direct
+  url: "https://example.com/myapp.AppImage"
+  check_method: etag
+```
+
+Quid accidit durante renovatione zsync:
+
+1. fp-appimage-updater quaerit viam AppImage antea installati in statu locali tuo.
+2. Construit URL `.zsync` ex URL dēscriptionis solutae, vel utitur URL explicita quam praebidisti.
+3. Exsequitur backend zsync integrum contra fasciculum veterem et fasciculum temporarium exitus.
+4. Si hoc prospere cedit, fasciculum temporarium ad locum rectum renominat.
+5. Si fallit, vel si nullus AppImage localis adhuc existit, recedit ad viam normalem dēscriptionis.
+
+## Downloads segmentati (HTTP ranges)
+
+Downloads segmentati dividunt fasciculos magnos in petitiones HTTP range parallelas, quod accelerat dēscriptiones ex servitoribus qui caput `Range` sustinent. Haec proprietas per defaltam habilitata est.
+
+### Dishabilita globaliter
+
+Ad extinguendos downloads segmentatos pro omnibus applicationibus, pone sequens in `config.yml`:
+
+```yaml
+segmented_downloads: false
+```
+
+### Supera per applicationem
+
+Potes superare configurationem globalem pro applicatione specifica:
+
+```yaml
+name: myapp
+segmented_downloads: false
+strategy:
+  strategy: direct
+  url: "https://example.com/myapp.AppImage"
+  check_method: etag
+```
+
+Ad verificandum si servitor petitiones per range pro applicatione determinata sustinet, exsequere `fp-appimage-updater check`. Exitus includit indicia subsidii range pro applicationibus dēscriptionis directae.

@@ -1,0 +1,92 @@
+---
+title: "FAQ"
+description: "Responsa ad interrogationes communes de fp-appimage-updater."
+---
+
+<AccordionGroup>
+  <Accordion title="Egeo root vel sudo ad utendum fp-appimage-updater?">
+    Non. fp-appimage-updater operatur omnino in spatio usori. Omnes fasciculi - AppImages, symlinks, inscriptiones desktopi et icones - manent in `~/.local/`. Solum `sudo` opus est si eligis instrumentum in gradu systematis installare utendo vexillo `--system` durante installatione.
+  </Accordion>
+
+  <Accordion title="Possum eo uti in distributione Linux immutabili vel atomica?">
+    Ita. fp-appimage-updater designatus est ut in distributionibus immutabilibus ut Fedora Silverblue et openSUSE MicroOS operetur. Omnes fasciculi temporis exsecutionis scribuntur in vias spatii usori. Si temptaveris installationem in gradu systematis (`--system`) in ambiente stricte immutabili, scriptum installationis petitionem reiciet.
+  </Accordion>
+
+  <Accordion title="Quomodo impedio fp-appimage-updater ab automatice renovanda applicatione specifica?">
+    Nulla vexilla "dishabilita" sunt. Ad removendum applicationem ex administratione, dele eius fasciculum formulae ex `~/.config/fp-appimage-updater/apps/`.
+
+    Si vis formulam servare, sed refrigerationes limitis rate omittere, pone `respect_rate_limits: false` globaliter in `config.yml` vel per applicationem in formula:
+
+    ```yaml
+    respect_rate_limits: false
+    ```
+  </Accordion>
+
+  <Accordion title="Quid accidit AppImage meo si renovatio in medio dēscriptionis fallit?">
+    AppImage existens non substituitur donec dēscriptio prospere finitur. Dēscriptio fallens vel interrupta versionem currentem intactam relinquit.
+  </Accordion>
+
+  <Accordion title="fp-appimage-updater habet GUI?">
+    Non - est instrumentum intentionaliter solum CLI et numquam GUI habebit.
+  </Accordion>
+
+  <Accordion title="Quomodo renovo ipsum fp-appimage-updater?">
+    Exsequere mandatum `self-update`:
+
+    ```bash
+    fp-appimage-updater self-update
+    ```
+
+    Ad petendum versionem prae-emissam, adde `--pre-release`:
+
+    ```bash
+    fp-appimage-updater self-update --pre-release
+    ```
+  </Accordion>
+
+  <Accordion title="Possum uti directorio configurationis personalis?">
+    Ita. Transmitte `-c` vel `--config` ante quodlibet submandatum ad superandum viam defaltam `~/.config/fp-appimage-updater/`:
+
+    ```bash
+    fp-appimage-updater -c /path/to/my-config check
+    ```
+
+    Hoc vexillum cum omni mandato operatur.
+  </Accordion>
+
+  <Accordion title="Ubi fp-appimage-updater meminit quid iam installaverim?">
+    Servat parvum antepositum in `~/.local/state/fp-appimage-updater/cache.json`. Hic fasciculus reponit ultimam versionem notam, metadata dēscriptionis, viam fasciculi installati et quaelibet indicia limitis rate vel capacitatis ex exsecutione priore.
+
+    Si antepositum abest, fp-appimage-updater id reconstruet proxima vice qua `check` vel `update` exsequuntur.
+  </Accordion>
+
+  <Accordion title="Quid est campus zsync in formula applicationis?">
+    Campus `zsync` habilitat downloads delta, qui solos bytes qui mutaverunt dēscribunt loco totius AppImage. Pone eum ad `true` ad derivandam URL `.zsync` ex URL dēscriptionis solutae, vel praebe URL explicatam:
+
+    ```yaml
+    zsync: true
+    ```
+
+    ```yaml
+    zsync: "https://example.com/app.AppImage.zsync"
+    ```
+
+    fp-appimage-updater adhibet backend integrum suum `zsync-rs` pro hoc, ita packetum systematis `zsync` separatum installare non opus est. Solum via delta utitur cum iam AppImage localem ad comparandum habet, et recedit ad viam normalem dēscriptionis si renovatio delta exsequi non potest.
+  </Accordion>
+
+  <Accordion title="Cur applicatio praetermittitur durante renovationibus?">
+    Applicatio limite rate in exsecutione priore atingere potuit. Cum limes rate attingitur, fp-appimage-updater fenestram tentaminis novi registrat et eam applicationem in exsecutionibus subsequentibus praetermittit donec fenestra exspiret.
+
+    Verifica statum currentem applicationis specificae:
+
+    ```bash
+    fp-appimage-updater check <nomen-app>
+    ```
+
+    Ad dishabilitandum hoc comportamentum globaliter, pone `respect_rate_limits: false` in `config.yml` tuo. Etiam per applicationem in fasciculo formulae ponere potes.
+  </Accordion>
+
+  <Accordion title="Possum definire plures applicationes quae ex eodem repositorio veniunt?">
+    Ita. Quaeque formula debet habere campum `name` unicum, sed plures formulae possunt indicare ad assetis diversi ex eodem repositorio. Dummodo quaeque formula habeat `name` distinctum et eius forma `asset_match` fasciculum diversum eligat, inde independenter administrantur.
+  </Accordion>
+</AccordionGroup>

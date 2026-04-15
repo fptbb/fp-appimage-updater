@@ -1,0 +1,107 @@
+---
+title: "Formulae applicationis"
+description: "Define applicationes tuas cum formulis YAML quas fp-appimage-updater ad administrandum et renovare adhibet."
+---
+
+Formula est fasciculus YAML qui dicit fp-appimage-updater omnia quae scire debet de applicatione: quomodo nominatur, quomodo renovationes invenire et quomodo installare. Scribis unicam formulam per applicationem, facis commit eam in dotfiles tuis, et fp-appimage-updater de reliquo curat.
+
+## Ubi formulae manent
+
+Pone fasciculos formulae intra `~/.config/fp-appimage-updater/apps/`. Quilibet fasciculus potest esse `.yml` planus in gradu superiori, vel subdirectorium continens fasciculum formulae et quaelibet scripta auxiliaria.
+
+```
+~/.config/fp-appimage-updater/
+├── config.yml
+└── apps/
+    ├── hydra-launcher.yml
+    └── hayase/
+        ├── hayase.yml
+        └── resolver.sh
+```
+
+<Tip>
+  Utere subdirectorio cum applicatio tua indiget scripto personali `resolver.sh` pro [strategia script](/la/configuration/update-strategies). Pone formulam et scriptum simul in subdirectorio ut `script_path` maneat via relativa munda ut `./resolver.sh`.
+</Tip>
+
+## Campi
+
+<ParamField path="name" type="string" required>
+  Identificator unicus pro applicatione. Adhibetur ut basis nominis fasciculi, nominis symlink et nominis ostentationis in exitu CLI. Debet esse unicus inter omnes formulas tuas.
+</ParamField>
+
+<ParamField path="strategy" type="object" required>
+  Definit quomodo fp-appimage-updater renovationes invenit et dēscribit. Vide [strategias renovationis](/la/configuration/update-strategies) pro referentia completa et exemplis.
+</ParamField>
+
+<ParamField path="integration" type="boolean">
+  Superat configurationem globalem `manage_desktop_files` pro hac applicatione. Pone ad `false` ad omittendam extractionem fasciculorum `.desktop` et iconum pro applicationibus quae manifestum desktopi AppImage idoneum non mittunt.
+</ParamField>
+
+<ParamField path="create_symlink" type="boolean">
+  Superat configurationem globalem `create_symlinks` pro hac applicatione.
+</ParamField>
+
+<ParamField path="segmented_downloads" type="boolean">
+  Superat configurationem globalem `segmented_downloads` pro hac applicatione. Pone ad `false` pro servitoribus qui petitiones HTTP range non sustinent.
+</ParamField>
+
+<ParamField path="respect_rate_limits" type="boolean">
+  Superat configurationem globalem `respect_rate_limits` pro hac applicatione. Cum ponitur ad `false`, fp-appimage-updater semper temptat petitionem etiamsi fenestra prior limitis rate nondum exspiraverit.
+</ParamField>
+
+<ParamField path="github_proxy" type="boolean">
+  Superat configurationem globalem `github_proxy` pro hac applicatione.
+</ParamField>
+
+<ParamField path="github_proxy_prefix" type="string | string[]">
+  Superat configurationem globalem `github_proxy_prefix` pro hac applicatione. Accipit unicam stringam URL, enumerationem URLium vel `all`.
+</ParamField>
+
+<ParamField path="storage_dir" type="string">
+  Superat `storage_dir` globalem pro hac applicatione. Fasciculus AppImage reponitur in hoc directorio loco defaltae globalis.
+</ParamField>
+
+<ParamField path="zsync" type="boolean | string">
+  Habilitat downloads delta zsync pro hac applicatione. Pone ad `true` ut fp-appimage-updater URL zsync automatice detegat, vel praebe stringam URL zsync directam ad utendum endpoint specificum.
+
+  ```yaml
+  # Auto-detecta URL zsync
+  zsync: true
+
+  # URL zsync explicita
+  zsync: "https://example.com/app.AppImage.zsync"
+  ```
+
+  Adhibet backend integrum `zsync-rs`, ita nullum packetum systematis `zsync` separatum necessarium est.
+</ParamField>
+
+## Exempla
+
+<CodeGroup>
+
+```yaml hydra-launcher.yml
+name: hydra-launcher
+strategy:
+  strategy: forge
+  repository: https://github.com/hydralauncher/hydra
+  asset_match: "hydralauncher-*.AppImage"
+```
+
+```yaml whatpulse.yml
+name: whatpulse
+strategy:
+  strategy: direct
+  url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
+  check_method: etag
+segmented_downloads: true
+```
+
+</CodeGroup>
+
+Genera skeletonem formulae pro nova applicatione cum:
+
+```bash
+fp-appimage-updater init --app <nomen> --strategy <forge|direct|script>
+```
+
+Utere `--force` ad superandum fasciculum formulae existentem.
