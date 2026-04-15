@@ -3,7 +3,7 @@
 [![Copr build status](https://copr.fedorainfracloud.org/coprs/fptbb/fp-appimage-updater/package/fp-appimage-updater/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/fptbb/fp-appimage-updater/package/fp-appimage-updater/)
 [![Documentation](https://img.shields.io/badge/docs-fau.fpt.icu-blue)](https://docs.fau.fpt.icu/)
 
-# [🇧🇷](README-BR.md) [🇺🇸](README.md)
+# [🇺🇸](README.md) [🇧🇷](README-BR.md)
 
 fp-appimage-updater est instrumentum CLI celere et unius binarii in Rust scriptum, designatum ad AppImages gerenda, renovanda et integranda omnino per YAML configurationes declarativas ab usore provisas. In spatio usoris stricte operans, destinatur ad usum cum dotfiles et perfecte cum Linux ambientibus immutabilibus/atomicis operatur.
 
