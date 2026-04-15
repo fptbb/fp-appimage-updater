@@ -1,0 +1,68 @@
+---
+title: "Doctor"
+description: "Execute verificações de saúde para diagnosticar problemas de configuração e ferramentas."
+---
+
+<Tip>
+  Execute `doctor` primeiro sempre que você encontrar comportamento inesperado. Ele expõe rapidamente diretórios ausentes, receitas que não podem ser analisadas, um lockfile obsoleto e ferramentas ausentes antes de você se aprofundar.
+</Tip>
+
+O comando `doctor` inspeciona sua configuração local e reporta o status de cada verificação:
+
+```bash
+fp-appimage-updater doctor
+```
+
+## Verificações executadas
+
+| Verificação | O que ela verifica |
+|---|---|
+| `config_dir` | O diretório de configuração existe |
+| `apps_dir` | O subdiretório de apps existe |
+| `global_config` | O arquivo global `config.yml` está presente e pode ser analisado |
+| `state_dir` | O diretório de estado está acessível |
+| `parsed_app_recipes` | Número de arquivos de receita que carregaram com sucesso |
+| `invalid_app_recipes` | Número de arquivos de receita que falharam ao ser analisados |
+| `process_lock` | Se o lockfile atual está ausente, ativo ou obsoleto |
+
+Cada verificação reporta `ok` ou `warn`. Um resultado `warn` não impede a ferramenta de rodar, mas pode explicar um comportamento inesperado.
+
+`process_lock` reporta `warn` quando o lockfile parece obsoleto ou malformado. Isso geralmente significa que uma execução anterior terminou inesperadamente, e a próxima execução pode limpá-lo.
+
+`doctor` verifica apenas arquivos locais e ferramentas locais. Ele não contata releases upstream, então é seguro executá-lo quando você estiver offline.
+
+<Note>
+  Adicione `--json` para obter saída legível por máquina adequada para scripts ou monitoramento:
+
+  ```bash
+  fp-appimage-updater doctor --json
+  ```
+</Note>
+
+## Problemas comuns
+
+**Os arquivos de receita falharam ao ser analisados**
+
+Execute `validate` para identificar quais arquivos têm erros e qual é o erro de análise:
+
+```bash
+fp-appimage-updater validate
+```
+
+Para verificar uma única receita por nome:
+
+```bash
+fp-appimage-updater validate <app-name>
+```
+
+---
+
+**Diretório de configuração não encontrado**
+
+Inicialize o diretório de configuração com:
+
+```bash
+fp-appimage-updater init --global
+```
+
+Isso cria a estrutura de diretórios esperada e um `config.yml` inicial.

@@ -1,0 +1,108 @@
+---
+title: "Configuração global"
+description: "Configure caminhos de armazenamento, symlinks, integração de desktop e comportamento de download globalmente."
+---
+
+O arquivo de configuração global aplica padrões a todos os apps gerenciados. Você pode sobrescrever qualquer uma dessas configurações por app dentro de uma [receita de app](/pt-BR/configuration/app-recipes).
+
+## Localização do arquivo
+
+```
+~/.config/fp-appimage-updater/config.yml
+```
+
+Gere um arquivo inicial com:
+
+```bash
+fp-appimage-updater init --global
+```
+
+## Exemplo
+
+```yaml
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: '{name}.AppImage'
+manage_desktop_files: true
+create_symlinks: false
+segmented_downloads: true
+respect_rate_limits: true
+github_proxy: true
+github_proxy_prefix: https://gh-proxy.com/
+```
+
+## Campos
+
+<ParamField path="storage_dir" type="string" default="~/.local/bin/AppImages">
+  Diretório onde os arquivos AppImage baixados são armazenados.
+</ParamField>
+
+<ParamField path="symlink_dir" type="string" default="~/.local/bin">
+  Diretório onde symlinks para AppImages instalados são criados. Usado apenas quando `create_symlinks` é `true`.
+</ParamField>
+
+<ParamField path="naming_format" type="string" default="{name}.AppImage">
+  Modelo de nome de arquivo para AppImages armazenados. Use o marcador `{name}`, que é substituído pelo campo `name` do app em sua receita.
+</ParamField>
+
+<ParamField path="manage_desktop_files" type="boolean" default="true">
+  Quando habilitado, fp-appimage-updater extrai automaticamente manifests `.desktop` e ícones do AppImage e os instala em `~/.local/share/applications` e `~/.local/share/icons`.
+</ParamField>
+
+<ParamField path="create_symlinks" type="boolean" default="false">
+  Quando habilitado, cria um symlink em `symlink_dir` apontando para o AppImage instalado. Útil para colocar AppImages no seu `PATH` sem modificar `storage_dir`.
+</ParamField>
+
+<ParamField path="segmented_downloads" type="boolean" default="true">
+  Divide downloads em requisições HTTP range paralelas quando o servidor oferece suporte. Acelera downloads grandes de AppImage em servidores capazes.
+</ParamField>
+
+<ParamField path="respect_rate_limits" type="boolean" default="true">
+  Quando habilitado, apps que atingem um limite de taxa do provedor são ignorados em execuções subsequentes até que a janela de nova tentativa expire. Defina como `false` para sempre tentar a requisição independentemente de um limite de taxa anterior.
+</ParamField>
+
+<ParamField path="github_proxy" type="boolean" default="true">
+  Habilita o fallback de proxy da API do GitHub. Quando uma requisição da API de releases do GitHub é limitada por taxa, fp-appimage-updater tenta novamente por meio das bases de proxy configuradas. O download real do AppImage sempre usa a URL direta do asset do GitHub - apenas as consultas de metadados são proxificadas.
+</ParamField>
+
+<ParamField path="github_proxy_prefix" type="string | string[]" default="all">
+  URL(s) base de proxy a usar quando `github_proxy` está habilitado. Aceita uma única string de URL, uma lista YAML de URLs, ou a string `all` para tentar cada proxy embutido em ordem.
+
+  ```yaml
+  # Proxy único
+  github_proxy_prefix: "https://gh-proxy.com/"
+
+  # Vários proxies tentados em ordem
+  github_proxy_prefix:
+    - "https://gh-proxy.com/"
+    - "https://corsproxy.io/?"
+    - "https://api.allorigins.win/raw?url="
+
+  # Tentar todos os proxies embutidos
+  github_proxy_prefix: all
+  ```
+</ParamField>
+
+## Sobrescritas de URL forge auto-hospedadas
+
+Esses campos opcionais permitem apontar fp-appimage-updater para uma instância GitHub ou GitLab auto-hospedada em vez das APIs públicas.
+
+<ParamField path="github_release_api_url" type="string">
+  Sobrescreve a URL base da API REST do GitHub. Útil quando seus apps estão hospedados no GitHub Enterprise Server.
+</ParamField>
+
+<ParamField path="github_release_web_url" type="string">
+  Sobrescreve a URL base web do GitHub usada para construir links de página de release.
+</ParamField>
+
+<ParamField path="gitlab_release_api_url" type="string">
+  Sobrescreve a URL base da API do GitLab. Defina isso quando seus apps estiverem em uma instância GitLab autogerenciada.
+</ParamField>
+
+<ParamField path="gitlab_release_web_url" type="string">
+  Sobrescreve a URL base web do GitLab usada para construir links de página de release.
+</ParamField>
+
+<Note>
+  Cada campo em `config.yml` pode ser sobrescrito para um app específico dentro do arquivo de receita dele. As configurações no nível do app sempre têm precedência sobre a configuração global. Veja [receitas de app](/pt-BR/configuration/app-recipes) para a lista completa de sobrescritas por app.
+</Note>

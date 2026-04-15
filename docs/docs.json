@@ -16,46 +16,97 @@
     }
   },
   "navigation": {
-    "groups": [
+    "languages": [
       {
-        "group": "Get Started",
-        "pages": [
-          "introduction",
-          "installation",
-          "quickstart"
+        "language": "en",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/global-config",
+              "configuration/app-recipes",
+              "configuration/update-strategies"
+            ]
+          },
+          {
+            "group": "CLI Reference",
+            "pages": [
+              "cli/overview",
+              "cli/init",
+              "cli/check-update",
+              "cli/manage"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/desktop-integration",
+              "guides/systemd-automation",
+              "guides/github-proxy",
+              "guides/delta-updates"
+            ]
+          },
+          {
+            "group": "Troubleshooting",
+            "pages": [
+              "troubleshooting/doctor",
+              "troubleshooting/faq"
+            ]
+          }
         ]
       },
       {
-        "group": "Configuration",
-        "pages": [
-          "configuration/global-config",
-          "configuration/app-recipes",
-          "configuration/update-strategies"
-        ]
-      },
-      {
-        "group": "CLI Reference",
-        "pages": [
-          "cli/overview",
-          "cli/init",
-          "cli/check-update",
-          "cli/manage"
-        ]
-      },
-      {
-        "group": "Guides",
-        "pages": [
-          "guides/desktop-integration",
-          "guides/systemd-automation",
-          "guides/github-proxy",
-          "guides/delta-updates"
-        ]
-      },
-      {
-        "group": "Troubleshooting",
-        "pages": [
-          "troubleshooting/doctor",
-          "troubleshooting/faq"
+        "language": "pt-BR",
+        "groups": [
+          {
+            "group": "Começar",
+            "pages": [
+              "pt-BR/introduction",
+              "pt-BR/installation",
+              "pt-BR/quickstart"
+            ]
+          },
+          {
+            "group": "Configuração",
+            "pages": [
+              "pt-BR/configuration/global-config",
+              "pt-BR/configuration/app-recipes",
+              "pt-BR/configuration/update-strategies"
+            ]
+          },
+          {
+            "group": "Referência da CLI",
+            "pages": [
+              "pt-BR/cli/overview",
+              "pt-BR/cli/init",
+              "pt-BR/cli/check-update",
+              "pt-BR/cli/manage"
+            ]
+          },
+          {
+            "group": "Guias",
+            "pages": [
+              "pt-BR/guides/desktop-integration",
+              "pt-BR/guides/systemd-automation",
+              "pt-BR/guides/github-proxy",
+              "pt-BR/guides/delta-updates"
+            ]
+          },
+          {
+            "group": "Solução de problemas",
+            "pages": [
+              "pt-BR/troubleshooting/doctor",
+              "pt-BR/troubleshooting/faq"
+            ]
+          }
         ]
       }
     ]

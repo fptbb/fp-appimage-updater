@@ -1,0 +1,74 @@
+---
+title: "Instalação"
+description: "Instale fp-appimage-updater via COPR, o script de instalação rápida ou um binário pré-compilado."
+---
+
+Escolha o método que corresponda à sua distribuição e às suas preferências.
+
+<Tabs>
+  <Tab title="Fedora / OpenSUSE (COPR)">
+    O repositório oficial COPR é o método recomendado para distribuições baseadas em RPM. Ele se integra ao seu gerenciador de pacotes e mantém a ferramenta atualizada automaticamente.
+
+    ```bash
+    sudo dnf copr enable fptbb/fp-appimage-updater
+    sudo dnf install fp-appimage-updater
+    ```
+
+    Após a instalação, `fp-appimage-updater` fica disponível no seu PATH e é gerenciado pelo `dnf`.
+  </Tab>
+  <Tab title="Script de instalação rápida">
+    O script de instalação funciona em qualquer distribuição Linux, incluindo sistemas imutáveis e atômicos. Por padrão, ele instala em `~/.local/bin/` e configura um timer systemd de usuário para atualizações em segundo plano.
+
+    Em termos simples, o script faz três coisas:
+
+    - coloca o binário no seu `PATH`
+    - cria o timer de usuário se você permitir atualizações em segundo plano
+    - mantém suas receitas, estado e AppImages no seu diretório home
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash
+    ```
+
+    **Opções:**
+
+    Pule o timer systemd em segundo plano se você preferir executar atualizações manualmente:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash -s -- --no-systemd
+    ```
+
+    Instale no sistema em `/usr/bin/` e `/usr/lib/systemd/system/` (requer root, rejeitado em sistemas estritamente imutáveis):
+
+    ```bash
+    curl -sL fau.fpt.icu/i | sudo bash -s -- --system
+    ```
+
+    Desinstale o binário e desabilite todos os timers systemd em execução em qualquer escopo:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash -s -- --uninstall
+    ```
+
+    <Note>
+      A opção de desinstalação deixa seus binários AppImage e os arquivos de configuração em `~/.config/fp-appimage-updater/` intactos.
+    </Note>
+  </Tab>
+  <Tab title="Binários pré-compilados">
+    Baixe o binário compilado mais recente para sua arquitetura diretamente da página de releases:
+
+    **[https://gitlab.com/fpsys/fp-appimage-updater/-/releases](https://gitlab.com/fpsys/fp-appimage-updater/-/releases)**
+
+    Coloque-o no diretório de binários de sua preferência e torne-o executável:
+
+    ```bash
+    chmod +x fp-appimage-updater
+    mv fp-appimage-updater ~/.local/bin/
+    ```
+
+    O binário é um executável totalmente autocontido, sem dependências em tempo de execução. A autoatualização funciona imediatamente - você pode executar `fp-appimage-updater self-update` para atualizar para a release mais recente a qualquer momento.
+  </Tab>
+</Tabs>
+
+<Note>
+  Para uma instalação padrão por usuário, `sudo` nunca é necessário. O binário e toda a configuração vivem inteiramente no seu diretório home em `~/.local/` e `~/.config/`.
+</Note>

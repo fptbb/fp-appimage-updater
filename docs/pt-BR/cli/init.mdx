@@ -1,0 +1,66 @@
+---
+title: "init"
+description: "Inicialize a configuração global ou gere uma nova receita de app."
+---
+
+O comando `init` cria arquivos iniciais para que você tenha um ponto de partida funcional sem escrever YAML do zero.
+
+## Inicialize a configuração global
+
+```bash
+fp-appimage-updater init --global
+```
+
+Cria `~/.config/fp-appimage-updater/config.yml` com padrões sensatos. Execute isso uma vez antes de adicionar quaisquer receitas de app.
+
+## Gere uma receita de app
+
+```bash
+fp-appimage-updater init --app <name> --strategy <direct|forge|script>
+```
+
+Cria um arquivo de receita em `~/.config/fp-appimage-updater/apps/` para o app nomeado, já preenchido para a estratégia de atualização escolhida.
+
+### Flags
+
+<ParamField query="--app <name>" type="string">
+  Nome do app a ser gerado. O arquivo resultante é colocado em `~/.config/fp-appimage-updater/apps/<name>.yml`.
+</ParamField>
+
+<ParamField query="--strategy <direct|forge|script>" type="string" default="direct">
+  Estratégia de atualização a ser usada para a receita gerada.
+
+  - `direct` — URL estática verificada via cabeçalhos ETag ou Last-Modified
+  - `forge` — asset de release do GitHub ou GitLab
+  - `script` — script shell personalizado que produz a URL de download e a versão
+</ParamField>
+
+<ParamField query="--force" type="boolean">
+  Sobrescreve um arquivo existente. Sem essa flag, `init` não substituirá um arquivo que já exista.
+</ParamField>
+
+<ParamField query="--global" type="boolean">
+  Inicializa o `config.yml` global em vez de gerar uma receita de app.
+</ParamField>
+
+## Exemplos
+
+<CodeGroup>
+
+```bash forge strategy
+fp-appimage-updater init --app hydra-launcher --strategy forge
+```
+
+```bash direct strategy
+fp-appimage-updater init --app whatpulse --strategy direct
+```
+
+```bash script strategy
+fp-appimage-updater init --app hayase --strategy script
+```
+
+</CodeGroup>
+
+<Tip>
+  O arquivo gerado é um ponto de partida. Abra-o e preencha a URL de download real, o caminho do repositório ou o padrão do asset para o seu app antes de executar `check` ou `update`.
+</Tip>

@@ -1,0 +1,51 @@
+---
+title: "Proxy do GitHub"
+description: "Evite limites de taxa da API do GitHub usando fallbacks de proxy para metadados de release."
+---
+
+Apps que usam a estratégia `forge` com repositórios GitHub buscam metadados de release na API do GitHub. O GitHub impõe limites de taxa em requisições não autenticadas, o que pode bloquear verificações de atualização quando você as executa com frequência ou a partir de um IP compartilhado.
+
+fp-appimage-updater resolve isso tentando uma ou mais URLs base de proxy para a consulta de metadados de release. O download real do AppImage sempre sai diretamente do GitHub - apenas a requisição de metadados é proxificada.
+
+<Note>
+  Apenas os metadados da API de releases do GitHub passam pelo proxy. A URL de download do AppImage é sempre buscada diretamente no GitHub.
+</Note>
+
+## Habilite globalmente
+
+Adicione o seguinte ao seu `config.yml` para habilitar o fallback de proxy para todos os apps `forge`:
+
+```yaml
+github_proxy: true
+github_proxy_prefix: "all"  # tentar todos os proxies embutidos em ordem
+```
+
+Para usar URLs de proxy específicas em vez da lista embutida:
+
+```yaml
+github_proxy: true
+github_proxy_prefix:
+  - "https://gh-proxy.com/"
+  - "https://corsproxy.io/?"
+  - "https://api.allorigins.win/raw?url="
+```
+
+fp-appimage-updater tenta cada proxy em ordem e para na primeira resposta bem-sucedida. Usar `"all"` tenta cada proxy compatível embutido no app.
+
+## Sobrescreva por app
+
+Você pode definir opções de proxy em receitas de app individuais para sobrescrever a configuração global:
+
+```yaml
+name: hydra-launcher
+github_proxy: true
+github_proxy_prefix: "https://gh-proxy.com/"
+strategy:
+  strategy: forge
+  repository: https://github.com/hydralauncher/hydra
+  asset_match: "hydralauncher-*.AppImage"
+```
+
+<Tip>
+  Quando fp-appimage-updater atinge um limite de taxa, ele registra a janela de nova tentativa e ignora esse app na próxima execução. Para desabilitar esse comportamento de cooldown e sempre tentar novamente, defina `respect_rate_limits: false` em seu `config.yml` ou na receita do app individual.
+</Tip>

@@ -1,0 +1,156 @@
+---
+title: "Estratégias de atualização"
+description: "Escolha como fp-appimage-updater encontra e baixa atualizações para cada app."
+---
+
+Toda receita de app requer um bloco `strategy` que informa ao fp-appimage-updater onde procurar a versão mais recente e como baixá-la. Três estratégias estão disponíveis.
+
+<Note>
+  **Quando usar cada estratégia:**
+
+  | Estratégia | Use quando |
+  |------------|------------|
+  | `forge` | O app publica releases no GitHub ou GitLab |
+  | `direct` | O app fornece uma URL estável que sempre aponta para a versão mais recente |
+  | `script` | Nenhuma das opções acima se encaixa - você precisa de lógica personalizada para encontrar a URL de download |
+</Note>
+
+<Tabs>
+  <Tab title="Forge">
+    Use a estratégia `forge` para apps distribuídos por meio de releases do GitHub ou GitLab. fp-appimage-updater consulta a API de releases, corresponde o nome do arquivo do asset ao seu padrão e baixa o arquivo correspondente.
+
+    Para repositórios GitLab, o resolvedor usa a API latest permalink em `https://gitlab.com/api/v4/projects/<project-path>/releases/permalink/latest`, lê `assets.links` e prefere `direct_asset_url` quando disponível.
+
+    ### Campos
+
+    <ParamField path="strategy.strategy" type="string" required>
+      Deve ser `forge`.
+    </ParamField>
+
+    <ParamField path="strategy.repository" type="string" required>
+      URL completa para o repositório GitHub ou GitLab (por exemplo, `https://github.com/owner/repo`).
+    </ParamField>
+
+    <ParamField path="strategy.asset_match" type="string" required>
+      Padrão curinga para corresponder ao nome do arquivo do asset da release. Usa sintaxe glob estilo shell (por exemplo, `"*-amd64.AppImage"`). O primeiro asset correspondente é selecionado.
+    </ParamField>
+
+    ### Sobrescritas por app
+
+    Você também pode definir esses campos diretamente na receita do app (não dentro de `strategy`) para sobrescrever a configuração global para este app:
+
+    <ParamField path="github_proxy" type="boolean">
+      Habilita ou desabilita o fallback de proxy da API do GitHub para este app. Quando habilitado, uma requisição de metadados do GitHub limitada por taxa é repetida por meio das bases de proxy configuradas. A URL real de download sempre usa o link direto do asset do GitHub.
+    </ParamField>
+
+    <ParamField path="github_proxy_prefix" type="string | string[]">
+      URL(s) base de proxy a usar quando `github_proxy` está habilitado. Aceita uma única string de URL, uma lista de URLs ou a string `all` para tentar cada proxy embutido em ordem.
+    </ParamField>
+
+    <ParamField path="respect_rate_limits" type="boolean">
+      Quando `false`, fp-appimage-updater ignora uma janela anterior de limite de taxa e sempre tenta a requisição.
+    </ParamField>
+
+    ### Exemplo
+
+    ```yaml
+    name: hydra-launcher
+    strategy:
+      strategy: forge
+      repository: https://github.com/hydralauncher/hydra
+      asset_match: "hydralauncher-*.AppImage"
+    segmented_downloads: true
+    ```
+  </Tab>
+
+  <Tab title="Direct">
+    Use a estratégia `direct` quando o fornecedor do app publica uma URL estável que sempre resolve para a versão mais recente. fp-appimage-updater verifica os cabeçalhos HTTP da resposta para detectar se o arquivo remoto mudou desde o último download.
+
+    ### Campos
+
+    <ParamField path="strategy.strategy" type="string" required>
+      Deve ser `direct`.
+    </ParamField>
+
+    <ParamField path="strategy.url" type="string" required>
+      URL de download estática que sempre aponta para a versão mais recente do AppImage.
+    </ParamField>
+
+    <ParamField path="strategy.check_method" type="string" required>
+      Cabeçalho HTTP usado para detectar alterações remotas. Valores aceitos:
+
+      - `etag` — compara o cabeçalho de resposta `ETag`
+      - `last-modified` — compara o cabeçalho de resposta `Last-Modified`
+
+      Escolha o cabeçalho que o servidor fornecer. Se não tiver certeza, tente `etag` primeiro.
+    </ParamField>
+
+    ### Exemplo
+
+    ```yaml
+    name: whatpulse
+    strategy:
+      strategy: direct
+      url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
+      check_method: etag
+    segmented_downloads: true
+    ```
+  </Tab>
+
+  <Tab title="Script">
+    Use a estratégia `script` quando nem `forge` nem `direct` se encaixarem - por exemplo, quando a URL de download do app exige analisar uma resposta de API personalizada ou uma página de releases não padronizada.
+
+    Você fornece um script bash que fp-appimage-updater executa para resolver a URL de download e a versão atuais. O script deve imprimir exatamente duas linhas em stdout:
+
+    1. A URL de download
+    2. A string de versão
+
+    fp-appimage-updater armazena a string de versão localmente e a compara na próxima execução para decidir se uma atualização é necessária.
+
+    ### Campos
+
+    <ParamField path="strategy.strategy" type="string" required>
+      Deve ser `script`.
+    </ParamField>
+
+    <ParamField path="strategy.script_path" type="string" required>
+      Caminho para o script bash, relativo ao diretório da receita.
+    </ParamField>
+
+    <Note>
+      `script_path` é resolvido relativamente ao diretório que contém o arquivo de receita. Se sua receita estiver em `~/.config/fp-appimage-updater/apps/hayase/hayase.yml`, então `./resolver.sh` resolve para `~/.config/fp-appimage-updater/apps/hayase/resolver.sh`.
+    </Note>
+
+    ### Exemplo
+
+    ```yaml
+    name: hayase
+    strategy:
+      strategy: script
+      script_path: ./resolver.sh
+    ```
+
+    ```bash
+    #!/usr/bin/env bash
+
+    set -e
+
+    # Buscar a definição YAML
+    YAML_DATA=$(curl -sL "https://api.hayase.watch/files/latest-linux.yml")
+
+    # Use yq ou grep para extrair a versão - vamos escrever isso de forma genérica para sistemas sem yq
+    VERSION=$(echo "$YAML_DATA" | grep "^version:" | awk '{print $2}')
+    FILENAME=$(echo "$YAML_DATA" | grep "'linux-hayase-.*-linux.AppImage'" || echo "$YAML_DATA" | grep 'path:' | awk '{print $2}')
+    # fallback usando sed básico
+    if [ -z "$FILENAME" ]; then
+       FILENAME="linux-hayase-${VERSION}-linux.AppImage"
+    fi
+
+    DOWNLOAD_URL="https://api.hayase.watch/files/${FILENAME}"
+
+    # O atualizador espera "DOWNLOAD_URL" depois "VERSION" em linhas consecutivas de stdout:
+    echo "$DOWNLOAD_URL"
+    echo "$VERSION"
+    ```
+  </Tab>
+</Tabs>

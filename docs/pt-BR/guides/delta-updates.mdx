@@ -1,0 +1,75 @@
+---
+title: "Downloads delta"
+description: "Economize largura de banda baixando apenas bytes alterados com zsync e downloads segmentados."
+---
+
+fp-appimage-updater fornece dois recursos independentes para reduzir o tamanho do download e acelerar as atualizações: downloads delta zsync e downloads segmentados (paralelos por range).
+
+<Note>
+  Esses dois recursos são complementares. zsync reutiliza bytes de uma versão local anterior para reconstruir o novo arquivo. Downloads segmentados dividem o download em requisições HTTP range paralelas para acelerar a busca inicial. Você pode usar um, o outro ou ambos.
+</Note>
+
+## zsync (downloads delta)
+
+zsync baixa apenas os blocos que mudaram entre o AppImage instalado localmente e a nova versão, reduzindo significativamente a largura de banda para atualizações incrementais. fp-appimage-updater trata isso por meio de seu backend integrado `zsync-rs`, então você não precisa de um pacote de sistema `zsync` separado.
+
+A rota delta é automática quando a receita a habilita e um AppImage local está disponível.
+
+### Habilite por app
+
+Defina `zsync: true` em uma receita de app para derivar a URL `.zsync` da URL de download resolvida:
+
+```yaml
+name: myapp
+zsync: true
+strategy:
+  strategy: forge
+  repository: https://github.com/example/myapp
+  asset_match: "myapp-*.AppImage"
+```
+
+Se você souber a URL `.zsync` diretamente, forneça-a como uma string:
+
+```yaml
+name: myapp
+zsync: "https://example.com/myapp.AppImage.zsync"
+strategy:
+  strategy: direct
+  url: "https://example.com/myapp.AppImage"
+  check_method: etag
+```
+
+O que acontece durante uma atualização zsync:
+
+1. fp-appimage-updater procura o caminho do AppImage instalado anteriormente no seu estado local.
+2. Ele constrói a URL `.zsync` a partir da URL de download resolvida, ou usa a URL explícita que você forneceu.
+3. Ele executa o backend zsync integrado contra o arquivo antigo e um arquivo temporário de saída.
+4. Se isso tiver sucesso, ele renomeia o arquivo temporário para o lugar correto.
+5. Se falhar, ou se ainda não existir nenhum AppImage local, ele recua para o caminho normal de download.
+
+## Downloads segmentados (HTTP ranges)
+
+Downloads segmentados dividem arquivos grandes em requisições HTTP range paralelas, o que acelera downloads de servidores que suportam o cabeçalho `Range`. Esse recurso é habilitado por padrão.
+
+### Desabilite globalmente
+
+Para desligar downloads segmentados para todos os apps, defina o seguinte em `config.yml`:
+
+```yaml
+segmented_downloads: false
+```
+
+### Sobrescreva por app
+
+Você pode sobrescrever a configuração global para um app específico:
+
+```yaml
+name: myapp
+segmented_downloads: false
+strategy:
+  strategy: direct
+  url: "https://example.com/myapp.AppImage"
+  check_method: etag
+```
+
+Para verificar se um servidor suporta requisições por range para um determinado app, execute `fp-appimage-updater check`. A saída inclui dicas de suporte a range para apps de download direto.

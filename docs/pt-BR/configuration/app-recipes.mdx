@@ -1,0 +1,107 @@
+---
+title: "Receitas de app"
+description: "Defina seus apps com receitas YAML que fp-appimage-updater usa para gerenciar e atualizar."
+---
+
+Uma receita é um arquivo YAML que diz ao fp-appimage-updater tudo o que ele precisa saber sobre um app: como ele se chama, como encontrar atualizações e como instalá-lo. Você escreve uma receita por app, faz commit dela nos seus dotfiles, e fp-appimage-updater cuida do resto.
+
+## Onde as receitas ficam
+
+Coloque arquivos de receita dentro de `~/.config/fp-appimage-updater/apps/`. Cada arquivo pode ser um `.yml` plano no nível superior, ou um subdiretório contendo o arquivo de receita e quaisquer scripts de apoio.
+
+```
+~/.config/fp-appimage-updater/
+├── config.yml
+└── apps/
+    ├── hydra-launcher.yml
+    └── hayase/
+        ├── hayase.yml
+        └── resolver.sh
+```
+
+<Tip>
+  Use um subdiretório quando seu app precisar de um script `resolver.sh` personalizado para a [estratégia script](/pt-BR/configuration/update-strategies). Coloque a receita e o script juntos no subdiretório para que `script_path` permaneça um caminho relativo limpo como `./resolver.sh`.
+</Tip>
+
+## Campos
+
+<ParamField path="name" type="string" required>
+  Identificador único para o app. Usado como base do nome do arquivo, nome do symlink e nome de exibição na saída da CLI. Deve ser único entre todas as suas receitas.
+</ParamField>
+
+<ParamField path="strategy" type="object" required>
+  Define como fp-appimage-updater encontra e baixa atualizações. Veja [estratégias de atualização](/pt-BR/configuration/update-strategies) para a referência completa e exemplos.
+</ParamField>
+
+<ParamField path="integration" type="boolean">
+  Sobrescreve a configuração global `manage_desktop_files` para este app. Defina como `false` para pular a extração de arquivos `.desktop` e ícones para apps que não enviam um manifesto de desktop AppImage adequado.
+</ParamField>
+
+<ParamField path="create_symlink" type="boolean">
+  Sobrescreve a configuração global `create_symlinks` para este app.
+</ParamField>
+
+<ParamField path="segmented_downloads" type="boolean">
+  Sobrescreve a configuração global `segmented_downloads` para este app. Defina como `false` para servidores que não suportam requisições HTTP range.
+</ParamField>
+
+<ParamField path="respect_rate_limits" type="boolean">
+  Sobrescreve a configuração global `respect_rate_limits` para este app. Quando definido como `false`, fp-appimage-updater sempre tenta a requisição mesmo se uma janela anterior de limite de taxa ainda não tiver expirado.
+</ParamField>
+
+<ParamField path="github_proxy" type="boolean">
+  Sobrescreve a configuração global `github_proxy` para este app.
+</ParamField>
+
+<ParamField path="github_proxy_prefix" type="string | string[]">
+  Sobrescreve a configuração global `github_proxy_prefix` para este app. Aceita uma única string de URL, uma lista de URLs ou `all`.
+</ParamField>
+
+<ParamField path="storage_dir" type="string">
+  Sobrescreve o `storage_dir` global para este app. O arquivo AppImage é armazenado nesse diretório em vez do padrão global.
+</ParamField>
+
+<ParamField path="zsync" type="boolean | string">
+  Habilita downloads delta zsync para este app. Defina como `true` para permitir que fp-appimage-updater detecte a URL zsync automaticamente, ou forneça uma string de URL zsync direta para usar um endpoint específico.
+
+  ```yaml
+  # Auto-detect zsync URL
+  zsync: true
+
+  # Explicit zsync URL
+  zsync: "https://example.com/app.AppImage.zsync"
+  ```
+
+  Usa o backend integrado `zsync-rs`, então nenhum pacote de sistema `zsync` separado é necessário.
+</ParamField>
+
+## Exemplos
+
+<CodeGroup>
+
+```yaml hydra-launcher.yml
+name: hydra-launcher
+strategy:
+  strategy: forge
+  repository: https://github.com/hydralauncher/hydra
+  asset_match: "hydralauncher-*.AppImage"
+```
+
+```yaml whatpulse.yml
+name: whatpulse
+strategy:
+  strategy: direct
+  url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
+  check_method: etag
+segmented_downloads: true
+```
+
+</CodeGroup>
+
+Gere um esqueleto de receita para um novo app com:
+
+```bash
+fp-appimage-updater init --app <name> --strategy <forge|direct|script>
+```
+
+Use `--force` para sobrescrever um arquivo de receita existente.

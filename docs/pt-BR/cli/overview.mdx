@@ -1,0 +1,48 @@
+---
+title: "Visão geral da CLI"
+description: "Referência completa para todos os comandos e flags globais de fp-appimage-updater."
+---
+
+Invoque `fp-appimage-updater` com um conjunto opcional de flags globais seguido de um subcomando:
+
+```bash
+fp-appimage-updater [OPTIONS] <COMMAND>
+```
+
+## Flags globais
+
+Essas flags se aplicam a todo comando e devem ser colocadas antes do subcomando.
+
+<ParamField query="-c, --config <PATH>" type="string">
+  Sobrescreve o diretório de configuração padrão. Use isso para apontar para um local de configuração personalizado em vez de `~/.config/fp-appimage-updater/`.
+</ParamField>
+
+<ParamField query="--json" type="boolean">
+  Emite saída JSON legível por máquina em vez de tabelas e linhas de status legíveis por humanos. Funciona com `init`, `validate`, `doctor`, `list`, `check`, `update` e `remove`.
+</ParamField>
+
+<ParamField query="-h, --help" type="boolean">
+  Exibe informações de ajuda e sai.
+</ParamField>
+
+<ParamField query="-V, --version" type="boolean">
+  Exibe a versão atual e sai.
+</ParamField>
+
+## Comandos
+
+| Comando | Descrição |
+|---|---|
+| [`init`](/pt-BR/cli/init) | Inicializa arquivos de configuração iniciais |
+| [`validate`](/pt-BR/cli/check-update) | Valida arquivos de receita de aplicativo |
+| [`doctor`](/pt-BR/cli/check-update) | Executa verificações de saúde para a configuração local |
+| [`list`](/pt-BR/cli/manage) | Lista todos os aplicativos configurados e seu status |
+| [`check`](/pt-BR/cli/check-update) | Verifica atualizações |
+| [`update`](/pt-BR/cli/check-update) | Atualiza aplicativos (todos, ou especifique um) |
+| [`remove`](/pt-BR/cli/manage) | Remove um aplicativo e seu symlink |
+| [`self-update`](/pt-BR/cli/manage) | Atualiza o próprio fp-appimage-updater |
+| [`completion`](/pt-BR/cli/manage) | Gera scripts de conclusão de shell |
+
+<Note>
+  Passe `--json` antes de qualquer um dos comandos a seguir para obter saída JSON estruturada: `init`, `validate`, `doctor`, `list`, `check`, `update`, `remove`.
+</Note>

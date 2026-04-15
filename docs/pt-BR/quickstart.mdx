@@ -1,0 +1,68 @@
+---
+title: "Começo rápido"
+description: "Crie sua primeira receita de app e execute sua primeira atualização em menos de cinco minutos."
+---
+
+Este guia mostra como configurar fp-appimage-updater do zero: inicializar sua configuração global, escrever uma receita de app e instalar seu primeiro AppImage.
+
+<Steps>
+  <Step title="Inicialize a configuração global">
+    Execute o comando `init --global` para criar o arquivo padrão de configuração global:
+
+    ```bash
+    fp-appimage-updater init --global
+    ```
+
+    Isso cria `~/.config/fp-appimage-updater/config.yml` com padrões sensatos para caminhos de armazenamento, integração de desktop, downloads segmentados e mais. Abra o arquivo para revisar ou ajustar as configurações antes de continuar.
+  </Step>
+  <Step title="Crie sua primeira receita de app">
+    Use `init --app` para gerar um arquivo de receita para um app. Passe `--strategy` para escolher a estratégia de atualização. Este exemplo usa a estratégia `forge` para um app hospedado no GitHub:
+
+    ```bash
+    fp-appimage-updater init --app hydra-launcher --strategy forge
+    ```
+
+    Isso cria `~/.config/fp-appimage-updater/apps/hydra-launcher.yml`. Edite-o para corresponder ao seu repositório de destino e ao padrão do nome do arquivo do asset:
+
+    ```yaml
+    name: hydra-launcher
+    strategy:
+      strategy: forge
+      repository: https://github.com/hydralauncher/hydra
+      asset_match: "hydralauncher-*.AppImage"
+    ```
+
+    O campo `asset_match` é um padrão curinga correspondido contra os nomes de arquivo dos assets da release. Ajuste-o para selecionar o AppImage correto para sua arquitetura.
+  </Step>
+  <Step title="Valide a receita">
+    Antes de buscar qualquer coisa, confirme que a receita é analisada corretamente:
+
+    ```bash
+    fp-appimage-updater validate hydra-launcher
+    ```
+
+    Se o arquivo tiver quaisquer erros de sintaxe ou campos obrigatórios ausentes, o comando os reporta para que você possa corrigi-los antes de executar uma atualização.
+  </Step>
+  <Step title="Verifique se há atualizações">
+    Consulte a release upstream para ver se uma nova versão está disponível:
+
+    ```bash
+    fp-appimage-updater check hydra-launcher
+    ```
+
+    O comando lê primeiro seu estado local, depois consulta a fonte upstream pelos metadados e compara os dois. A saída mostra a versão resolvida, se um download é necessário e quaisquer dicas de suporte, como disponibilidade de download por range.
+  </Step>
+  <Step title="Instale ou atualize o app">
+    Baixe e instale o AppImage (e sua integração de desktop, se habilitada):
+
+    ```bash
+    fp-appimage-updater update hydra-launcher
+    ```
+
+    O comando segue o mesmo fluxo de verificar primeiro, depois baixa o novo AppImage apenas se necessário. Ele prefere o caminho delta integrado `zsync-rs` quando você tem um AppImage local e a receita o habilita, recua para HTTP segmentado ou um download normal, então marca o arquivo como executável, atualiza o symlink se habilitado, reescreve a entrada de desktop e o ícone se habilitados e, por fim, salva o novo estado.
+  </Step>
+</Steps>
+
+<Tip>
+  Para explorar todos os campos de receita e opções de estratégia disponíveis - incluindo `direct` (ETag/Last-Modified) e `script` (resolvedor personalizado) - veja a página [Estratégias de atualização](/pt-BR/configuration/update-strategies).
+</Tip>

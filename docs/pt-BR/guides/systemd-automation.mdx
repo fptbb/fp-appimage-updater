@@ -1,0 +1,72 @@
+---
+title: "Automação com systemd"
+description: "Execute verificações automáticas de atualização em segundo plano com um timer systemd."
+---
+
+O script de instalação rápida configura um timer systemd de usuário que executa `fp-appimage-updater update` periodicamente em segundo plano. O timer ativa 15 minutos após a inicialização e depois a cada 12 horas.
+
+Como fp-appimage-updater foi projetado para operações em espaço de usuário, sempre use a flag `--user` ao interagir com suas unidades systemd - não use `sudo` para instalações por usuário.
+
+## Configure o timer
+
+<Steps>
+  <Step title="Instale com suporte a systemd">
+    A instalação padrão configura o timer automaticamente:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash
+    ```
+
+    Se você quiser pular o timer, passe `--no-systemd`:
+
+    ```bash
+    curl -sL fau.fpt.icu/i | bash -s -- --no-systemd
+    ```
+  </Step>
+
+  <Step title="Verifique o status do timer">
+    Verifique se o timer está ativo:
+
+    ```bash
+    systemctl --user status fp-appimage-updater.timer
+    ```
+  </Step>
+
+  <Step title="Habilite e inicie o timer manualmente">
+    Se o timer não foi habilitado durante a instalação, inicie-o agora:
+
+    ```bash
+    systemctl --user enable --now fp-appimage-updater.timer
+    ```
+  </Step>
+
+  <Step title="Veja os logs">
+    Inspecione as execuções recentes de atualização em segundo plano:
+
+    ```bash
+    journalctl --user -u fp-appimage-updater.service -n 50
+    ```
+  </Step>
+</Steps>
+
+## Instalação em nível de sistema
+
+Para instalar o binário e as unidades systemd em nível de sistema (direcionando para `/usr/bin/` e `/usr/lib/systemd/system/`), execute o script de instalação com `sudo` e a flag `--system`:
+
+```bash
+curl -sL fau.fpt.icu/i | sudo bash -s -- --system
+```
+
+Quando instalado em nível de sistema, use `sudo` e a flag `--system` em vez de `--user` para todos os comandos `systemctl`.
+
+<Warning>
+  Se seu ambiente tiver um sistema de arquivos imutável (como Fedora Silverblue ou openSUSE MicroOS), o script rejeitará tentativas de instalação em nível de sistema. Use a instalação por usuário em vez disso.
+</Warning>
+
+## Desinstalação
+
+Para remover o binário, desabilitar o timer e limpar todos os arquivos instalados:
+
+```bash
+curl -sL fau.fpt.icu/i | bash -s -- --uninstall
+```

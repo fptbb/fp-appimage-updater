@@ -1,0 +1,87 @@
+---
+title: "verificar e atualizar"
+description: "Verifique se há atualizações disponíveis e instale-as."
+---
+
+## validate
+
+```bash
+fp-appimage-updater validate [app-name]
+```
+
+Analisa todos os arquivos de receita (ou um único nomeado) e reporta quais arquivos são válidos e quais contêm erros. Execute isso depois de editar uma receita para pegar erros de YAML antes que afetem `check` ou `update`.
+
+```bash
+# Validar todas as receitas
+fp-appimage-updater validate
+
+# Validar uma única receita
+fp-appimage-updater validate whatpulse
+```
+
+## check
+
+```bash
+fp-appimage-updater check [app-name]
+```
+
+Conecta-se à fonte de atualização configurada de cada app e a compara com a versão registrada localmente. Nenhum arquivo é baixado ou alterado.
+
+A saída inclui:
+- Se uma nova versão está disponível
+- A versão, ETag ou metadados Last-Modified usados para comparação
+- Dicas de suporte, como suporte a HTTP range para downloads segmentados
+
+```bash
+# Verificar todos os apps configurados
+fp-appimage-updater check
+
+# Verificar um único app
+fp-appimage-updater check whatpulse
+```
+
+## update
+
+```bash
+fp-appimage-updater update [app-name]
+```
+
+Baixa e instala atualizações para todos os apps configurados, ou para um único app nomeado. Cada atualização bem-sucedida reporta o tempo decorrido para que você possa ver quanto tempo cada app levou.
+
+Se um limite de taxa foi atingido em uma execução anterior, o app afetado é ignorado até que sua janela de nova tentativa expire - a menos que `respect_rate_limits` esteja desabilitado globalmente ou para esse app.
+
+```bash
+# Atualizar todos os apps
+fp-appimage-updater update
+
+# Atualizar um único app
+fp-appimage-updater update hydra-launcher
+```
+
+### Flags
+
+<ParamField query="--self-update" type="boolean">
+  Atualiza também o binário `fp-appimage-updater` em si depois de terminar as atualizações dos apps.
+</ParamField>
+
+<Note>
+  Tanto `check` quanto `update` executam vários apps concorrentemente. Um limite ciente do provedor limita quantas requisições vão para o mesmo host ao mesmo tempo, para que um lote grande permaneça rápido sem sobrecarregar um único servidor.
+</Note>
+
+## doctor
+
+```bash
+fp-appimage-updater doctor
+```
+
+Executa uma verificação de saúde local sem contatar nenhum servidor remoto. Ele verifica:
+
+- Se o diretório de configuração existe e é legível
+- Se o diretório de apps está presente
+- Se o `config.yml` global pode ser analisado
+- Se o diretório de estado está acessível
+- Se o lock de processo está ausente, ativo ou obsoleto
+- Se os arquivos de receita podem ser analisados com sucesso
+- Se os pré-requisitos locais de atualização parecem corretos
+
+Use `doctor` quando `check` ou `update` se comportarem de forma inesperada para descartar problemas de configuração local.

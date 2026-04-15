@@ -1,0 +1,43 @@
+---
+title: "Introdução"
+description: "fp-appimage-updater é uma ferramenta CLI rápida e em um único binário para gerenciar AppImages declarativamente por meio de receitas YAML."
+---
+
+fp-appimage-updater é uma ferramenta de CLI escrita em Rust que permite gerenciar, atualizar e integrar AppImages ao desktop inteiramente por meio de arquivos de configuração YAML fornecidos pelo usuário. Ela opera estritamente em espaço de usuário, não requer GUI e é pequena o suficiente para viver ao lado dos seus dotfiles em qualquer sistema Linux - incluindo distribuições imutáveis e atômicas.
+
+## Principais recursos
+
+<CardGroup cols={2}>
+  <Card title="Receitas declarativas baseadas em YAML" icon="file-code">
+    Defina cada app e sua estratégia de atualização em um arquivo YAML simples. Adicione, remova ou compartilhe apps editando arquivos - sem assistente necessário.
+  </Card>
+  <Card title="Três estratégias de atualização" icon="arrows-rotate">
+    Busque atualizações em releases do GitHub ou GitLab com `forge`, uma URL estável com `direct`, ou um script shell personalizado com `script`.
+  </Card>
+  <Card title="Downloads delta via zsync" icon="bolt">
+    Quando uma receita de app habilita `zsync`, o atualizador usa seu backend integrado `zsync-rs` para baixar apenas os bytes que mudaram - economizando largura de banda em AppImages grandes.
+  </Card>
+  <Card title="Downloads HTTP range segmentados" icon="arrow-down-to-line">
+    Arquivos grandes são divididos em requisições HTTP range paralelas quando o servidor oferece suporte. Habilitado por padrão e configurável por app.
+  </Card>
+  <Card title="Integração de desktop" icon="desktop">
+    Extrai manifests `.desktop` exatos e ícones diretamente de cada AppImage e os instala em `~/.local/share/applications`.
+  </Card>
+  <Card title="Automação em segundo plano com systemd" icon="clock">
+    O script de instalação configura um timer systemd que executa verificações e atualizações automaticamente em segundo plano.
+  </Card>
+  <Card title="Fallback de proxy do GitHub" icon="shield">
+    Tenta novamente as consultas da API de releases do GitHub por meio de uma ou mais bases de proxy configuradas quando os limites de taxa são atingidos, sem fazer proxy do download real.
+  </Card>
+  <Card title="Binário único abaixo de 1 MB" icon="microchip">
+    A ferramenta inteira é distribuída como um único binário independente comprimido, sem dependências em tempo de execução.
+  </Card>
+</CardGroup>
+
+## Filosofia de design
+
+fp-appimage-updater é intencionalmente estreito em escopo. Ele é executado inteiramente em espaço de usuário - nenhum acesso root é necessário para uma instalação padrão. A configuração vive em `~/.config/fp-appimage-updater/`, o que o torna uma escolha natural para repositórios de dotfiles. Não há GUI, nem um registro central de receitas, nem um banco de dados: o estado é conduzido puramente por arquivos em disco. Você escreve suas próprias receitas, as mantém onde quiser e a ferramenta fica fora do seu caminho.
+
+<Note>
+  O projeto nunca incluirá um repositório de receitas. Espera-se que você escreva e seja dono das suas próprias receitas de app.
+</Note>

@@ -1,0 +1,85 @@
+---
+title: "listar e remover"
+description: "Liste apps instalados e remova-os de forma limpa."
+---
+
+## list
+
+```bash
+fp-appimage-updater list
+```
+
+Mostra todos os apps configurados junto com sua versão registrada localmente e o status atual de integração (presença do symlink, entrada de desktop e ícone).
+
+## remove
+
+```bash
+fp-appimage-updater remove <app-name>
+fp-appimage-updater remove -a
+```
+
+Remove o binário, o symlink, os ícones extraídos e os arquivos de desktop de um app. Isso não exclui o arquivo de receita - o app pode ser reinstalado executando `update` novamente.
+
+### Flags
+
+<ParamField query="-a, --all" type="boolean">
+  Remove todos os apps instalados de uma vez.
+</ParamField>
+
+```bash
+# Remover um único app
+fp-appimage-updater remove whatpulse
+
+# Remover todos os apps instalados
+fp-appimage-updater remove -a
+```
+
+<Warning>
+  `remove -a` remove todos os AppImages instalados, seus symlinks, ícones e entradas de desktop em uma única etapa. Isso não pode ser desfeito sem executar `update` novamente.
+</Warning>
+
+## self-update
+
+```bash
+fp-appimage-updater self-update
+```
+
+Busca a release mais recente do próprio `fp-appimage-updater` e substitui o binário atual.
+
+### Flags
+
+<ParamField query="--pre-release" type="boolean">
+  Inclui versões pré-release ao verificar se há um binário mais novo.
+</ParamField>
+
+```bash
+# Atualizar para a release estável mais recente
+fp-appimage-updater self-update
+
+# Atualizar incluindo versões pré-release
+fp-appimage-updater self-update --pre-release
+```
+
+## completion
+
+```bash
+fp-appimage-updater completion <shell>
+```
+
+Gera um script de conclusão de shell para o shell especificado e o escreve na saída padrão. Shells suportados: `bash`, `zsh`, `fish`.
+
+```bash
+fp-appimage-updater completion bash
+fp-appimage-updater completion zsh
+fp-appimage-updater completion fish
+```
+
+<Tip>
+  Encaminhe a saída diretamente para o arquivo de configuração do seu shell para habilitar a conclusão por tabulação permanentemente:
+
+  ```bash
+  fp-appimage-updater completion bash >> ~/.bashrc
+  ```
+
+  Recarregue seu shell ou execute `source ~/.bashrc` para que as conclusões tenham efeito.
+</Tip>

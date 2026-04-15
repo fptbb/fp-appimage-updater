@@ -1,0 +1,55 @@
+---
+title: "fp-appimage-updater"
+description: "Gerenciador declarativo de AppImage para Linux. Receitas YAML, downloads delta e integração de desktop sem atritos - em um binário único abaixo de 1 MB."
+---
+
+Gerencie todos os seus AppImages declarativamente com receitas YAML. Defina seus apps uma vez, execute `fp-appimage-updater update` e tudo permanece atualizado - com entradas de desktop, ícones e symlinks tratados automaticamente.
+
+<CardGroup cols={2}>
+  <Card title="Instalação" icon="download" href="/pt-BR/installation">
+    Instale o binário via COPR, o script de instalação rápida ou uma release pré-compilada.
+  </Card>
+  <Card title="Começo rápido" icon="rocket" href="/pt-BR/quickstart">
+    Crie sua primeira receita de app e execute sua primeira atualização em minutos.
+  </Card>
+  <Card title="Configuração" icon="gear" href="/pt-BR/configuration/global-config">
+    Personalize caminhos de armazenamento, symlinks, integração de desktop e mais.
+  </Card>
+  <Card title="Referência da CLI" icon="terminal" href="/pt-BR/cli/overview">
+    Referência completa para cada comando e flag.
+  </Card>
+</CardGroup>
+
+## Como funciona
+
+<Steps>
+  <Step title="Instale o binário">
+    Obtenha `fp-appimage-updater` via COPR, o script de instalação ou a página de releases.
+  </Step>
+  <Step title="Escreva uma receita">
+    Crie um arquivo YAML em `~/.config/fp-appimage-updater/apps/` descrevendo seu app e como buscar atualizações.
+  </Step>
+  <Step title="Execute uma atualização">
+    Execute `fp-appimage-updater update` para baixar, instalar e integrar seus AppImages.
+  </Step>
+  <Step title="Automatize com systemd">
+    Habilite o timer systemd incluído para manter tudo atualizado automaticamente em segundo plano.
+  </Step>
+</Steps>
+
+## Principais recursos
+
+<CardGroup cols={2}>
+  <Card title="Três estratégias de atualização" icon="arrows-rotate" href="/pt-BR/configuration/update-strategies">
+    Busque em releases do GitHub/GitLab, uma URL direta estática ou um script shell personalizado.
+  </Card>
+  <Card title="Downloads delta" icon="bolt" href="/pt-BR/guides/delta-updates">
+    Use os downloads delta integrados do `zsync-rs` para buscar apenas bytes alterados, economizando largura de banda em AppImages grandes.
+  </Card>
+  <Card title="Integração de desktop" icon="desktop" href="/pt-BR/guides/desktop-integration">
+    Extraia e instale automaticamente arquivos `.desktop` e ícones dos AppImages.
+  </Card>
+  <Card title="Proxy do GitHub" icon="shield" href="/pt-BR/guides/github-proxy">
+    Encaminhe os metadados da API do GitHub por fallbacks de proxy para evitar limites de taxa.
+  </Card>
+</CardGroup>

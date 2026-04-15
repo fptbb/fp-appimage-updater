@@ -1,0 +1,92 @@
+---
+title: "FAQ"
+description: "Respostas para perguntas comuns sobre fp-appimage-updater."
+---
+
+<AccordionGroup>
+  <Accordion title="Preciso de root ou sudo para usar fp-appimage-updater?">
+    Não. fp-appimage-updater opera inteiramente em espaço de usuário. Todos os arquivos - AppImages, symlinks, entradas de desktop e ícones - ficam em `~/.local/`. Você só precisa de `sudo` se escolher instalar a ferramenta em nível de sistema usando a flag `--system` durante a instalação.
+  </Accordion>
+
+  <Accordion title="Posso usá-lo em uma distribuição Linux imutável ou atômica?">
+    Sim. fp-appimage-updater foi projetado para funcionar em distribuições imutáveis como Fedora Silverblue e openSUSE MicroOS. Todos os arquivos em tempo de execução são gravados em caminhos de espaço de usuário. Se você tentar uma instalação em nível de sistema (`--system`) em um ambiente estritamente imutável, o script de instalação rejeitará a solicitação.
+  </Accordion>
+
+  <Accordion title="Como faço para impedir que fp-appimage-updater atualize um app específico automaticamente?">
+    Não há uma flag "desativado". Para remover um app do gerenciamento, exclua seu arquivo de receita de `~/.config/fp-appimage-updater/apps/`.
+
+    Se você quiser manter a receita, mas pular os cooldowns de limite de taxa, defina `respect_rate_limits: false` globalmente em `config.yml` ou por app na receita:
+
+    ```yaml
+    respect_rate_limits: false
+    ```
+  </Accordion>
+
+  <Accordion title="O que acontece com meu AppImage se uma atualização falhar no meio do download?">
+    O AppImage existente não é substituído até que o download termine com sucesso. Um download falhado ou interrompido deixa a versão atual intacta.
+  </Accordion>
+
+  <Accordion title="fp-appimage-updater tem GUI?">
+    Não - é uma ferramenta intencionalmente apenas CLI e nunca terá GUI.
+  </Accordion>
+
+  <Accordion title="Como atualizo o próprio fp-appimage-updater?">
+    Execute o comando `self-update`:
+
+    ```bash
+    fp-appimage-updater self-update
+    ```
+
+    Para buscar uma versão pré-release, adicione `--pre-release`:
+
+    ```bash
+    fp-appimage-updater self-update --pre-release
+    ```
+  </Accordion>
+
+  <Accordion title="Posso usar um diretório de configuração personalizado?">
+    Sim. Passe `-c` ou `--config` antes de qualquer subcomando para sobrescrever o caminho padrão `~/.config/fp-appimage-updater/`:
+
+    ```bash
+    fp-appimage-updater -c /path/to/my-config check
+    ```
+
+    Essa flag funciona com todo comando.
+  </Accordion>
+
+  <Accordion title="Onde fp-appimage-updater lembra o que eu já instalei?">
+    Ele mantém um pequeno cache em `~/.local/state/fp-appimage-updater/cache.json`. Esse arquivo armazena a última versão conhecida, metadados de download, o caminho do arquivo instalado e quaisquer dicas de limite de taxa ou capacidade da execução anterior.
+
+    Se o cache estiver ausente, fp-appimage-updater o reconstrói na próxima vez que você executar `check` ou `update`.
+  </Accordion>
+
+  <Accordion title="O que é o campo zsync em uma receita de app?">
+    O campo `zsync` habilita downloads delta, que baixam apenas os bytes que mudaram em vez do AppImage inteiro. Defina-o como `true` para derivar a URL `.zsync` da URL de download resolvida, ou forneça uma URL explícita:
+
+    ```yaml
+    zsync: true
+    ```
+
+    ```yaml
+    zsync: "https://example.com/app.AppImage.zsync"
+    ```
+
+    fp-appimage-updater usa seu backend integrado `zsync-rs` para isso, então você não precisa instalar um pacote de sistema `zsync` separado. Ele só usa a rota delta quando já tem um AppImage local para comparar, e recua para o caminho normal de download se a atualização delta não puder ser executada.
+  </Accordion>
+
+  <Accordion title="Por que um app está sendo ignorado durante as atualizações?">
+    O app pode ter atingido um limite de taxa em uma execução anterior. Quando um limite de taxa é atingido, fp-appimage-updater registra a janela de nova tentativa e ignora esse app em execuções subsequentes até que a janela expire.
+
+    Verifique o status atual de um app específico:
+
+    ```bash
+    fp-appimage-updater check <app-name>
+    ```
+
+    Para desabilitar esse comportamento globalmente, defina `respect_rate_limits: false` no seu `config.yml`. Você também pode defini-lo por app no arquivo de receita.
+  </Accordion>
+
+  <Accordion title="Posso definir vários apps que vêm do mesmo repositório?">
+    Sim. Cada receita deve ter um campo `name` único, mas várias receitas podem apontar para assets diferentes do mesmo repositório. Desde que cada receita tenha um `name` distinto e seu padrão `asset_match` selecione um arquivo diferente, elas são gerenciadas independentemente.
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,50 @@
+---
+title: "Integração de desktop"
+description: "Extraia e instale automaticamente arquivos .desktop e ícones de AppImages."
+---
+
+A integração de desktop permite que seus AppImages apareçam automaticamente no iniciador de aplicativos do seu desktop. Quando habilitada, fp-appimage-updater extrai o manifesto `.desktop` e os ícones diretamente do AppImage usando `--appimage-extract`, e então os instala nos diretórios de usuário corretos.
+
+## O que é instalado
+
+| Tipo de arquivo | Destino |
+|---|---|
+| Arquivo `.desktop` | `~/.local/share/applications/` |
+| Ícones do app | `~/.local/share/icons/` |
+
+Os caminhos `Exec` e `Icon` dentro do arquivo `.desktop` são atualizados automaticamente para apontar para a localização instalada do AppImage, então seu iniciador sempre usa o caminho correto do binário.
+
+<Note>
+  A integração de desktop requer que o AppImage suporte `--appimage-extract`. Praticamente todos os AppImages modernos suportam isso.
+</Note>
+
+## Habilite ou desabilite globalmente
+
+A integração de desktop é habilitada por padrão. Defina `manage_desktop_files` no seu `config.yml` para controlá-la globalmente:
+
+```yaml
+manage_desktop_files: true
+```
+
+Para desabilitar a integração para todos os apps:
+
+```yaml
+manage_desktop_files: false
+```
+
+## Desabilite por app
+
+Para excluir um único app da integração de desktop, defina `integration: false` em sua receita:
+
+```yaml
+name: myapp
+integration: false
+strategy:
+  strategy: direct
+  url: "https://example.com/myapp.AppImage"
+  check_method: etag
+```
+
+<Tip>
+  Se o app não aparecer imediatamente no seu iniciador depois da atualização, execute `update-desktop-database ~/.local/share/applications` para atualizar o cache do menu de aplicativos.
+</Tip>
