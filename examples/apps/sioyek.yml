@@ -1,0 +1,6 @@
+name: sioyek
+strategy:
+  strategy: forge
+  repository: https://github.com/ahrm/sioyek
+  asset_match: "sioyek-release-linux.zip"
+  inner_asset_match: "Sioyek-x86_64.AppImage"

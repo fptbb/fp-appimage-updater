@@ -167,6 +167,22 @@ pub fn download_app(
             progress_completion_rendered |= download_progress_completion_rendered;
         }
 
+        if crate::extractor::is_zip_file(&tmp_path) {
+            let inner_match = match &app.strategy {
+                crate::config::StrategyConfig::Forge { inner_asset_match, .. } => {
+                    inner_asset_match.as_deref()
+                }
+                _ => None,
+            };
+
+            let extracted_path = tmp_path.with_extension("extracted");
+            crate::extractor::extract_zip_asset(&tmp_path, &extracted_path, inner_match)?;
+
+            // Replace zip with extracted file
+            fs::remove_file(&tmp_path)?;
+            fs::rename(&extracted_path, &tmp_path)?;
+        }
+
         if let Err(err) = ensure_downloaded_appimage_matches_host(&tmp_path) {
             let _ = fs::remove_file(&tmp_path);
             return Err(err);

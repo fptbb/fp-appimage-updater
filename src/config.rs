@@ -122,6 +122,8 @@ pub enum StrategyConfig {
         asset_match: String,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         asset_match_regex: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        inner_asset_match: Option<String>,
     },
     Direct {
         url: String,

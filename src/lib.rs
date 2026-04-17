@@ -4,6 +4,7 @@ pub mod config;
 pub mod disintegrator;
 pub mod doctor;
 pub mod downloader;
+pub mod extractor;
 pub mod initializer;
 pub mod integrator;
 pub mod lock;
