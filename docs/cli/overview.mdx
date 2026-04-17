@@ -32,19 +32,37 @@ These flags apply to every command and must be placed before the subcommand.
   Print the current version and exit.
 </ParamField>
 
-## Commands
+## Command Groups
+
+### Setup & Diagnostics
+
+These commands help you get started and ensure your local environment is correctly configured.
 
 | Command | Description |
 |---|---|
 | [`init`](/cli/init) | Initialize starter configuration files |
-| [`validate`](/cli/check-update) | Validate application recipe files |
-| [`doctor`](/cli/check-update) | Run health checks for local setup |
-| [`list`](/cli/manage) | List all configured applications and their status |
-| [`check`](/cli/check-update) | Check for updates |
-| [`update`](/cli/check-update) | Update applications (all, or specify one) |
-| [`remove`](/cli/manage) | Remove an application and its symlink |
-| [`self-update`](/cli/manage) | Update fp-appimage-updater itself |
-| [`completion`](/cli/manage) | Generate shell completion scripts |
+| [`validate`](/cli/check-update#validate) | Validate application recipe files |
+| [`doctor`](/cli/check-update#doctor) | Run health checks for local setup |
+
+### App Management
+
+The core commands for keeping your AppImages up to date and managing their installation state.
+
+| Command | Description |
+|---|---|
+| [`check`](/cli/check-update#check) | Check for available updates |
+| [`update`](/cli/check-update#update) | Update apps to their latest versions |
+| [`list`](/cli/manage#list) | List all configured apps and their status |
+| [`remove`](/cli/manage#remove) | Remove an app and its integrations |
+
+### System Utilities
+
+Commands for maintaining the updater itself and improving your terminal experience.
+
+| Command | Description |
+|---|---|
+| [`self-update`](/cli/manage#self-update) | Update fp-appimage-updater itself |
+| [`completion`](/cli/manage#completion) | Generate shell completion scripts |
 
 <Note>
   Pass `--json` before any of the following commands to get structured JSON

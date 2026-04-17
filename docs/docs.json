@@ -21,7 +21,7 @@
         "language": "en",
         "groups": [
           {
-            "group": "Get Started",
+            "group": "Getting Started",
             "pages": [
               "introduction",
               "installation",
@@ -29,7 +29,7 @@
             ]
           },
           {
-            "group": "Configuration",
+            "group": "Core Configuration",
             "pages": [
               "configuration/global-config",
               "configuration/app-recipes",
@@ -37,7 +37,7 @@
             ]
           },
           {
-            "group": "CLI Reference",
+            "group": "Command Line Interface",
             "pages": [
               "cli/overview",
               "cli/init",
@@ -46,7 +46,7 @@
             ]
           },
           {
-            "group": "Guides",
+            "group": "Advanced Usage",
             "pages": [
               "guides/desktop-integration",
               "guides/systemd-automation",
@@ -56,7 +56,7 @@
             ]
           },
           {
-            "group": "Troubleshooting",
+            "group": "Help & Troubleshooting",
             "pages": [
               "troubleshooting/doctor",
               "troubleshooting/faq"
@@ -68,7 +68,7 @@
         "language": "pt-BR",
         "groups": [
           {
-            "group": "Começar",
+            "group": "Primeiros Passos",
             "pages": [
               "pt-BR/introduction",
               "pt-BR/installation",
@@ -76,7 +76,7 @@
             ]
           },
           {
-            "group": "Configuração",
+            "group": "Configurações Principais",
             "pages": [
               "pt-BR/configuration/global-config",
               "pt-BR/configuration/app-recipes",
@@ -84,7 +84,7 @@
             ]
           },
           {
-            "group": "Referência da CLI",
+            "group": "Interface de Linha de Comando",
             "pages": [
               "pt-BR/cli/overview",
               "pt-BR/cli/init",
@@ -93,7 +93,7 @@
             ]
           },
           {
-            "group": "Guias",
+            "group": "Uso Avançado",
             "pages": [
               "pt-BR/guides/desktop-integration",
               "pt-BR/guides/systemd-automation",
@@ -103,7 +103,7 @@
             ]
           },
           {
-            "group": "Solução de problemas",
+            "group": "Ajuda e Diagnóstico",
             "pages": [
               "pt-BR/troubleshooting/doctor",
               "pt-BR/troubleshooting/faq"
@@ -115,7 +115,7 @@
         "language": "it",
         "groups": [
           {
-            "group": "Initium",
+            "group": "Primi Gradus",
             "pages": [
               "it/introduction",
               "it/installation",
@@ -123,7 +123,7 @@
             ]
           },
           {
-            "group": "Configuratio",
+            "group": "Configuratio Principalis",
             "pages": [
               "it/configuration/global-config",
               "it/configuration/app-recipes",
@@ -131,7 +131,7 @@
             ]
           },
           {
-            "group": "CLI Referentia",
+            "group": "Interface Lineae Mandatorum",
             "pages": [
               "it/cli/overview",
               "it/cli/init",
@@ -140,7 +140,7 @@
             ]
           },
           {
-            "group": "Duces",
+            "group": "Duces Provecti",
             "pages": [
               "it/guides/desktop-integration",
               "it/guides/systemd-automation",
@@ -150,7 +150,7 @@
             ]
           },
           {
-            "group": "Solutio Problematum",
+            "group": "Auxilium et Diagnostica",
             "pages": [
               "it/troubleshooting/doctor",
               "it/troubleshooting/faq"

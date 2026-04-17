@@ -29,19 +29,37 @@ Essas flags se aplicam a todo comando e devem ser colocadas antes do subcomando.
   Exibe a versão atual e sai.
 </ParamField>
 
-## Comandos
+## Grupos de Comandos
+
+### Configuração e Diagnóstico
+
+Estes comandos ajudam você a começar e garantem que seu ambiente local esteja configurado corretamente.
 
 | Comando | Descrição |
 |---|---|
 | [`init`](/pt-BR/cli/init) | Inicializa arquivos de configuração iniciais |
-| [`validate`](/pt-BR/cli/check-update) | Valida arquivos de receita de aplicativo |
-| [`doctor`](/pt-BR/cli/check-update) | Executa verificações de saúde para a configuração local |
-| [`list`](/pt-BR/cli/manage) | Lista todos os aplicativos configurados e seu status |
-| [`check`](/pt-BR/cli/check-update) | Verifica atualizações |
-| [`update`](/pt-BR/cli/check-update) | Atualiza aplicativos (todos, ou especifique um) |
-| [`remove`](/pt-BR/cli/manage) | Remove um aplicativo e seu symlink |
-| [`self-update`](/pt-BR/cli/manage) | Atualiza o próprio fp-appimage-updater |
-| [`completion`](/pt-BR/cli/manage) | Gera scripts de conclusão de shell |
+| [`validate`](/pt-BR/cli/check-update#validate) | Valida arquivos de receita de aplicativo |
+| [`doctor`](/pt-BR/cli/check-update#doctor) | Executa verificações de saúde para a configuração local |
+
+### Gerenciamento de Aplicativos
+
+Os comandos principais para manter seus AppImages atualizados e gerenciar seu estado de instalação.
+
+| Comando | Descrição |
+|---|---|
+| [`check`](/pt-BR/cli/check-update#check) | Verifica se há atualizações disponíveis |
+| [`update`](/pt-BR/cli/check-update#update) | Atualiza os aplicativos para suas versões mais recentes |
+| [`list`](/pt-BR/cli/manage#list) | Lista todos os aplicativos configurados e seu status |
+| [`remove`](/pt-BR/cli/manage#remove) | Remove um aplicativo e suas integrações |
+
+### Utilitários do Sistema
+
+Comandos para manter o próprio atualizador e melhorar sua experiência no terminal.
+
+| Comando | Descrição |
+|---|---|
+| [`self-update`](/pt-BR/cli/manage#self-update) | Atualiza o próprio fp-appimage-updater |
+| [`completion`](/pt-BR/cli/manage#completion) | Gera scripts de conclusão de shell |
 
 <Note>
   Passe `--json` antes de qualquer um dos comandos a seguir para obter saída JSON estruturada: `init`, `validate`, `doctor`, `list`, `check`, `update`, `remove`.

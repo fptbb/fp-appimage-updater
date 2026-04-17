@@ -29,19 +29,37 @@ Haec vexilla applicantur omni mandato et ante submandatum collocanda sunt.
   Ostendit versionem currentem et exit.
 </ParamField>
 
-## Mandata
+## Gruppos de Mandatos
 
-| Mandatum | Descriptio |
+### Configuration e Diagnostica
+
+Iste mandatos te adjuta a comenciar e assecura que tu ambiente local es configurate correctemente.
+
+| Mandato | Description |
 |---|---|
 | [`init`](/la/cli/init) | Initialisa fasciculos configurationis initiales |
-| [`validate`](/la/cli/check-update) | Validat fasciculos formulae applicationis |
-| [`doctor`](/la/cli/check-update) | Exsequitur verificatiónes sanitatis pro configuratione locali |
-| [`list`](/la/cli/manage) | Enumerat omnes applicationes configuratas et earum statum |
-| [`check`](/la/cli/check-update) | Verificat renovationes |
-| [`update`](/la/cli/check-update) | Renovat applicationes (omnes, vel specifica unam) |
-| [`remove`](/la/cli/manage) | Removet applicationem et eius symlink |
-| [`self-update`](/la/cli/manage) | Renovat ipsum fp-appimage-updater |
-| [`completion`](/la/cli/manage) | Generat scripta completionis shell |
+| [`validate`](/la/cli/check-update#validate) | Validat fasciculos formulae applicationis |
+| [`doctor`](/la/cli/check-update#doctor) | Exsequitur verificatiónes sanitatis pro configuratione locali |
+
+### Gestion de Applicationes
+
+Le mandatos principal pro mantener tu AppImages actualisate e gerer lor stato de installation.
+
+| Mandato | Description |
+|---|---|
+| [`check`](/la/cli/check-update#check) | Verifica si hay actualisationes disponibile |
+| [`update`](/la/cli/check-update#update) | Actualisa le applicationes a lor versiones le plus recente |
+| [`list`](/la/cli/manage#list) | Enumerat omnes applicationes configuratas et earum statum |
+| [`remove`](/la/cli/manage#remove) | Removet applicationem et eius integrationes |
+
+### Utilitates de Systema
+
+Mandatos pro mantener le actualisator mesme e meliorar tu experientia in le terminal.
+
+| Mandato | Description |
+|---|---|
+| [`self-update`](/la/cli/manage#self-update) | Renovat ipsum fp-appimage-updater |
+| [`completion`](/la/cli/manage#completion) | Generat scripta completionis shell |
 
 <Note>
   Transmitte `--json` ante quodlibet mandatum sequens ad obtinendum exitum JSON structuratum: `init`, `validate`, `doctor`, `list`, `check`, `update`, `remove`.
