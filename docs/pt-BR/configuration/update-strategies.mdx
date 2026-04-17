@@ -43,6 +43,10 @@ Toda receita de app requer um bloco `strategy` que informa ao fp-appimage-update
       Expressão regular opcional para corresponder ao nome do arquivo do asset. Use isso para casos complexos onde um padrão glob simples é muito abrangente. Por exemplo, para corresponder a `Obsidian-1.5.3.AppImage` enquanto exclui `Obsidian-1.5.3-arm64.AppImage`, você pode usar `^Obsidian-[0-9.]+\\.AppImage$`.
     </ParamField>
 
+    <ParamField path="strategy.inner_asset_match" type="string">
+      Padrão opcional para encontrar uma AppImage específica dentro de um arquivo `.zip`. Se o asset resolvido for um arquivo ZIP, o updater extrairá o arquivo que corresponde a este padrão. Se omitido, ele procura automaticamente por arquivos que terminam em `.AppImage` ou que contêm magic bytes ELF.
+    </ParamField>
+
     ### Sobrescritas por app
 
     Você também pode definir esses campos diretamente na receita do app (não dentro de `strategy`) para sobrescrever a configuração global para este app:
@@ -59,8 +63,9 @@ Toda receita de app requer um bloco `strategy` que informa ao fp-appimage-update
       Quando `false`, fp-appimage-updater ignora uma janela anterior de limite de taxa e sempre tenta a requisição.
     </ParamField>
 
-    ### Exemplo
+    ### Exemplos
 
+    **Release Forge padrão:**
     ```yaml
     name: hydra-launcher
     strategy:
@@ -68,6 +73,27 @@ Toda receita de app requer um bloco `strategy` que informa ao fp-appimage-update
       repository: https://github.com/hydralauncher/hydra
       asset_match: "hydralauncher-*.AppImage"
     segmented_downloads: true
+    ```
+
+    **Extração de arquivo ZIP:**
+    Se um app estiver empacotado dentro de um arquivo ZIP, use `asset_match` para encontrar o ZIP e `inner_asset_match` para especificar qual arquivo extrair:
+    ```yaml
+    name: sioyek
+    strategy:
+      strategy: forge
+      repository: https://github.com/ahrm/sioyek
+      asset_match: "sioyek-release-linux.zip"
+      inner_asset_match: "Sioyek-x86_64.AppImage"
+    ```
+
+    **Correspondência por Regex:**
+    Use `asset_match_regex` para casos complexos onde um padrão glob simples é muito abrangente (ex: para excluir assets `arm64`):
+    ```yaml
+    name: obsidian
+    strategy:
+      strategy: forge
+      repository: "https://github.com/obsidianmd/obsidian-releases"
+      asset_match_regex: "^Obsidian-[0-9.]+\\.AppImage$"
     ```
   </Tab>
 

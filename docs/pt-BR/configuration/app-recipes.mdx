@@ -61,6 +61,10 @@ Coloque arquivos de receita dentro de `~/.config/fp-appimage-updater/apps/`. Cad
   Sobrescreve o `storage_dir` global para este app. O arquivo AppImage é armazenado nesse diretório em vez do padrão global.
 </ParamField>
 
+<ParamField path="inner_asset_match" type="string">
+  Padrão opcional para encontrar uma AppImage específica dentro de um arquivo `.zip`. Se omitido, o updater encontra automaticamente arquivos que terminam em `.AppImage` ou que contêm magic bytes ELF.
+</ParamField>
+
 <ParamField path="zsync" type="boolean | string">
   Habilita downloads delta zsync para este app. Defina como `true` para permitir que fp-appimage-updater detecte a URL zsync automaticamente, ou forneça uma string de URL zsync direta para usar um endpoint específico.
 

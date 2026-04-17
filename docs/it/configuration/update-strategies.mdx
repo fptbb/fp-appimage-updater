@@ -43,6 +43,10 @@ Omnis formula applicationis requirit blocum `strategy` qui dicit fp-appimage-upd
       Expressio regularis optionalis pro nomine fasciculi assetis. Utere hoc pro casibus complexis ubi formula glob simplex nimis lata est. Exempli gratia, ad respondendum `Obsidian-1.5.3.AppImage` dum excluditur `Obsidian-1.5.3-arm64.AppImage`, potes uti `^Obsidian-[0-9.]+\\.AppImage$`.
     </ParamField>
 
+    <ParamField path="strategy.inner_asset_match" type="string">
+      Formula optionalis ad inveniendam AppImage specificam intra archivum `.zip`. Si asset solutum est fasciculus ZIP, renovator fasciculum huic formulae respondentem extrahet. Si omittitur, automatice quaerit fasciculos in `.AppImage` desinentes aut magic bytes ELF continentes.
+    </ParamField>
+
     ### Superationes per applicationem
 
     Etiam potes definire hos campos directe in formula applicationis (non intra `strategy`) ad superandum configurationem globalem pro hac applicatione:
@@ -59,8 +63,9 @@ Omnis formula applicationis requirit blocum `strategy` qui dicit fp-appimage-upd
       Cum `false`, fp-appimage-updater ignorat fenestram priorem limitis rate et semper temptat petitionem.
     </ParamField>
 
-    ### Exemplum
+    ### Exempla
 
+    **Emissio Forge normativa:**
     ```yaml
     name: hydra-launcher
     strategy:
@@ -68,6 +73,27 @@ Omnis formula applicationis requirit blocum `strategy` qui dicit fp-appimage-upd
       repository: https://github.com/hydralauncher/hydra
       asset_match: "hydralauncher-*.AppImage"
     segmented_downloads: true
+    ```
+
+    **Extractio archivi ZIP:**
+    Si applicatio intra fasciculum ZIP colligatur, utere `asset_match` ad ZIP inveniendum et `inner_asset_match` ad definiendum quem fasciculum extrahere:
+    ```yaml
+    name: sioyek
+    strategy:
+      strategy: forge
+      repository: https://github.com/ahrm/sioyek
+      asset_match: "sioyek-release-linux.zip"
+      inner_asset_match: "Sioyek-x86_64.AppImage"
+    ```
+
+    **Responsio per Regex:**
+    Utere `asset_match_regex` pro casibus complexis ubi formula glob simplex nimis lata est (exempli gratia, ad assets `arm64` excludendos):
+    ```yaml
+    name: obsidian
+    strategy:
+      strategy: forge
+      repository: "https://github.com/obsidianmd/obsidian-releases"
+      asset_match_regex: "^Obsidian-[0-9.]+\\.AppImage$"
     ```
   </Tab>
 

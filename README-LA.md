@@ -10,6 +10,7 @@ fp-appimage-updater est instrumentum CLI celere et unius binarii in Rust scriptu
 ## Proprietates
 - **Data-Ductum:** Omnes appicationes et earum renovationis strategiae in YAML fasciculis definiuntur.
 - **Renovationis Resolutores:** Novissimam versionem per Forge Releases (GitHub/GitLab/Gitea/Forgejo), Nexus Directos (ETag/Last-Modified HTTP Headers), aut Scripta Shell Consuetudinaria petere.
+- **Auxilium Zip:** Automatice detegit assets `.zip`, extrahit AppImage internum utendo heuristicis (magic bytes ELF aut nomen fasciculi) aut formulis explicitis, et archivum mundat.
 - **Renovationes Delta:** Backend internum `zsync-rs` utitur ad bytes tantum mutatos extrahendos cum reciperium appicationis id sinit.
 - **Downloadationes Segmentatae:** Downloadationes directas magnas in HTTP ranges findere cum servitor eas sustinet. Defalta sinitur.
 - **Operationes Parallelae:** `check` et `update` multas appicationes simul currunt ut batchas magnas celeriter servent, cum limitibus provisoris consciis ad eundem hostem non vexandum.
@@ -157,8 +158,9 @@ fp-appimage-updater tres diversas strategias ad renovationes solvendas et depone
 Usitata ad deponendum ex releaseis GitHub aut GitLab.
 
   - `repository`: URL ad repositorium GitHub aut GitLab.
-  - `asset_match`: Textus wildcard ad congruendum nomen asset specifici in release (ex. gr., `"*-amd64.AppImage"`).
+  - `asset_match`: Textus wildcard ad congruendum nomen asset specifici in release (ex. gr., `"*-amd64.AppImage"` aut `"*.zip"`).
   - `asset_match_regex`: Matcher regex optionalis pro nomine fasciculi asset. Utere hoc cum glob nimis multa release assets congrueret. Regex contra plenum nomen asset confertur.
+  - `inner_asset_match`: Formula optionalis ad inveniendam AppImage specificam intra archivum `.zip`. Si omittitur, renovator automatice invenit fasciculos in `.AppImage` desinentes aut magic bytes ELF continentes.
   - `github_proxy`: GitHub-tantum metadata proxy recursus optionalis per appicationem. Cum sinitur, `fp-appimage-updater` GitHub release API per bases proxy configuratas rursus temptat si petitio directa limitata est. Downloadatio finalis adhuc URL asset GitHub directo utitur.
   - `github_proxy_prefix`: URL basis proxy optionalis, array basium URL, aut textus `all` usitatus cum `github_proxy` sinitur. Defalta est `https://gh-proxy.com/`. App eas ordine temptat donec una operetur. Utere `all` ad omnem proxy compatibilem in instrumento structum temptandum.
   - `respect_rate_limits`: Superatio optionalis per appicationem quae renovatori dicit ut appicationes praetereat usque dum fenestra rursus temptandi expiret cum limes ratae tangitur. Defalta est `true`.

@@ -61,6 +61,10 @@ Pone fasciculos formulae intra `~/.config/fp-appimage-updater/apps/`. Quilibet f
   Superat `storage_dir` globalem pro hac applicatione. Fasciculus AppImage reponitur in hoc directorio loco defaltae globalis.
 </ParamField>
 
+<ParamField path="inner_asset_match" type="string">
+  Formula optionalis ad inveniendam AppImage specificam intra archivum `.zip`. Si omittitur, renovator automatice invenit fasciculos in `.AppImage` desinentes aut magic bytes ELF continentes.
+</ParamField>
+
 <ParamField path="zsync" type="boolean | string">
   Habilitat downloads delta zsync pro hac applicatione. Pone ad `true` ut fp-appimage-updater URL zsync automatice detegat, vel praebe stringam URL zsync directam ad utendum endpoint specificum.
 

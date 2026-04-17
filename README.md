@@ -10,6 +10,7 @@ fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed t
 ## Features
 - **Data-Driven:** All apps and their update strategies are defined in YAML files.
 - **Update Resolvers:** Fetch the latest version via Forge Releases (GitHub/GitLab/Gitea/Forgejo), Direct Links (ETag/Last-Modified HTTP Headers), or Custom Shell Scripts.
+- **Zip Support:** Automatically detects `.zip` assets, extracts the AppImage inside using built-in heuristics (ELF magic bytes or filename) or explicit patterns, and cleans up the archive.
 - **Delta Updates:** Uses the built-in `zsync-rs` backend to download only modified bytes when an app recipe enables it.
 - **Segmented Downloads:** Split large direct downloads into HTTP ranges when the server supports them. Enabled by default.
 - **Parallel Operations:** `check` and `update` run multiple apps concurrently to keep large batches fast, with provider-aware caps to avoid hammering the same host.
@@ -142,8 +143,9 @@ fp-appimage-updater supports three different strategies for resolving and downlo
 #### 1. forge
 Used for downloading from GitHub or GitLab releases.
 - `repository`: The URL to the GitHub or GitLab repository.
-- `asset_match`: A wildcard string to match the specific asset name in the release (e.g., `"*-amd64.AppImage"`).
+- `asset_match`: A wildcard string to match the specific asset name in the release (e.g., `"*-amd64.AppImage"` or `"*.zip"`).
 - `asset_match_regex`: Optional regex matcher for the asset filename. Use this when a glob would match too many release assets. The regex is matched against the full asset name.
+- `inner_asset_match`: Optional pattern to find a specific AppImage inside a `.zip` archive. If omitted, the updater automatically finds files ending in `.AppImage` or containing ELF magic bytes.
 - `github_proxy`: Optional per-app GitHub-only metadata proxy fallback. When enabled, `fp-appimage-updater` retries the GitHub release API through the configured proxy bases if the direct request is rate limited. The final download still uses the direct GitHub asset URL.
 - `github_proxy_prefix`: Optional proxy base URL, array of base URLs, or the string `all` used when `github_proxy` is enabled. Defaults to `https://gh-proxy.com/`. The app tries them in order until one works. Use `all` to try every compatible proxy built into the app.
 - `respect_rate_limits`: Optional per-app override that tells the updater to skip apps until the retry window expires when a rate limit is hit. Defaults to `true`.

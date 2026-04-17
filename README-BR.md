@@ -10,6 +10,7 @@ fp-appimage-updater é uma ferramenta CLI rápida, de binário único, escrita e
 ## Features
 - **Baseado em Dados:** Todos os apps e suas estratégias de atualização são definidos em arquivos YAML.
 - **Resolvedores de Atualização:** Busca a versão mais recente via Forge Releases (GitHub/GitLab/Gitea/Forgejo), Links Diretos (Cabeçalhos HTTP ETag/Last-Modified) ou Scripts Shell Personalizados.
+- **Suporte a Zip:** Detecta automaticamente assets `.zip`, extrai a AppImage interna usando heurísticas (magic bytes ELF ou nome de arquivo) ou padrões explícitos, e limpa o arquivo.
 - **Atualizações Delta:** Usa o backend `zsync-rs` integrado pra baixar só os bytes modificados quando uma receita de app habilita isso.
 - **Downloads Segmentados:** Divide downloads diretos grandes em ranges HTTP quando o servidor suporta. Habilitado por padrão.
 - **Operações em Paralelo:** `check` e `update` rodam múltiplos apps ao mesmo tempo pra manter lotes grandes rápidos, com limites cientes do provider pra não sobrecarregar o mesmo host.
@@ -142,8 +143,9 @@ fp-appimage-updater suporta três estratégias diferentes pra resolver e baixar 
 #### 1. forge
 Usado pra baixar de releases do GitHub ou GitLab.
 - `repository`: A URL pro repositório do GitHub ou GitLab.
-- `asset_match`: Uma string com wildcard pra combinar o nome específico do asset na release (ex: `"*-amd64.AppImage"`).
+- `asset_match`: Uma string com wildcard pra combinar o nome específico do asset na release (ex: `"*-amd64.AppImage"` ou `"*.zip"`).
 - `asset_match_regex`: Matcher de regex opcional pro nome do arquivo do asset. Use isso quando um glob combinaria com assets demais na release. O regex é comparado contra o nome completo do asset.
+- `inner_asset_match`: Padrão opcional para encontrar uma AppImage específica dentro de um arquivo `.zip`. Se omitido, o updater encontra automaticamente arquivos que terminam em `.AppImage` ou que contêm magic bytes ELF.
 - `github_proxy`: Fallback opcional de proxy só pra metadados do GitHub por app. Quando habilitado, o `fp-appimage-updater` tenta de novo a API de release do GitHub pelos bases de proxy configurados se o request direto bater em rate limit. O download final ainda usa a URL direta do asset do GitHub.
 - `github_proxy_prefix`: Base URL de proxy opcional, array de URLs base, ou a string `all` usada quando `github_proxy` tá habilitado. Padrão é `https://gh-proxy.com/`. O app tenta elas em ordem até uma funcionar. Use `all` pra tentar todo proxy compatível embutido no app.
 - `respect_rate_limits`: Override opcional por app que diz pro updater pular apps até a janela de retry expirar quando bater em rate limit. Padrão é `true`.

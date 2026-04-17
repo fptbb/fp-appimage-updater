@@ -43,6 +43,10 @@ Every app recipe requires a `strategy` block that tells fp-appimage-updater wher
       Optional regular expression to match the asset filename. Use this for complex cases where a simple glob pattern is too broad. For example, to match `Obsidian-1.5.3.AppImage` while excluding `Obsidian-1.5.3-arm64.AppImage`, you can use `^Obsidian-[0-9.]+\\.AppImage$`.
     </ParamField>
 
+    <ParamField path="strategy.inner_asset_match" type="string">
+      Optional pattern to find a specific AppImage inside a `.zip` archive. If the resolved asset is a ZIP file, the updater will extract the file matching this pattern. If omitted, it automatically searches for files ending in `.AppImage` or containing ELF magic bytes.
+    </ParamField>
+
     ### Per-app overrides
 
     You can also set these fields directly on the app recipe (not inside `strategy`) to override the global config for this app:
@@ -59,8 +63,9 @@ Every app recipe requires a `strategy` block that tells fp-appimage-updater wher
       When `false`, fp-appimage-updater ignores a prior rate limit window and always attempts the request.
     </ParamField>
 
-    ### Example
+    ### Examples
 
+    **Standard Forge release:**
     ```yaml
     name: hydra-launcher
     strategy:
@@ -68,6 +73,27 @@ Every app recipe requires a `strategy` block that tells fp-appimage-updater wher
       repository: https://github.com/hydralauncher/hydra
       asset_match: "hydralauncher-*.AppImage"
     segmented_downloads: true
+    ```
+
+    **ZIP archive extraction:**
+    If an app is packaged inside a ZIP file, use `asset_match` to find the ZIP and `inner_asset_match` to specify which file to extract:
+    ```yaml
+    name: sioyek
+    strategy:
+      strategy: forge
+      repository: https://github.com/ahrm/sioyek
+      asset_match: "sioyek-release-linux.zip"
+      inner_asset_match: "Sioyek-x86_64.AppImage"
+    ```
+
+    **Regex matching:**
+    Use `asset_match_regex` for complex cases where a simple glob pattern is too broad (e.g., to exclude `arm64` assets):
+    ```yaml
+    name: obsidian
+    strategy:
+      strategy: forge
+      repository: "https://github.com/obsidianmd/obsidian-releases"
+      asset_match_regex: "^Obsidian-[0-9.]+\\.AppImage$"
     ```
   </Tab>
 
