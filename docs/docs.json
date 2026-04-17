@@ -50,6 +50,7 @@
             "pages": [
               "guides/desktop-integration",
               "guides/systemd-automation",
+              "guides/github-api-tokens",
               "guides/github-proxy",
               "guides/delta-updates"
             ]
@@ -96,6 +97,7 @@
             "pages": [
               "pt-BR/guides/desktop-integration",
               "pt-BR/guides/systemd-automation",
+              "pt-BR/guides/github-api-tokens",
               "pt-BR/guides/github-proxy",
               "pt-BR/guides/delta-updates"
             ]
@@ -142,6 +144,7 @@
             "pages": [
               "it/guides/desktop-integration",
               "it/guides/systemd-automation",
+              "it/guides/github-api-tokens",
               "it/guides/github-proxy",
               "it/guides/delta-updates"
             ]
