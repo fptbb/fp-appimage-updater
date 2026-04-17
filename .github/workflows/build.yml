@@ -3,8 +3,20 @@ name: Build & Release
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - 'README.md'
+      - 'README-BR.md'
+      - 'README-LA.md'
+      - 'docs/**'
+      - 'examples/**'
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - 'README.md'
+      - 'README-BR.md'
+      - 'README-LA.md'
+      - 'docs/**'
+      - 'examples/**'
   workflow_dispatch:
     inputs:
       prerelease:

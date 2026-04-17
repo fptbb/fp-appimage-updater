@@ -76,6 +76,18 @@ build-and-compress:
     expire_in: 7 days
   rules:
     - if: $CI_COMMIT_BRANCH
+      changes:
+        - "src/**/*"
+        - "tests/**/*"
+        - "scripts/**/*"
+        - "systemd/**/*"
+        - "vendor/**/*"
+        - ".cargo/**/*"
+        - "Cargo.*"
+        - "*.sh"
+        - "copr.spec"
+        - "Justfile"
+        - ".gitlab-ci.yml"
 
 release:
   stage: release
