@@ -1,0 +1,60 @@
+---
+title: "Tokens API do GitHub"
+description: "Melhores práticas para configurar e proteger seus tokens de acesso pessoal do GitHub."
+---
+
+Usar um Token de Acesso Pessoal (PAT) do GitHub é a maneira mais confiável de contornar os limites de taxa (rate limits) da API do GitHub. Embora o atualizador suporte proxies públicos, um token fornece um limite privado e significativamente maior (5.000 requisições por hora).
+
+## Por que usar um token?
+
+- **Confiabilidade:** Você não compartilha o limite com outros usuários de um proxy público.
+- **Velocidade:** Sem saltos extras através de servidores de proxy.
+- **Privacidade:** Suas verificações de atualização são realizadas diretamente entre sua máquina e o GitHub.
+
+## Criando um token
+
+1. Vá para as suas [Configurações de Token do GitHub](https://github.com/settings/tokens).
+2. Clique em **Generate new token (classic)**.
+3. Dê um nome descritivo como `fp-appimage-updater`.
+4. **Nenhum escopo é necessário.** Para repositórios públicos, o token só precisa do acesso padrão "public access" para ler metadados de release. Não marque nenhuma caixa, a menos que esteja atualizando de repositórios privados.
+5. Clique em **Generate token** e copie-o imediatamente.
+
+## Métodos de configuração
+
+### 1. Variável de Ambiente (Mais Privado)
+A variável de ambiente `GITHUB_TOKEN` é a forma mais segura porque nunca toca o seu disco em texto simples se gerenciada corretamente (ex: via um gerenciador de segredos ou perfil de shell criptografado).
+
+```bash
+export GITHUB_TOKEN="ghp_seu_token_aqui"
+```
+
+### 2. Arquivo de Segredos (Recomendado para Dotfiles)
+Crie um arquivo `secrets.yml`. Isso permite manter suas credenciais separadas do seu `config.yml`, facilitando a exclusão do Git ou a criptografia usando ferramentas como `sops`, `age` ou `git-crypt`.
+
+**Arquivo:** `~/.config/fp-appimage-updater/secrets.yml`
+```yaml
+github_token: ghp_seu_token_aqui
+```
+
+### 3. Configuração Global
+Você pode adicioná-lo ao `config.yml`, mas isso é desencorajado se você compartilha seus dotfiles publicamente.
+
+## Melhores Práticas
+
+### Use un token dedicado
+Não reutilize seu token principal de desenvolvimento. Crie um token "classic" ou "fine-grained" especificamente para esta ferramenta com permissões mínimas.
+
+### Isolamento de segurança
+O fp-appimage-updater foi projetado com a segurança em mente:
+- **Sem vazamento para Proxy:** O token **nunca** é enviado para as URLs configuradas em `github_proxy_prefix`. Ele é enviado apenas para `api.github.com`.
+- **Apenas em Memória:** Quando carregado do `config.yml` ou `secrets.yml`, o token é armazenado em memória e nunca é escrito de volta no disco pelo aplicativo.
+
+### Criptografia de Dotfiles
+Se você armazena sua configuração em um repositório público, use o `secrets.yml` e adicione-o ao seu `.gitignore`, ou use uma ferramenta de criptografia:
+
+- **sops:** Criptografe o `secrets.yml` e descriptografe-o apenas quando necessário.
+- **Variáveis de ambiente:** Use a CLI de um gerenciador de senhas (como `bw`, `op` ou `lpass`) para injetar o token:
+  ```bash
+  export GITHUB_TOKEN=$(op read op://Personal/GitHub/token)
+  fp-appimage-updater update
+  ```

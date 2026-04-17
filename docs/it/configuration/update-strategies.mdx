@@ -17,9 +17,13 @@ Omnis formula applicationis requirit blocum `strategy` qui dicit fp-appimage-upd
 
 <Tabs>
   <Tab title="Forge">
-    Utere strategia `forge` pro applicationibus distributis per emissiones GitHub vel GitLab. fp-appimage-updater consulit API emissionum, formulae nomini fasciculi assetis tuae respondet et fasciculum correspondentem dēscribit.
+    Utere strategia `forge` pro applicationibus distributis per emissiones GitHub, GitLab, Gitea, vel Forgejo. fp-appimage-updater consulit API emissionum, formulae nomini fasciculi assetis tuae respondet et fasciculum correspondentem dēscribit.
+
+    Pro repositoriis GitHub, potes providere tesseram API per `secrets.yml` vel variabilem ambientis `GITHUB_TOKEN` ad limites rate praeteriendos. Vide [Configurationem Globalem](/it/configuration/global-config#limites-ratae-github--tesserae) pro singulis.
 
     Pro repositoriis GitLab, resolver adhibet API latest permalink in `https://gitlab.com/api/v4/projects/<project-path>/releases/permalink/latest`, legit `assets.links` et praefert `direct_asset_url` cum praesto est.
+
+    Pro instantiis auto-hospitatis Gitea vel Forgejo, resolver automatice detegit platam interrogando endpoint metadata `/swagger.v1.json` hostis repositorii.
 
     ### Campi
 
@@ -28,7 +32,7 @@ Omnis formula applicationis requirit blocum `strategy` qui dicit fp-appimage-upd
     </ParamField>
 
     <ParamField path="strategy.repository" type="string" required>
-      URL completa ad repositorium GitHub vel GitLab (exempli gratia, `https://github.com/owner/repo`).
+      URL completa ad repositorium GitHub, GitLab, Gitea, vel Forgejo (exempli gratia, `https://github.com/owner/repo`).
     </ParamField>
 
     <ParamField path="strategy.asset_match" type="string" required>

@@ -9,11 +9,12 @@ fp-appimage-updater est instrumentum CLI celere et unius binarii in Rust scriptu
 
 ## Proprietates
 - **Data-Ductum:** Omnes appicationes et earum renovationis strategiae in YAML fasciculis definiuntur.
-- **Renovationis Resolutores:** Novissimam versionem per Forge Releases (GitHub/GitLab), Nexus Directos (ETag/Last-Modified HTTP Headers), aut Scripta Shell Consuetudinaria petere.
+- **Renovationis Resolutores:** Novissimam versionem per Forge Releases (GitHub/GitLab/Gitea/Forgejo), Nexus Directos (ETag/Last-Modified HTTP Headers), aut Scripta Shell Consuetudinaria petere.
 - **Renovationes Delta:** Backend internum `zsync-rs` utitur ad bytes tantum mutatos extrahendos cum reciperium appicationis id sinit.
 - **Downloadationes Segmentatae:** Downloadationes directas magnas in HTTP ranges findere cum servitor eas sustinet. Defalta sinitur.
 - **Operationes Parallelae:** `check` et `update` multas appicationes simul currunt ut batchas magnas celeriter servent, cum limitibus provisoris consciis ad eundem hostem non vexandum.
 - **Intervalla Limitis Ratae:** Appicationes quae limites ratae tangunt praeteriuntur usque ad tempus rursus temptandi, nisi optaveris secus.
+- **Auxilium Pro Tesserā GitHub:** Utere tessera accessus personalis per variabilem ambientis `GITHUB_TOKEN` aut `secrets.yml` ad limites ratae API GitHub (5,000 req/hora) praeteriendos.
 - **GitHub Proxy Recursus:** Auxilium optionale pro GitHub metadata proxy limites ratae GitHub API praeterire potest sine ipsa downloadatione proxied, et multas bases proxy ordine temptare potest.
 - **Integratio Scriptorii:** Manifesta `.desktop` et icones accurate directe ex AppImage extrahit utendo `--appimage-extract` et eas inconsutiliter in menum tuum appicationum `.local/share/applications` inserit.
 - **Salutis Inspectiones Locales:** `doctor` configurationem localem, indices necessarios, et alia problemata constitutionis localis inspicit.

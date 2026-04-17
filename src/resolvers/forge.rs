@@ -188,19 +188,21 @@ pub fn resolve(
     let host = forge_host(client, repository, state)?;
     let url = release_api_url_with_config(host, repository, global_config)?;
 
-    let response = client
-        .get(&url)
-        .config()
-        .http_status_as_error(false)
-        .build()
-        .call()
-        .with_context(|| {
-            format!(
-                "Failed to reach {} release API for {}",
-                host_name(host),
-                repository
-            )
-        })?;
+    let mut request = client.get(&url).config().http_status_as_error(false).build();
+
+    if host == ForgeHost::GitHub {
+        if let Some(token) = &global_config.github_token {
+            request = request.header("Authorization", format!("Bearer {}", token));
+        }
+    }
+
+    let response = request.call().with_context(|| {
+        format!(
+            "Failed to reach {} release API for {}",
+            host_name(host),
+            repository
+        )
+    })?;
 
     let status = response.status().as_u16();
     if status == 403 || status == 429 {

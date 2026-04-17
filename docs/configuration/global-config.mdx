@@ -31,6 +31,30 @@ github_proxy: true
 github_proxy_prefix: https://gh-proxy.com/
 ```
 
+## GitHub Rate Limits & Tokens
+
+GitHub imposes rate limits on its REST API for unauthenticated requests (60 requests per hour per IP). To bypass this, you can provide a personal access token (PAT), which increases your limit to 5,000 requests per hour.
+
+### Configuration methods
+
+fp-appimage-updater checks for a token in the following order:
+
+1.  **Environment Variable:** Set the `GITHUB_TOKEN` environment variable in your shell or service manager.
+2.  **Secrets File:** Create a `secrets.yml` file in your config directory. This is the recommended method for dotfile users who want to keep secrets separate from general configuration for easier encryption.
+3.  **Global Config:** You can also place `github_token` directly in `config.yml`, though this is discouraged for security reasons.
+
+### Using secrets.yml
+
+Create the file at `~/.config/fp-appimage-updater/secrets.yml`:
+
+```yaml
+github_token: ghp_your_secret_token_here
+```
+
+<Note>
+  Tokens are only sent to `api.github.com`. They are **never** shared with third-party GitHub proxies configured via `github_proxy_prefix`.
+</Note>
+
 ## Fields
 
 <ParamField path="storage_dir" type="string" default="~/.local/bin/AppImages">

@@ -8,7 +8,7 @@ use serde_yaml::Value;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::config::{AppConfig, GlobalConfig};
+use crate::config::{AppConfig, GlobalConfig, SecretsConfig};
 
 const APP_NAME: &str = "fp-appimage-updater";
 
@@ -74,6 +74,10 @@ impl ConfigPaths {
         self.config_dir.join("config.yml")
     }
 
+    pub fn secrets_path(&self) -> PathBuf {
+        self.config_dir.join("secrets.yml")
+    }
+
     pub fn apps_dir(&self) -> PathBuf {
         self.config_dir.join("apps")
     }
@@ -89,12 +93,11 @@ impl ConfigPaths {
 
 pub fn load_global_config(paths: &ConfigPaths) -> Result<GlobalConfig> {
     let config_path = paths.global_config_path();
-    if config_path.exists() {
+    let mut config = if config_path.exists() {
         let content = fs::read_to_string(&config_path)
             .with_context(|| format!("Failed to read global config: {:?}", config_path))?;
-        let config: GlobalConfig = serde_yaml::from_str(&content)
-            .with_context(|| format!("Failed to parse global config: {:?}", config_path))?;
-        Ok(config)
+        serde_yaml::from_str(&content)
+            .with_context(|| format!("Failed to parse global config: {:?}", config_path))?
     } else {
         let default_config = GlobalConfig::default();
         if let Some(parent) = config_path.parent() {
@@ -107,7 +110,65 @@ pub fn load_global_config(paths: &ConfigPaths) -> Result<GlobalConfig> {
         fs::write(&config_path, content)
             .with_context(|| format!("Failed to write default global config: {:?}", config_path))?;
 
-        Ok(default_config)
+        default_config
+    };
+
+    // Load secrets from secrets.yml if it exists
+    let secrets_path = paths.secrets_path();
+    if secrets_path.exists() {
+        let content = fs::read_to_string(&secrets_path)
+            .with_context(|| format!("Failed to read secrets: {:?}", secrets_path))?;
+        let secrets: SecretsConfig = serde_yaml::from_str(&content)
+            .with_context(|| format!("Failed to parse secrets: {:?}", secrets_path))?;
+        if let Some(token) = secrets.github_token {
+            config.github_token = Some(token);
+        }
+    }
+
+    // Environment variable overrides file-based config
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        if !token.is_empty() {
+            config.github_token = Some(token);
+        }
+    }
+
+    Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_github_token_loading_priority() {
+        let tmp = tempdir().unwrap();
+        let config_dir = tmp.path().join("config");
+        fs::create_dir_all(&config_dir).unwrap();
+        
+        let paths = ConfigPaths {
+            config_dir: config_dir.clone(),
+            state_dir: tmp.path().join("state"),
+        };
+
+        // 1. Test loading from secrets.yml
+        unsafe { std::env::remove_var("GITHUB_TOKEN") };
+        fs::write(
+            paths.secrets_path(),
+            "github_token: \"token-from-file\"",
+        ).unwrap();
+
+        let config = load_global_config(&paths).unwrap();
+        assert_eq!(config.github_token, Some("token-from-file".to_string()));
+
+        // 2. Test env var override
+        unsafe { std::env::set_var("GITHUB_TOKEN", "token-from-env") };
+        let config = load_global_config(&paths).unwrap();
+        assert_eq!(config.github_token, Some("token-from-env".to_string()));
+        
+        // Cleanup
+        unsafe { std::env::remove_var("GITHUB_TOKEN") };
     }
 }
 

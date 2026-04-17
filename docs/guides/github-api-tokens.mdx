@@ -1,0 +1,60 @@
+---
+title: "GitHub API Tokens"
+description: "Best practices for configuring and securing your GitHub personal access tokens."
+---
+
+Using a GitHub Personal Access Token (PAT) is the most reliable way to bypass GitHub's API rate limits. While the updater supports public proxies, a token provides a private and significantly higher limit (5,000 requests per hour).
+
+## Why use a token?
+
+- **Reliability:** You are not shared with other users on a public proxy.
+- **Speed:** No extra hops through proxy servers.
+- **Privacy:** Your update checks are performed directly between your machine and GitHub.
+
+## Creating a token
+
+1. Go to your [GitHub Token Settings](https://github.com/settings/tokens).
+2. Click **Generate new token (classic)**.
+3. Give it a descriptive name like `fp-appimage-updater`.
+4. **No scopes are required.** For public repositories, the token only needs the default "public access" to read release metadata. Do not check any boxes unless you are updating from private repositories.
+5. Click **Generate token** and copy it immediately.
+
+## Configuration methods
+
+### 1. Environment Variable (Most Private)
+The `GITHUB_TOKEN` environment variable is the most secure way because it never touches your disk in plain text if managed correctly (e.g., via a secret manager or encrypted shell profile).
+
+```bash
+export GITHUB_TOKEN="ghp_your_token_here"
+```
+
+### 2. Secrets File (Recommended for Dotfiles)
+Create a `secrets.yml` file. This allows you to keep your credentials separate from your `config.yml`, making it easy to exclude from Git or encrypt using tools like `sops`, `age`, or `git-crypt`.
+
+**File:** `~/.config/fp-appimage-updater/secrets.yml`
+```yaml
+github_token: ghp_your_token_here
+```
+
+### 3. Global Configuration
+You can add it to `config.yml`, but this is discouraged if you share your dotfiles publicly.
+
+## Best Practices
+
+### Use a dedicated token
+Do not reuse your primary development token. Create a "fine-grained" or "classic" token specifically for this tool with minimal permissions.
+
+### Security isolation
+fp-appimage-updater is designed with security in mind:
+- **No Proxy Leaks:** The token is **never** sent to the configured `github_proxy_prefix` URLs. It is only sent to `api.github.com`.
+- **In-Memory Only:** When loaded from `config.yml` or `secrets.yml`, the token is stored in memory and is never written back to disk by the application.
+
+### Dotfile encryption
+If you store your configuration in a public repository, use `secrets.yml` and add it to your `.gitignore`, or use an encryption tool:
+
+- **sops:** Encrypt `secrets.yml` and decrypt it only when needed.
+- **Environment variables:** Use a password manager CLI (like `bw`, `op`, or `lpass`) to inject the token:
+  ```bash
+  export GITHUB_TOKEN=$(op read op://Personal/GitHub/token)
+  fp-appimage-updater update
+  ```

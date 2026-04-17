@@ -1,0 +1,60 @@
+---
+title: "Tesserae API GitHub"
+description: "Optimae praxis pro configurandis et tuendis tesseris accessus personalis GitHub."
+---
+
+Uti Tesserā Accessus Personalis (PAT) GitHub est via fidelissima ad limites ratae API GitHub praeteriendos. Quamquam renovator procuratores publicos sustinet, tessera limitem privatum et signanter maiorem (5,000 petitiones per horam) praebet.
+
+## Cur tesserā uti?
+
+- **Fidelitas:** Limitem non cum aliis usoribus procuratoris publici communicas.
+- **Celeritas:** Sine saltibus extra per servitores procuratorios.
+- **Privatitas:** Inspectiones renovationis tuae directe inter machinam tuam et GitHub fiunt.
+
+## Creare tesseram
+
+1. Vade ad [Configurationes Tesserae GitHub](https://github.com/settings/tokens).
+2. Preme **Generate new token (classic)**.
+3. Da nomen descriptivum sicut `fp-appimage-updater`.
+4. **Nulli ambitus (scopes) requiruntur.** Pro repositoriis publicis, tessera tantum eget accessu defalta "public access" ad metadata emissionis legenda. Noli eligere ullam capsam nisi ex repositoriis privatis renovas.
+5. Preme **Generate token** and exscribe eam statim.
+
+## Methodi configurationis
+
+### 1. Variabilis Ambientis (Maxime Privata)
+Variabilis ambientis `GITHUB_TOKEN` est via tutissima quia numquam discum tuum in textu plano tangit si recte administratur (ex. per procuratorem secretorum vel profilum shell cryptatum).
+
+```bash
+export GITHUB_TOKEN="ghp_tua_tessera_hic"
+```
+
+### 2. Fasciculus Secretorum (Commendata pro Dotfiles)
+Crea fasciculum `secrets.yml`. Hoc sinit te credentia tua a `config.yml` separata tenere, quod facile facit ea a Git excludere vel cryptographiā tueri utendo instrumentis sicut `sops`, `age`, vel `git-crypt`.
+
+**Fasciculus:** `~/.config/fp-appimage-updater/secrets.yml`
+```yaml
+github_token: ghp_tua_tessera_hic
+```
+
+### 3. Configuratio Globalis
+Potes eam addere ad `config.yml`, sed hoc non suadetur si dotfiles tuos publice communicas.
+
+## Optimae Praxis
+
+### Utere tesserā dedicatā
+Noli iterum uti tesserā tuā principali evolutionis. Crea tesseram "classic" vel "fine-grained" speciatim pro hoc instrumento cum minimis permissionibus.
+
+### Isolatio securitatis
+fp-appimage-updater cum securitate in mente designatus est:
+- **Sine effluxu ad Procuratorem:** Tessera **numquam** mittitur ad URLs in `github_proxy_prefix` configuratas. Mittitur tantum ad `api.github.com`.
+- **In Memoriā Tantum:** Cum oneratur ex `config.yml` vel `secrets.yml`, tessera in memoriā reponitur et numquam in discum ab appicatione rescribitur.
+
+### Cryptographia Dotfiles
+Si configurationem tuam in repositorio publico reponis, utere `secrets.yml` et adde eum ad `.gitignore`, vel utere instrumento cryptographiae:
+
+- **sops:** Cryptographiā tuere `secrets.yml` et solve eam tantum cum opus est.
+- **Variabiles ambientis:** Utere CLI procuratoris tesserarum (sicut `bw`, `op`, vel `lpass`) ad tesseram iniiciendam:
+  ```bash
+  export GITHUB_TOKEN=$(op read op://Personal/GitHub/token)
+  fp-appimage-updater update
+  ```

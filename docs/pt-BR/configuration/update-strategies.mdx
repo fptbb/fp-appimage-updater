@@ -17,7 +17,11 @@ Toda receita de app requer um bloco `strategy` que informa ao fp-appimage-update
 
 <Tabs>
   <Tab title="Forge">
-    Use a estratégia `forge` para apps distribuídos por meio de releases do GitHub ou GitLab. fp-appimage-updater consulta a API de releases, corresponde o nome do arquivo do asset ao seu padrão e baixa o arquivo correspondente.
+    Use a estratégia `forge` para apps distribuídos por meio de releases do GitHub, GitLab, Gitea ou Forgejo. fp-appimage-updater consulta a API de releases, corresponde o nome do arquivo do asset ao seu padrão e baixa o arquivo correspondente.
+
+    Para repositórios do GitHub, você pode fornecer um token de API via `secrets.yml` ou pela variável de ambiente `GITHUB_TOKEN` para contornar limites de taxa. Veja [Configuração Global](/pt-BR/configuration/global-config#github-rate-limits--tokens) para detalhes.
+
+    Para instâncias auto-hospedadas do Gitea ou Forgejo, o resolvedor detecta automaticamente a plataforma consultando o endpoint de metadados `/swagger.v1.json` do host do repositório.
 
     Para repositórios GitLab, o resolvedor usa a API latest permalink em `https://gitlab.com/api/v4/projects/<project-path>/releases/permalink/latest`, lê `assets.links` e prefere `direct_asset_url` quando disponível.
 
@@ -28,7 +32,7 @@ Toda receita de app requer um bloco `strategy` que informa ao fp-appimage-update
     </ParamField>
 
     <ParamField path="strategy.repository" type="string" required>
-      URL completa para o repositório GitHub ou GitLab (por exemplo, `https://github.com/owner/repo`).
+      URL completa para o repositório GitHub, GitLab, Gitea ou Forgejo (por exemplo, `https://github.com/owner/repo`).
     </ParamField>
 
     <ParamField path="strategy.asset_match" type="string" required>

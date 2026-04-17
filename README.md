@@ -9,11 +9,12 @@ fp-appimage-updater is a fast, single-binary CLI tool written in Rust designed t
 
 ## Features
 - **Data-Driven:** All apps and their update strategies are defined in YAML files.
-- **Update Resolvers:** Fetch the latest version via Forge Releases (GitHub/GitLab), Direct Links (ETag/Last-Modified HTTP Headers), or Custom Shell Scripts.
+- **Update Resolvers:** Fetch the latest version via Forge Releases (GitHub/GitLab/Gitea/Forgejo), Direct Links (ETag/Last-Modified HTTP Headers), or Custom Shell Scripts.
 - **Delta Updates:** Uses the built-in `zsync-rs` backend to download only modified bytes when an app recipe enables it.
 - **Segmented Downloads:** Split large direct downloads into HTTP ranges when the server supports them. Enabled by default.
 - **Parallel Operations:** `check` and `update` run multiple apps concurrently to keep large batches fast, with provider-aware caps to avoid hammering the same host.
 - **Rate-Limit Cooldowns:** Apps that hit rate limits are skipped until their retry time unless you opt out.
+- **GitHub Token Support:** Use a personal access token via `GITHUB_TOKEN` environment variable or `secrets.yml` to bypass GitHub API rate limits (5,000 req/hour).
 - **GitHub Proxy Fallback:** Optional GitHub metadata proxy support can bypass GitHub API rate limits without proxying the actual download, and can try multiple proxy bases in order.
 - **Desktop Integration:** Extracts exact `.desktop` manifests and icons directly from the AppImage using `--appimage-extract` and seamlessly inserts them into your `.local/share/applications` application menu.
 - **Local Health Checks:** `doctor` checks the local configuration, required directories, and other local setup issues.

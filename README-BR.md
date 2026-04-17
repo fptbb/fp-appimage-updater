@@ -9,11 +9,12 @@ fp-appimage-updater é uma ferramenta CLI rápida, de binário único, escrita e
 
 ## Features
 - **Baseado em Dados:** Todos os apps e suas estratégias de atualização são definidos em arquivos YAML.
-- **Resolvedores de Atualização:** Busca a versão mais recente via Forge Releases (GitHub/GitLab), Links Diretos (Cabeçalhos HTTP ETag/Last-Modified) ou Scripts Shell Personalizados.
+- **Resolvedores de Atualização:** Busca a versão mais recente via Forge Releases (GitHub/GitLab/Gitea/Forgejo), Links Diretos (Cabeçalhos HTTP ETag/Last-Modified) ou Scripts Shell Personalizados.
 - **Atualizações Delta:** Usa o backend `zsync-rs` integrado pra baixar só os bytes modificados quando uma receita de app habilita isso.
 - **Downloads Segmentados:** Divide downloads diretos grandes em ranges HTTP quando o servidor suporta. Habilitado por padrão.
 - **Operações em Paralelo:** `check` e `update` rodam múltiplos apps ao mesmo tempo pra manter lotes grandes rápidos, com limites cientes do provider pra não sobrecarregar o mesmo host.
 - **Cooldowns de Rate-Limit:** Apps que batem em rate limits são pulados até o tempo de retry, a menos que você desative isso.
+- **Suporte a Token do GitHub:** Use um token de acesso pessoal via variável de ambiente `GITHUB_TOKEN` ou `secrets.yml` para contornar limites de taxa da API do GitHub (5.000 req/hora).
 - **Fallback de Proxy GitHub:** Suporte opcional a proxy de metadados do GitHub pode contornar rate limits da API do GitHub sem proxyar o download real, e pode tentar múltiplos bases de proxy em ordem.
 - **Integração com Desktop:** Extrai os manifests `.desktop` exatos e ícones diretamente da AppImage usando `--appimage-extract` e insere eles de forma seamless no seu menu de aplicativos em `.local/share/applications`.
 - **Verificações de Saúde Locais:** `doctor` verifica a configuração local, diretórios necessários e outros problemas de setup local.

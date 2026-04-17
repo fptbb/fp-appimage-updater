@@ -31,6 +31,30 @@ github_proxy: true
 github_proxy_prefix: https://gh-proxy.com/
 ```
 
+## Limites Ratae GitHub & Tesserae
+
+GitHub limites ratae imponit suae REST API pro petitionibus non authenticatis (60 petitiones per horam per IP). Ad hoc praeteriundum, potes providere tesseram accessus personalis (PAT), quae limitem tuum ad 5,000 petitiones per horam auget.
+
+### Methodi configurationis
+
+fp-appimage-updater tesseram quaerit in hoc ordine:
+
+1.  **Variabilis Ambientis:** Pone variabilem ambientis `GITHUB_TOKEN` in shell vel procuratore servitii tui.
+2.  **Fasciculus Secretorum:** Crea fasciculum `secrets.yml` in directorio configurationis tuae. Haec est methodus commendata pro usoribus dotfiles qui secreta a configuratione generali separata tenere volunt pro faciliori cryptographia.
+3.  **Configuratio Globalis:** Potes etiam ponere `github_token` directe in `config.yml`, quamquam hoc non suadetur propter rationes securitatis.
+
+### Usus secrets.yml
+
+Crea fasciculum in `~/.config/fp-appimage-updater/secrets.yml`:
+
+```yaml
+github_token: ghp_tua_tessera_secreta_hic
+```
+
+<Note>
+  Tesserae mittuntur tantum ad `api.github.com`. **Numquam** communicantur cum procuratoribus GitHub tertiae partis per `github_proxy_prefix` configuratis.
+</Note>
+
 ## Campi
 
 <ParamField path="storage_dir" type="string" default="~/.local/bin/AppImages">

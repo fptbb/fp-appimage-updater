@@ -40,6 +40,8 @@ pub struct GlobalConfig {
     pub gitlab_release_api_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub gitlab_release_web_url: Option<String>,
+    #[serde(skip)]
+    pub github_token: Option<String>,
 }
 
 impl Default for GlobalConfig {
@@ -58,8 +60,15 @@ impl Default for GlobalConfig {
             github_release_web_url: None,
             gitlab_release_api_url: None,
             gitlab_release_web_url: None,
+            github_token: None,
         }
     }
+}
+
+/// Configuration for sensitive credentials, typically stored in `secrets.yml`.
+#[derive(Debug, Deserialize, Default)]
+pub struct SecretsConfig {
+    pub github_token: Option<String>,
 }
 
 fn default_respect_rate_limits() -> bool {
