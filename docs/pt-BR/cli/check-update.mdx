@@ -32,13 +32,26 @@ A saída inclui:
 - A versão, ETag ou metadados Last-Modified usados para comparação
 - Dicas de suporte, como suporte a HTTP range para downloads segmentados
 
-```bash
+### Exemplos
+
+<CodeGroup>
+
+```bash Todos os apps
 # Verificar todos os apps configurados
 fp-appimage-updater check
+```
 
+```bash App único
 # Verificar um único app
 fp-appimage-updater check whatpulse
 ```
+
+```bash Saída JSON
+# Verificar todos os apps e formatar a saída com jq
+fp-appimage-updater --json check | jq
+```
+
+</CodeGroup>
 
 ## update
 
@@ -48,15 +61,33 @@ fp-appimage-updater update [app-name]
 
 Baixa e instala atualizações para todos os apps configurados, ou para um único app nomeado. Cada atualização bem-sucedida reporta o tempo decorrido para que você possa ver quanto tempo cada app levou.
 
-Se um limite de taxa foi atingido em uma execução anterior, o app afetado é ignorado até que sua janela de nova tentativa expire - a menos que `respect_rate_limits` esteja desabilitado globalmente ou para esse app.
+If a rate-limit was hit on a previous run, the affected app is skipped until its retry window expires — unless `respect_rate_limits` is disabled globally or for that app.
 
-```bash
+### Exemplos
+
+<CodeGroup>
+
+```bash Todos os apps
 # Atualizar todos os apps
 fp-appimage-updater update
+```
 
+```bash App único
 # Atualizar um único app
 fp-appimage-updater update hydra-launcher
 ```
+
+```bash Com self-update
+# Atualizar todos os apps e depois atualizar o próprio atualizador
+fp-appimage-updater update --self-update
+```
+
+```bash JSON e jq
+# Atualizar um app e verificar se ele foi realmente atualizado
+fp-appimage-updater --json update whatpulse | jq '.[0].is_updated'
+```
+
+</CodeGroup>
 
 ### Flags
 

@@ -26,13 +26,21 @@ Removet binarium, symlink, icones extractos et fasciculos desktopi applicationis
   Removet omnes applicationes installatas simul.
 </ParamField>
 
-```bash
+### Exempla
+
+<CodeGroup>
+
+```bash Unica applicatio
 # Removere unicam applicationem
 fp-appimage-updater remove whatpulse
+```
 
+```bash Omnes applicationes
 # Removere omnes applicationes installatas
 fp-appimage-updater remove -a
 ```
+
+</CodeGroup>
 
 <Warning>
   `remove -a` removet omnes AppImages installatos, eorum symlinks, icones et inscriptiones desktopi in unico gradu. Hoc reverti non potest sine exsecutione `update` iterum.
@@ -68,18 +76,33 @@ fp-appimage-updater completion <shell>
 
 Generat scriptum completionis shell pro shell specificato et scribit id in exitum normalem. Shell sustenta: `bash`, `zsh`, `fish`.
 
-```bash
-fp-appimage-updater completion bash
-fp-appimage-updater completion zsh
-fp-appimage-updater completion fish
+### Exempla
+
+<CodeGroup>
+
+```bash Bash
+# Habilitare pro sessione bash currenti
+source <(fp-appimage-updater completion bash)
+
+# Habilitare permanenter pro bash
+fp-appimage-updater completion bash >> ~/.bashrc
 ```
 
+```bash Zsh
+# Habilitare pro sessione zsh currenti
+source <(fp-appimage-updater completion zsh)
+
+# Habilitare permanenter pro zsh
+fp-appimage-updater completion zsh >> ~/.zshrc
+```
+
+```bash Fish
+# Habilitare permanenter pro fish
+fp-appimage-updater completion fish > ~/.config/fish/completions/fp-appimage-updater.fish
+```
+
+</CodeGroup>
+
 <Tip>
-  Transmitte exitum directe ad fasciculum configurationis shell tui ad habilitem completionem per tabulam permanenter:
-
-  ```bash
-  fp-appimage-updater completion bash >> ~/.bashrc
-  ```
-
-  Recarica shell tuum vel exsequere `source ~/.bashrc` ut completiones effectum habeant.
+  Recarica shell tuum vel exsequere `source ~/.bashrc` (vel aequivalens) ut completiones effectum habeant.
 </Tip>

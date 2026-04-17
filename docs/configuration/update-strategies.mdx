@@ -95,6 +95,25 @@ Every app recipe requires a `strategy` block that tells fp-appimage-updater wher
       repository: "https://github.com/obsidianmd/obsidian-releases"
       asset_match_regex: "^Obsidian-[0-9.]+\\.AppImage$"
     ```
+
+    **GitLab repository:**
+    ```yaml
+    name: glab
+    strategy:
+      strategy: forge
+      repository: https://gitlab.com/gitlab-org/cli
+      asset_match: "glab_*_linux_amd64.AppImage"
+    ```
+
+    **Self-hosted Gitea/Forgejo:**
+    The host platform is automatically detected.
+    ```yaml
+    name: my-private-app
+    strategy:
+      strategy: forge
+      repository: https://gitea.example.com/owner/repo
+      asset_match: "app-*.AppImage"
+    ```
   </Tab>
 
   <Tab title="Direct">

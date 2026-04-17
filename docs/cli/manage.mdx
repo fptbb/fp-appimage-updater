@@ -26,13 +26,21 @@ Removes the binary, symlink, extracted icons, and desktop files for an app. This
   Remove every installed app at once.
 </ParamField>
 
-```bash
+### Examples
+
+<CodeGroup>
+
+```bash Single app
 # Remove a single app
 fp-appimage-updater remove whatpulse
+```
 
+```bash All apps
 # Remove all installed apps
 fp-appimage-updater remove -a
 ```
+
+</CodeGroup>
 
 <Warning>
   `remove -a` removes all installed AppImages, their symlinks, icons, and
@@ -70,19 +78,33 @@ fp-appimage-updater completion <shell>
 
 Generates a shell completion script for the specified shell and writes it to standard output. Supported shells: `bash`, `zsh`, `fish`.
 
-```bash
-fp-appimage-updater completion bash
-fp-appimage-updater completion zsh
-fp-appimage-updater completion fish
+### Examples
+
+<CodeGroup>
+
+```bash Bash
+# Enable for current bash session
+source <(fp-appimage-updater completion bash)
+
+# Enable permanently for bash
+fp-appimage-updater completion bash >> ~/.bashrc
 ```
 
+```bash Zsh
+# Enable for current zsh session
+source <(fp-appimage-updater completion zsh)
+
+# Enable permanently for zsh
+fp-appimage-updater completion zsh >> ~/.zshrc
+```
+
+```bash Fish
+# Enable permanently for fish
+fp-appimage-updater completion fish > ~/.config/fish/completions/fp-appimage-updater.fish
+```
+
+</CodeGroup>
+
 <Tip>
-  Pipe the output directly to your shell configuration file to enable
-  tab-completion permanently:
-
-  ```bash
-  fp-appimage-updater completion bash >> ~/.bashrc
-  ```
-
-  Reload your shell or run `source ~/.bashrc` for the completions to take effect.
+  Reload your shell or run `source ~/.bashrc` (or equivalent) for the completions to take effect.
 </Tip>

@@ -64,3 +64,24 @@ Mandatos pro mantener le actualisator mesme e meliorar tu experientia in le term
 <Note>
   Transmitte `--json` ante quodlibet mandatum sequens ad obtinendum exitum JSON structuratum: `init`, `validate`, `doctor`, `list`, `check`, `update`, `remove`.
 </Note>
+
+## Exempla
+
+<CodeGroup>
+
+```bash Exitus JSON
+# Enumera omnes applicationes in formato JSON
+fp-appimage-updater --json list
+```
+
+```bash Config Personalis
+# Verifica renovationes utendo directorio configurationis personali
+fp-appimage-updater -c ~/config-mea check
+```
+
+```bash JSON et jq
+# Renovat unicam applicationem et extrahit URL dēscriptionis ex JSON
+fp-appimage-updater --json update whatpulse | jq '.[0].download_url'
+```
+
+</CodeGroup>

@@ -26,13 +26,21 @@ Remove o binário, o symlink, os ícones extraídos e os arquivos de desktop de 
   Remove todos os apps instalados de uma vez.
 </ParamField>
 
-```bash
+### Exemplos
+
+<CodeGroup>
+
+```bash App único
 # Remover um único app
 fp-appimage-updater remove whatpulse
+```
 
+```bash Todos os apps
 # Remover todos os apps instalados
 fp-appimage-updater remove -a
 ```
+
+</CodeGroup>
 
 <Warning>
   `remove -a` remove todos os AppImages instalados, seus symlinks, ícones e entradas de desktop em uma única etapa. Isso não pode ser desfeito sem executar `update` novamente.
@@ -68,18 +76,33 @@ fp-appimage-updater completion <shell>
 
 Gera um script de conclusão de shell para o shell especificado e o escreve na saída padrão. Shells suportados: `bash`, `zsh`, `fish`.
 
-```bash
-fp-appimage-updater completion bash
-fp-appimage-updater completion zsh
-fp-appimage-updater completion fish
+### Exemplos
+
+<CodeGroup>
+
+```bash Bash
+# Habilitar para a sessão bash atual
+source <(fp-appimage-updater completion bash)
+
+# Habilitar permanentemente para bash
+fp-appimage-updater completion bash >> ~/.bashrc
 ```
 
+```bash Zsh
+# Habilitar para a sessão zsh atual
+source <(fp-appimage-updater completion zsh)
+
+# Habilitar permanentemente para zsh
+fp-appimage-updater completion zsh >> ~/.zshrc
+```
+
+```bash Fish
+# Habilitar permanentemente para fish
+fp-appimage-updater completion fish > ~/.config/fish/completions/fp-appimage-updater.fish
+```
+
+</CodeGroup>
+
 <Tip>
-  Encaminhe a saída diretamente para o arquivo de configuração do seu shell para habilitar a conclusão por tabulação permanentemente:
-
-  ```bash
-  fp-appimage-updater completion bash >> ~/.bashrc
-  ```
-
-  Recarregue seu shell ou execute `source ~/.bashrc` para que as conclusões tenham efeito.
+  Recarregue seu shell ou execute `source ~/.bashrc` (ou equivalente) para que as conclusões tenham efeito.
 </Tip>

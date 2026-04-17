@@ -68,3 +68,25 @@ Commands for maintaining the updater itself and improving your terminal experien
   Pass `--json` before any of the following commands to get structured JSON
   output: `init`, `validate`, `doctor`, `list`, `check`, `update`, `remove`.
 </Note>
+
+## Examples
+
+<CodeGroup>
+
+```bash JSON Output
+# List all apps in JSON format
+fp-appimage-updater --json list
+```
+
+```bash Custom Config
+# Check for updates using a custom configuration directory
+fp-appimage-updater -c ~/my-config check
+```
+
+```bash JSON and jq
+# Update a single app and extract its download URL from JSON
+fp-appimage-updater --json update whatpulse | jq '.[0].download_url'
+```
+
+</CodeGroup>
+

@@ -102,6 +102,23 @@ segmented_downloads: true
 
 </CodeGroup>
 
+### Formula Provecta
+
+Hoc exemplum ostendit formulam pluribus superationibus utentem ad personalizandum repositorium, nominationem et modum dēscribendi:
+
+```yaml curseforge.yml
+name: curseforge
+storage_dir: ~/Games/AppImages
+naming_format: "CurseForge-{version}.AppImage"
+create_symlink: true
+segmented_downloads: false
+zsync: true
+strategy:
+  strategy: direct
+  url: "https://curseforge.overwolf.com/downloads/curseforge-latest-linux.AppImage"
+  check_method: last-modified
+```
+
 Genera skeletonem formulae pro nova applicatione cum:
 
 ```bash

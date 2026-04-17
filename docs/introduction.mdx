@@ -11,8 +11,8 @@ fp-appimage-updater is a CLI tool written in Rust that lets you manage, update, 
   <Card title="YAML-based declarative recipes" icon="file-code">
     Define every app and its update strategy in a plain YAML file. Add, remove, or share apps by editing files — no wizard required.
   </Card>
-  <Card title="Three update strategies" icon="arrows-rotate">
-    Fetch updates from GitHub, GitLab, Gitea, or Forgejo releases with `forge`, a static URL with `direct`, or a custom shell script with `script`.
+  <Card title="Multi-platform Forge Support" icon="git-fork">
+    Fetch updates from **GitHub, GitLab, Gitea, or Forgejo** releases. It automatically detects self-hosted instances and supports custom API/web URL overrides.
   </Card>
   <Card title="Delta downloads via zsync" icon="bolt">
     When an app recipe enables `zsync`, the updater uses its built-in `zsync-rs` backend to download only the bytes that changed — saving bandwidth on large AppImages.
@@ -26,11 +26,11 @@ fp-appimage-updater is a CLI tool written in Rust that lets you manage, update, 
   <Card title="Systemd background automation" icon="clock">
     The install script sets up a systemd timer that runs checks and updates automatically in the background.
   </Card>
-  <Card title="GitHub API tokens & proxies" icon="shield-check">
-    Bypass GitHub rate limits using personal access tokens via `secrets.yml` or environment variables. Optional proxy fallback support is also available.
+  <Card title="JSON Output for Scripting" icon="code">
+    Every core command supports a `--json` flag, providing stable, machine-readable output for integration into your own scripts or dashboards.
   </Card>
-  <Card title="Single binary under 1 MB" icon="microchip">
-    The entire tool ships as one compressed standalone binary with no runtime dependencies.
+  <Card title="GitHub API tokens & proxies" icon="shield-check">
+    Bypass GitHub rate limits using personal access tokens via `secrets.yml`. Optional proxy fallback support is also available for unauthenticated requests.
   </Card>
 </CardGroup>
 
@@ -39,5 +39,5 @@ fp-appimage-updater is a CLI tool written in Rust that lets you manage, update, 
 fp-appimage-updater is intentionally narrow in scope. It runs entirely in user-space — no root access required for a standard install. Configuration lives in `~/.config/fp-appimage-updater/`, making it a natural fit for dotfile repositories. There is no GUI, no central recipe registry, and no database: state is driven purely by files on disk. You write your own recipes, keep them wherever you like, and the tool stays out of your way.
 
 <Note>
-  The project will never include a recipe repository. You are expected to write and own your own app recipes.
+  The project will never include a recipe repository. You are expected to write and own your own app recipes. For inspiration, check the [official examples](https://gitlab.com/fpsys/fp-appimage-updater/-/tree/main/examples/apps).
 </Note>

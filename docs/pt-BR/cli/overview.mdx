@@ -64,3 +64,24 @@ Comandos para manter o próprio atualizador e melhorar sua experiência no termi
 <Note>
   Passe `--json` antes de qualquer um dos comandos a seguir para obter saída JSON estruturada: `init`, `validate`, `doctor`, `list`, `check`, `update`, `remove`.
 </Note>
+
+## Exemplos
+
+<CodeGroup>
+
+```bash Saída JSON
+# Lista todos os apps em formato JSON
+fp-appimage-updater --json list
+```
+
+```bash Config Personalizada
+# Verifica atualizações usando um diretório de configuração personalizado
+fp-appimage-updater -c ~/my-config check
+```
+
+```bash JSON e jq
+# Atualiza um único app e extrai sua URL de download do JSON
+fp-appimage-updater --json update whatpulse | jq '.[0].download_url'
+```
+
+</CodeGroup>

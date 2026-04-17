@@ -102,6 +102,23 @@ segmented_downloads: true
 
 </CodeGroup>
 
+### Receita Avançada
+
+Este exemplo mostra uma receita usando várias sobrescritas para personalizar o armazenamento, a nomenclatura e o comportamento de download:
+
+```yaml curseforge.yml
+name: curseforge
+storage_dir: ~/Games/AppImages
+naming_format: "CurseForge-{version}.AppImage"
+create_symlink: true
+segmented_downloads: false
+zsync: true
+strategy:
+  strategy: direct
+  url: "https://curseforge.overwolf.com/downloads/curseforge-latest-linux.AppImage"
+  check_method: last-modified
+```
+
 Gere um esqueleto de receita para um novo app com:
 
 ```bash
