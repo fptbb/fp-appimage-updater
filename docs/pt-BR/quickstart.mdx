@@ -51,23 +51,22 @@ Este guia mostra como configurar fp-appimage-updater do zero: inicializar sua co
     ```
 
     O comando lê primeiro seu estado local, depois consulta a fonte upstream pelos metadados e compara os dois. A saída mostra a versão resolvida, se um download é necessário e quaisquer dicas de suporte, como disponibilidade de download por range.
-  <Steps>
-    <Step title="Instale ou atualize o app">
-      Baixe e instale o AppImage (e sua integração de desktop, se habilitada):
+  </Step>
+  <Step title="Instale ou atualize o app">
+    Baixe e instale o AppImage (e sua integração de desktop, se habilitada):
 
-      ```bash
-      fp-appimage-updater update hydra-launcher
-      ```
+    ```bash
+    fp-appimage-updater update hydra-launcher
+    ```
 
-      O comando segue o mesmo fluxo de verificar primeiro, depois baixa o novo AppImage apenas se necessário. Ele prefere o caminho delta integrado `zsync-rs` quando você tem um AppImage local e a receita o habilita, recua para HTTP segmentado ou um download normal, então marca o arquivo como executável, atualiza o symlink se habilitado, reescreve a entrada de desktop e o ícone se habilitados e, por fim, salva o novo estado.
-    </Step>
-  </Steps>
+    O comando segue o mesmo fluxo de verificar primeiro, depois baixa o novo AppImage apenas se necessário. Ele prefere o caminho delta integrado `zsync-rs` quando você tem um AppImage local e a receita o habilita, recua para HTTP segmentado ou um download normal, então marca o arquivo como executável, atualiza o symlink se habilitado, reescreve a entrada de desktop e o ícone se habilitados e, por fim, salva o novo estado.
+  </Step>
+</Steps>
 
-  <Tip>
-    Para exemplos de receitas do mundo real para apps populares como Obsidian, CurseForge e Sioyek, confira a [pasta de exemplos oficiais no GitLab](https://gitlab.com/fpsys/fp-appimage-updater/-/tree/main/examples/apps).
-  </Tip>
+<Tip>
+  Para exemplos de receitas do mundo real para apps populares como Obsidian, CurseForge e Sioyek, confira a [pasta de exemplos oficiais no GitLab](https://gitlab.com/fpsys/fp-appimage-updater/-/tree/main/examples/apps).
+</Tip>
 
-  <Tip>
-    Para explorar todos os campos de receita e opções de estratégia disponíveis - incluindo `direct` (ETag/Last-Modified) e `script` (resolvedor personalizado) - veja a página [Estratégias de atualização](/pt-BR/configuration/update-strategies).
-  </Tip>
-
+<Tip>
+  Para explorar todos os campos de receita e opções de estratégia disponíveis - incluindo `direct` (ETag/Last-Modified) e `script` (resolvedor personalizado) - veja a página [Estratégias de atualização](/pt-BR/configuration/update-strategies).
+</Tip>
