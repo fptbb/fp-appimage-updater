@@ -35,8 +35,12 @@ Every app recipe requires a `strategy` block that tells fp-appimage-updater wher
       Full URL to the GitHub, GitLab, Gitea, or Forgejo repository (e.g., `https://github.com/owner/repo`).
     </ParamField>
 
-    <ParamField path="strategy.asset_match" type="string" required>
-      Wildcard pattern to match the release asset filename. Uses shell-style glob syntax (e.g., `"*-amd64.AppImage"`). The first matching asset is selected.
+    <ParamField path="strategy.asset_match" type="string">
+      Wildcard pattern to match the release asset filename. Uses shell-style glob syntax (e.g., `"*-amd64.AppImage"`). The first matching asset is selected. Required if `asset_match_regex` is not provided.
+    </ParamField>
+
+    <ParamField path="strategy.asset_match_regex" type="string">
+      Optional regular expression to match the asset filename. Use this for complex cases where a simple glob pattern is too broad. For example, to match `Obsidian-1.5.3.AppImage` while excluding `Obsidian-1.5.3-arm64.AppImage`, you can use `^Obsidian-[0-9.]+\\.AppImage$`.
     </ParamField>
 
     ### Per-app overrides

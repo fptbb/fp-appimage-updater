@@ -35,8 +35,12 @@ Omnis formula applicationis requirit blocum `strategy` qui dicit fp-appimage-upd
       URL completa ad repositorium GitHub, GitLab, Gitea, vel Forgejo (exempli gratia, `https://github.com/owner/repo`).
     </ParamField>
 
-    <ParamField path="strategy.asset_match" type="string" required>
-      Formula substitutiva ad respondendum nomini fasciculi assetis emissionis. Adhibet syntaxim glob styli shell (exempli gratia, `"*-amd64.AppImage"`). Primus asset respondens eligitur.
+    <ParamField path="strategy.asset_match" type="string">
+      Formula substitutiva ad respondendum nomini fasciculi assetis emissionis. Adhibet syntaxim glob styli shell (exempli gratia, `"*-amd64.AppImage"`). Primus asset respondens eligitur. Necessaria si `asset_match_regex` non praebetur.
+    </ParamField>
+
+    <ParamField path="strategy.asset_match_regex" type="string">
+      Expressio regularis optionalis pro nomine fasciculi assetis. Utere hoc pro casibus complexis ubi formula glob simplex nimis lata est. Exempli gratia, ad respondendum `Obsidian-1.5.3.AppImage` dum excluditur `Obsidian-1.5.3-arm64.AppImage`, potes uti `^Obsidian-[0-9.]+\\.AppImage$`.
     </ParamField>
 
     ### Superationes per applicationem

@@ -35,8 +35,12 @@ Toda receita de app requer um bloco `strategy` que informa ao fp-appimage-update
       URL completa para o repositório GitHub, GitLab, Gitea ou Forgejo (por exemplo, `https://github.com/owner/repo`).
     </ParamField>
 
-    <ParamField path="strategy.asset_match" type="string" required>
-      Padrão curinga para corresponder ao nome do arquivo do asset da release. Usa sintaxe glob estilo shell (por exemplo, `"*-amd64.AppImage"`). O primeiro asset correspondente é selecionado.
+    <ParamField path="strategy.asset_match" type="string">
+      Padrão curinga para corresponder ao nome do arquivo do asset da release. Usa sintaxe glob estilo shell (por exemplo, `"*-amd64.AppImage"`). O primeiro asset correspondente é selecionado. Obrigatório se `asset_match_regex` não for fornecido.
+    </ParamField>
+
+    <ParamField path="strategy.asset_match_regex" type="string">
+      Expressão regular opcional para corresponder ao nome do arquivo do asset. Use isso para casos complexos onde um padrão glob simples é muito abrangente. Por exemplo, para corresponder a `Obsidian-1.5.3.AppImage` enquanto exclui `Obsidian-1.5.3-arm64.AppImage`, você pode usar `^Obsidian-[0-9.]+\\.AppImage$`.
     </ParamField>
 
     ### Sobrescritas por app
