@@ -64,6 +64,14 @@ fp-appimage-updater update hydra-launcher
   Atualiza também o binário `fp-appimage-updater` em si depois de terminar as atualizações dos apps.
 </ParamField>
 
+<ParamField query="--debug-download-url <URL>" type="string">
+  **Apenas debug**: Força uma URL de download específica para a atualização, ignorando o resolvedor. Requer `app-name`.
+</ParamField>
+
+<ParamField query="--debug-version <VER>" type="string">
+  **Apenas debug**: Força uma string de versão específica para a atualização, ignorando o resolvedor. Requer `app-name`.
+</ParamField>
+
 <Note>
   Tanto `check` quanto `update` executam vários apps concorrentemente. Um limite ciente do provedor limita quantas requisições vão para o mesmo host ao mesmo tempo, para que um lote grande permaneça rápido sem sobrecarregar um único servidor.
 </Note>

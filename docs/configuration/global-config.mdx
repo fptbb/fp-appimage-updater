@@ -66,7 +66,9 @@ github_token: ghp_your_secret_token_here
 </ParamField>
 
 <ParamField path="naming_format" type="string" default="{name}.AppImage">
-  Filename template for stored AppImages. Use the `{name}` placeholder, which is replaced with the app's `name` field from its recipe.
+  Filename template for stored AppImages. Supported placeholders:
+  - `{name}`: Replaced with the app's `name` field from its recipe.
+  - `{version}`: Replaced with the resolved version of the app (e.g., `1.2.3`).
 </ParamField>
 
 <ParamField path="manage_desktop_files" type="boolean" default="true">

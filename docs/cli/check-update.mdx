@@ -65,6 +65,14 @@ fp-appimage-updater update hydra-launcher
   updates.
 </ParamField>
 
+<ParamField query="--debug-download-url <URL>" type="string">
+  **Debug only**: Force a specific download URL for the update, bypassing the resolver. Requires `app-name`.
+</ParamField>
+
+<ParamField query="--debug-version <VER>" type="string">
+  **Debug only**: Force a specific version string for the update, bypassing the resolver. Requires `app-name`.
+</ParamField>
+
 <Note>
   Both `check` and `update` run multiple apps concurrently. A provider-aware
   cap limits how many requests go to the same host at once, so a large batch

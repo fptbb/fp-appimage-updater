@@ -42,7 +42,9 @@ github_proxy_prefix: https://gh-proxy.com/
 </ParamField>
 
 <ParamField path="naming_format" type="string" default="{name}.AppImage">
-  Modelo de nome de arquivo para AppImages armazenados. Use o marcador `{name}`, que é substituído pelo campo `name` do app em sua receita.
+  Modelo de nome de arquivo para AppImages armazenados. Marcadores suportados:
+  - `{name}`: Substituído pelo campo `name` do app em sua receita.
+  - `{version}`: Substituído pela versão resolvida do app (ex: `1.2.3`).
 </ParamField>
 
 <ParamField path="manage_desktop_files" type="boolean" default="true">
