@@ -52,6 +52,8 @@ fn main() -> Result<()> {
         Commands::Doctor => {
             commands::doctor::run(
                 &paths,
+                &global_config,
+                &client,
                 app_configs.len(),
                 app_config_errors.len(),
                 &app_config_errors,

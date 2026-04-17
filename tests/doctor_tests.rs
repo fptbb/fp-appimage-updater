@@ -1,3 +1,4 @@
+use fp_appimage_updater::config::GlobalConfig;
 use fp_appimage_updater::doctor::{self, DoctorStatus};
 use fp_appimage_updater::parser::ConfigPaths;
 use std::fs;
@@ -42,7 +43,10 @@ fn reports_stale_lock_as_warn() {
         state_dir,
     };
 
-    let checks = doctor::run(&paths, 0, 0);
+    let global_config = GlobalConfig::default();
+    let client = ureq::Agent::new_with_defaults();
+
+    let checks = doctor::run(&paths, &global_config, &client, 0, 0);
     let lock_check = process_lock_check(&checks);
 
     assert!(matches!(lock_check.status, DoctorStatus::Warn));
@@ -75,7 +79,10 @@ fn reports_active_lock_as_ok() {
         state_dir,
     };
 
-    let checks = doctor::run(&paths, 0, 0);
+    let global_config = GlobalConfig::default();
+    let client = ureq::Agent::new_with_defaults();
+
+    let checks = doctor::run(&paths, &global_config, &client, 0, 0);
     let lock_check = process_lock_check(&checks);
 
     assert!(matches!(lock_check.status, DoctorStatus::Ok));
