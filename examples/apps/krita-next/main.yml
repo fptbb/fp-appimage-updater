@@ -1,0 +1,5 @@
+name: krita-next
+strategy:
+  strategy: script
+  script_path: ./resolver.sh
+zsync: "https://cdn.kde.org/ci-builds/graphics/krita/master/linux/Krita-Next-x86_64.appimage.zsync"
