@@ -16,6 +16,8 @@ fn app_config(prefix: Option<GithubProxyPrefixes>) -> AppConfig {
         github_proxy: None,
         github_proxy_prefix: prefix,
         storage_dir: None,
+        naming_format: None,
+        inner_asset_match: None,
         strategy: StrategyConfig::Direct {
             url: "https://example.com/file.AppImage".to_string(),
             check_method: CheckMethod::Etag,

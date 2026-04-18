@@ -42,6 +42,8 @@ fn script_failure_reports_full_context() {
         github_proxy_prefix: None,
         respect_rate_limits: None,
         storage_dir: None,
+        naming_format: None,
+        inner_asset_match: None,
         strategy: StrategyConfig::Script {
             script_path: "./resolver.sh".to_string(),
         },

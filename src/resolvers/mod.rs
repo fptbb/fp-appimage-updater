@@ -108,7 +108,6 @@ pub fn check_for_updates(
             repository,
             asset_match,
             asset_match_regex,
-            inner_asset_match: _,
         } => forge::resolve(
             client,
             repository,
