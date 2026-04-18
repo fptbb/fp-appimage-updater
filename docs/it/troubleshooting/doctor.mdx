@@ -24,12 +24,13 @@ fp-appimage-updater doctor
 | `parsed_app_recipes` | Numerus fasciculorum formulae qui cum successu cargarunt |
 | `invalid_app_recipes` | Numerus fasciculorum formulae qui in analysi defecerunt |
 | `process_lock` | Si lockfile currentis abest, activus vel obsoletus est |
+| `github_api` | Conexio API GitHub et validitas tesserae |
 
 Quaeque verificatio refert `ok` vel `warn`. Resultatum `warn` instrumentum currere non impedit, sed comportamentum inopinatum explicare potest.
 
 `process_lock` refert `warn` cum lockfile obsoletus vel malformatus videtur. Hoc plerumque significat exsecutionem priorem inopinate finitam esse, et proxima exsecutio eum purgare poterit.
 
-`doctor` solos fasciculos locales et instrumenta localia verificat. Non contat emissiones fontem, ita tutum est eum exsecutioni mandare cum offline es.
+`doctor` fasciculos locales, instrumenta localia verificat, et levem petitionem ad API GitHub peragit ad limitem ratae et statum tesserae tuae verificandum.
 
 <Note>
   Adde `--json` ad obtinendum exitum legibilem a machina idoneum pro scriptis vel monitione:

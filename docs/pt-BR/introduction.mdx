@@ -14,8 +14,17 @@ fp-appimage-updater é uma ferramenta de CLI escrita em Rust que permite gerenci
   <Card title="Suporte Multi-plataforma a Forges" icon="git-fork">
     Busque atualizações em releases do **GitHub, GitLab, Gitea ou Forgejo**. Ele detecta automaticamente instâncias auto-hospedadas e suporta substituições de URL de API/web personalizadas.
   </Card>
+  <Card title="Links Diretos e Resolvidores de Script" icon="link">
+    Busque atualizações via URLs estáticas usando cabeçalhos **ETag/Last-Modified**, ou use **scripts bash** personalizados para cenários complexos de resolução de versão.
+  </Card>
+  <Card title="Extração Automática de Zip" icon="file-zipper">
+    Detecta automaticamente assets `.zip`, extrai a AppImage usando heurísticas integradas (magic bytes ELF ou nome de arquivo) e limpa o arquivo.
+  </Card>
   <Card title="Downloads delta via zsync" icon="bolt">
     Quando uma receita de app habilita `zsync`, o atualizador usa seu backend integrado `zsync-rs` para baixar apenas os bytes que mudaram - economizando largura de banda em AppImages grandes.
+  </Card>
+  <Card title="Operações em Paralelo" icon="arrows-split-up-and-left">
+    Os comandos `check` e `update` executam múltiplos apps simultaneamente com limites cientes do provedor para manter lotes grandes rápidos sem atingir rate limits.
   </Card>
   <Card title="Downloads HTTP range segmentados" icon="arrow-down-to-line">
     Arquivos grandes são divididos em requisições HTTP range paralelas quando o servidor oferece suporte. Habilitado por padrão e configurável por app.
@@ -24,13 +33,16 @@ fp-appimage-updater é uma ferramenta de CLI escrita em Rust que permite gerenci
     Extrai manifests `.desktop` exatos e ícones diretamente de cada AppImage e os instala em `~/.local/share/applications`.
   </Card>
   <Card title="Automação em segundo plano com systemd" icon="clock">
-    O script de instalação configura um timer systemd que executa verificações e atualizações automaticamente em segundo plano.
+    O script de instalação configura um timer systemd que executa verificações e atualizações automaticamente em segundo plano sem intervenção do usuário.
+  </Card>
+  <Card title="Tokens e proxies da API do GitHub" icon="shield-check">
+    Contorne limites de taxa usando tokens de acesso pessoal ou `secrets.yml`. Suporte opcional a proxy de metadados também está disponível para requisições não autenticadas.
+  </Card>
+  <Card title="Verificações de Saúde Locais (Doctor)" icon="stethoscope">
+    O comando `doctor` valida sua configuração local, diretórios necessários, locks de processo e a saúde do seu setup para garantir que tudo esteja rodando sem problemas.
   </Card>
   <Card title="Saída JSON para Scripts" icon="code">
     Cada comando principal suporta uma flag `--json`, fornecendo uma saída estável e legível por máquina para integração em seus próprios scripts ou painéis.
-  </Card>
-  <Card title="Tokens e proxies da API do GitHub" icon="shield-check">
-    Contorne limites de taxa do GitHub usando tokens de acesso pessoal via `secrets.yml`. Suporte opcional a proxy também disponível para requisições não autenticadas.
   </Card>
 </CardGroup>
 

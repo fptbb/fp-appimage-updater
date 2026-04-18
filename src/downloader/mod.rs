@@ -168,12 +168,7 @@ pub fn download_app(
         }
 
         if crate::extractor::is_zip_file(&tmp_path) {
-            let inner_match = match &app.strategy {
-                crate::config::StrategyConfig::Forge { inner_asset_match, .. } => {
-                    inner_asset_match.as_deref()
-                }
-                _ => None,
-            };
+            let inner_match = app.inner_asset_match.as_deref();
 
             let extracted_path = tmp_path.with_extension("extracted");
             crate::extractor::extract_zip_asset(&tmp_path, &extracted_path, inner_match)?;

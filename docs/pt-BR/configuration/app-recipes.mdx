@@ -61,6 +61,10 @@ Coloque arquivos de receita dentro de `~/.config/fp-appimage-updater/apps/`. Cad
   Sobrescreve o `storage_dir` global para este app. O arquivo AppImage é armazenado nesse diretório em vez do padrão global.
 </ParamField>
 
+<ParamField path="naming_format" type="string">
+  Sobrescreve o `naming_format` global para este app. Placeholders suportados: `{name}` e `{version}`.
+</ParamField>
+
 <ParamField path="inner_asset_match" type="string">
   Padrão opcional para encontrar uma AppImage específica dentro de um arquivo `.zip`. Se omitido, o updater encontra automaticamente arquivos que terminam em `.AppImage` ou que contêm magic bytes ELF.
 </ParamField>

@@ -61,6 +61,10 @@ Place recipe files inside `~/.config/fp-appimage-updater/apps/`. Each file can b
   Override the global `storage_dir` for this app. The AppImage file is stored in this directory instead of the global default.
 </ParamField>
 
+<ParamField path="naming_format" type="string">
+  Override the global `naming_format` for this app. Supported placeholders: `{name}` and `{version}`.
+</ParamField>
+
 <ParamField path="inner_asset_match" type="string">
   Optional pattern to find a specific AppImage inside a `.zip` archive. If omitted, the updater automatically finds files ending in `.AppImage` or containing ELF magic bytes.
 </ParamField>

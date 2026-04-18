@@ -100,7 +100,7 @@ manage_desktop_files: true
 create_symlinks: false
 segmented_downloads: true
 respect_rate_limits: true
-github_proxy: false
+github_proxy: true
 github_proxy_prefix:
   - "https://gh-proxy.com/"
   - "https://corsproxy.io/?"
@@ -175,7 +175,7 @@ Esse regex combina com `Obsidian-1.12.7.AppImage` e evita o asset `Obsidian-1.12
 #### 2. direct
 Usado quando o aplicativo fornece uma URL de download direto que sempre aponta pra versão mais recente.
 - `url`: A URL estática de download.
-- `check_method`: Como detectar se o arquivo remoto mudou. Use `etag` ou `last_modified`.
+- `check_method`: Como detectar se o arquivo remoto mudou. Use `etag` ou `last-modified`.
 - `segmented_downloads`: Override opcional por app pra downloads com range HTTP. Quando não setado, usa o flag global `segmented_downloads` que padrão é `true`.
 
 **Exemplo:**

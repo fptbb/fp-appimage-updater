@@ -14,8 +14,17 @@ fp-appimage-updater is a CLI tool written in Rust that lets you manage, update, 
   <Card title="Multi-platform Forge Support" icon="git-fork">
     Fetch updates from **GitHub, GitLab, Gitea, or Forgejo** releases. It automatically detects self-hosted instances and supports custom API/web URL overrides.
   </Card>
+  <Card title="Direct Links & Script Resolvers" icon="link">
+    Fetch updates via static URLs using **ETag/Last-Modified** headers, or use custom **bash scripts** for complex version resolution scenarios.
+  </Card>
+  <Card title="Automatic Zip Extraction" icon="file-zipper">
+    Automatically detects `.zip` assets, extracts the AppImage using built-in heuristics (ELF magic bytes or filename), and cleans up the archive.
+  </Card>
   <Card title="Delta downloads via zsync" icon="bolt">
     When an app recipe enables `zsync`, the updater uses its built-in `zsync-rs` backend to download only the bytes that changed — saving bandwidth on large AppImages.
+  </Card>
+  <Card title="Parallel Operations" icon="arrows-split-up-and-left">
+    `check` and `update` commands run multiple apps concurrently with provider-aware caps to keep large batches fast without hitting rate limits.
   </Card>
   <Card title="Segmented HTTP range downloads" icon="arrow-down-to-line">
     Large files are split into parallel HTTP range requests when the server supports it. Enabled by default and configurable per-app.
@@ -24,13 +33,16 @@ fp-appimage-updater is a CLI tool written in Rust that lets you manage, update, 
     Extracts exact `.desktop` manifests and icons directly from each AppImage and installs them into `~/.local/share/applications`.
   </Card>
   <Card title="Systemd background automation" icon="clock">
-    The install script sets up a systemd timer that runs checks and updates automatically in the background.
+    The install script sets up a systemd timer that runs checks and updates automatically in the background without user intervention.
+  </Card>
+  <Card title="GitHub API tokens & proxies" icon="shield-check">
+    Bypass rate limits using personal access tokens or `secrets.yml`. Optional metadata proxy fallback support is also available for unauthenticated requests.
+  </Card>
+  <Card title="Local Health Checks (Doctor)" icon="stethoscope">
+    The `doctor` command validates your local configuration, required directories, process locks, and setup health to ensure everything is running smoothly.
   </Card>
   <Card title="JSON Output for Scripting" icon="code">
     Every core command supports a `--json` flag, providing stable, machine-readable output for integration into your own scripts or dashboards.
-  </Card>
-  <Card title="GitHub API tokens & proxies" icon="shield-check">
-    Bypass GitHub rate limits using personal access tokens via `secrets.yml`. Optional proxy fallback support is also available for unauthenticated requests.
   </Card>
 </CardGroup>
 

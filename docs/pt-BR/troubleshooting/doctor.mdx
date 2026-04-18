@@ -24,12 +24,13 @@ fp-appimage-updater doctor
 | `parsed_app_recipes` | Número de arquivos de receita que carregaram com sucesso |
 | `invalid_app_recipes` | Número de arquivos de receita que falharam ao ser analisados |
 | `process_lock` | Se o lockfile atual está ausente, ativo ou obsoleto |
+| `github_api` | Conectividade da API do GitHub e validade do token |
 
 Cada verificação reporta `ok` ou `warn`. Um resultado `warn` não impede a ferramenta de rodar, mas pode explicar um comportamento inesperado.
 
 `process_lock` reporta `warn` quando o lockfile parece obsoleto ou malformado. Isso geralmente significa que uma execução anterior terminou inesperadamente, e a próxima execução pode limpá-lo.
 
-`doctor` verifica apenas arquivos locais e ferramentas locais. Ele não contata releases upstream, então é seguro executá-lo quando você estiver offline.
+O `doctor` verifica arquivos locais, ferramentas locais e realiza uma requisição leve à API do GitHub para verificar seu limite de taxa e o status do token.
 
 <Note>
   Adicione `--json` para obter saída legível por máquina adequada para scripts ou monitoramento:

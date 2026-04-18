@@ -109,11 +109,11 @@ manage_desktop_files: true
 create_symlinks: false
 segmented_downloads: true
 respect_rate_limits: true
-github_proxy: false
+github_proxy: true
 github_proxy_prefix:
-  - "[https://gh-proxy.com/](https://gh-proxy.com/)"
-  - "[https://corsproxy.io/](https://corsproxy.io/)?"
-  - "[https://api.allorigins.win/raw?url=](https://api.allorigins.win/raw?url=)"
+  - "https://gh-proxy.com/"
+  - "https://corsproxy.io/?"
+  - "https://api.allorigins.win/raw?url="
 ```
 
 ### Exemplum Reciperii App (`apps/whatpulse.yml`)
@@ -122,7 +122,7 @@ github_proxy_prefix:
 name: whatpulse
 strategy:
   strategy: direct
-  url: "[https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage](https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage)"
+  url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
   check_method: etag
 segmented_downloads: true
 ```
@@ -144,7 +144,7 @@ Exemplum:
 name: my-app
 strategy:
   strategy: forge
-  repository: [https://github.com/example/my-app](https://github.com/example/my-app)
+  repository: https://github.com/example/my-app
   asset_match: "my-app-*-x86_64.AppImage"
 zsync: true
 ```
@@ -172,7 +172,7 @@ Pro repositoriis GitLab, resolutor forge utitur API permalink latest apud `https
 ```yaml
 strategy:
   strategy: forge
-  repository: [https://github.com/hydralauncher/hydra](https://github.com/hydralauncher/hydra)
+  repository: https://github.com/hydralauncher/hydra
   asset_match: "hydralauncher-*.AppImage"
 segmented_downloads: true
 ```
@@ -183,7 +183,7 @@ segmented_downloads: true
 name: obsidian
 strategy:
   strategy: forge
-  repository: "[https://github.com/obsidianmd/obsidian-releases](https://github.com/obsidianmd/obsidian-releases)"
+  repository: "https://github.com/obsidianmd/obsidian-releases"
   asset_match_regex: "^Obsidian-[0-9.]+\\.AppImage$"
 ```
 
@@ -194,7 +194,7 @@ Hic regex congruit `Obsidian-1.12.7.AppImage` et vitat asset release `Obsidian-1
 Usitata cum appicatio URL downloadationis directum providet quod semper ad novissimam versionem punctat.
 
   - `url`: URL downloadationis staticum.
-  - `check_method`: Quomodo detegatur si fasciculus remotus mutatus sit. Utere aut `etag` aut `last_modified`.
+  - `check_method`: Quomodo detegatur si fasciculus remotus mutatus sit. Utere aut `etag` aut `last-modified`.
   - `segmented_downloads`: Superatio optionalis per appicationem pro downloadationibus HTTP range. Cum non definitur, flag globalis `segmented_downloads` adhibetur et defalta est `true`.
 
 **Exemplum:**
@@ -202,7 +202,7 @@ Usitata cum appicatio URL downloadationis directum providet quod semper ad novis
 ```yaml
 strategy:
   strategy: direct
-  url: "[https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage](https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage)"
+  url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
   check_method: etag
 segmented_downloads: true
 ```
@@ -222,7 +222,7 @@ strategy:
 segmented_downloads: true
 ```
 
-Plura exempla in folder [examples/apps/](https://www.google.com/search?q=examples/apps/).
+Plura exempla in folder [examples/apps/](examples/apps/).
 
 </details>
 <br />
