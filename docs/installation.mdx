@@ -1,6 +1,6 @@
 ---
 title: "Installation Guide"
-description: "Install fp-appimage-updater via COPR, the quick-install script, or a pre-built binary."
+description: "Install fp-appimage-updater via COPR, Homebrew, the quick-install script, or a pre-built binary."
 ---
 
 Choose the method that matches your distribution and preferences.
@@ -66,6 +66,16 @@ Choose the method that matches your distribution and preferences.
     ```
 
     The binary is a fully self-contained executable with no runtime dependencies. Self-update works out of the box — you can run `fp-appimage-updater self-update` to upgrade to the latest release at any time.
+  </Tab>
+  <Tab title="Homebrew (tap)">
+    If you prefer Homebrew, you can install the Linux binary from the GitLab-hosted tap:
+
+    ```bash
+    brew tap fpsys/tap https://gitlab.com/fpsys/homebrew-tap.git
+    brew install fp-appimage-updater
+    ```
+
+    Installing this way does not install the systemd service automatically.
   </Tab>
 </Tabs>
 

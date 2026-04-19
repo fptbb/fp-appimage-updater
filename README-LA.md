@@ -70,6 +70,14 @@ curl -sL fau.fpt.icu/i | bash -s -- --uninstall
 Novissima binaria compilata ex [paginis Releasearum](https://gitlab.com/fpsys/fp-appimage-updater/-/releases) officialibus deponere potes.
 Pone binarium munde in folder binariorum praelatum (ex. gr. `~/.local/bin/`), curre `chmod +x`, et paratus es. Nativa ut executabile solum et isolatum fungitur, capax ad fluxus operis POSIX fovendos, etiam renovatio sui ipsius operatur.
 
+### 4. Tap Homebrew
+Si Homebrew praeferas, binarium Linux ex tap in GitLab hospitato installare potes:
+
+```bash
+brew tap fpsys/tap https://gitlab.com/fpsys/homebrew-tap.git
+brew install fp-appimage-updater
+```
+
 ### Compilatio ex Fonte
 
 Si vis instrumentum ipse ex arbore fontis compilare, precor inspice directiones [CONTRIBUTING](https://www.google.com/search?q=CONTRIBUTING.md).

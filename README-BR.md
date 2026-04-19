@@ -65,6 +65,14 @@ curl -sL fau.fpt.icu/i | bash -s -- --uninstall
 Você pode baixar os binários compilados mais recentes da página oficial de [Releases](https://gitlab.com/fpsys/fp-appimage-updater/-/releases).
 Joga o binário limpo na sua pasta de binários preferida (ex: `~/.local/bin/`), roda `chmod +x` e pronto. Ele funciona nativamente como um executável isolado e standalone capaz de se integrar em workflows POSIX padrão, até o self-update funciona.
 
+### 4. Tap do Homebrew
+Se você preferir Homebrew, pode instalar o binário Linux pelo tap hospedado no GitLab:
+
+```bash
+brew tap fpsys/tap https://gitlab.com/fpsys/homebrew-tap.git
+brew install fp-appimage-updater
+```
+
 ### Compilando do Código Fonte
 Se você quiser compilar a ferramenta você mesmo a partir da árvore de fontes, por favor revise as guidelines em [CONTRIBUTING](CONTRIBUTING.md).
 

@@ -1,6 +1,6 @@
 ---
 title: "Dux Installationis"
-description: "Installa fp-appimage-updater per COPR, scriptum installationis celeris vel binarium praecompilatum."
+description: "Installa fp-appimage-updater per COPR, Homebrew, scriptum installationis celeris vel binarium praecompilatum."
 ---
 
 Elige methodum quae distributioni tuae et praeferentiis tuis respondeat.
@@ -66,6 +66,16 @@ Elige methodum quae distributioni tuae et praeferentiis tuis respondeat.
     ```
 
     Binarium est exsequibile omnino per se contentum, sine dependentiis in tempore exsecutionis. Auto-renovatio statim operatur - potes exsequere `fp-appimage-updater self-update` ad renovandum ad emissionem recentissimam quandocumque.
+  </Tab>
+  <Tab title="Homebrew (tap)">
+    Si Homebrew praeferas, binarium Linux ex tap in GitLab hospitato installare potes:
+
+    ```bash
+    brew tap fpsys/tap https://gitlab.com/fpsys/homebrew-tap.git
+    brew install fp-appimage-updater
+    ```
+
+    Installando dessa forma não vai instalar o serviço do systemd automaticamente.
   </Tab>
 </Tabs>
 

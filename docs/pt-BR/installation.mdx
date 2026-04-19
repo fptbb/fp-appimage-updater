@@ -1,6 +1,6 @@
 ---
 title: "Guia de Instalação"
-description: "Instale fp-appimage-updater via COPR, o script de instalação rápida ou um binário pré-compilado."
+description: "Instale fp-appimage-updater via COPR, Homebrew, o script de instalação rápida ou um binário pré-compilado."
 ---
 
 Escolha o método que corresponda à sua distribuição e às suas preferências.
@@ -66,6 +66,16 @@ Escolha o método que corresponda à sua distribuição e às suas preferências
     ```
 
     O binário é um executável totalmente autocontido, sem dependências em tempo de execução. A autoatualização funciona imediatamente - você pode executar `fp-appimage-updater self-update` para atualizar para a release mais recente a qualquer momento.
+  </Tab>
+  <Tab title="Homebrew (tap)">
+    Se você preferir Homebrew, pode instalar o binário Linux pelo tap hospedado no GitLab:
+
+    ```bash
+    brew tap fpsys/tap https://gitlab.com/fpsys/homebrew-tap.git
+    brew install fp-appimage-updater
+    ```
+
+    Esse tap instala o binário da release e gera conclusões de shell para bash, zsh e fish a partir do executável instalado.
   </Tab>
 </Tabs>
 
