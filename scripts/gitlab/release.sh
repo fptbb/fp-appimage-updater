@@ -47,6 +47,13 @@ while IFS= read -r asset_link; do
 done < <(ci_gitlab_release_asset_links)
 "${release_args[@]}"
 
+if [[ -n "${HOMEBREW_TAP_REPO_URL:-}" && -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+    echo "Syncing Homebrew tap recipe..."
+    bash scripts/gitlab/sync-homebrew-tap.sh
+else
+    echo "Homebrew tap sync skipped because HOMEBREW_TAP_REPO_URL or HOMEBREW_TAP_TOKEN is not set."
+fi
+
 if [[ -n "${GITLAB_API_TOKEN:-}" ]]; then
     echo "Locking tag $CI_TAG..."
     curl --request POST --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
