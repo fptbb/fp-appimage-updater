@@ -47,13 +47,6 @@ while IFS= read -r asset_link; do
 done < <(ci_gitlab_release_asset_links)
 "${release_args[@]}"
 
-if [[ -n "${HOMEBREW_TAP_REPO_URL:-}" && -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
-    echo "Syncing Homebrew tap recipe..."
-    bash scripts/gitlab/sync-homebrew-tap.sh
-else
-    echo "Homebrew tap sync skipped because HOMEBREW_TAP_REPO_URL or HOMEBREW_TAP_TOKEN is not set."
-fi
-
 if [[ -n "${GITLAB_API_TOKEN:-}" ]]; then
     echo "Locking tag $CI_TAG..."
     curl --request POST --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
@@ -64,15 +57,22 @@ else
 fi
 
 if [[ "${PRERELEASE:-false}" == "true" ]]; then
-    echo "Pre-release detected, skipping COPR webhook."
+    echo "Pre-release detected, skipping COPR webhook and brew tap update."
 else
     if [[ -z "${COPR_WEBHOOK_UUID:-}" ]]; then
         echo "Error: COPR_WEBHOOK_UUID is not set."
         exit 1
+    else
+        copr_webhook_url="https://copr.fedorainfracloud.org/webhooks/custom/226828/${COPR_WEBHOOK_UUID}/fp-appimage-updater/"
+    
+        echo "Triggering COPR webhook..."
+        curl --fail --silent --show-error --request POST "${copr_webhook_url}"
     fi
-    
-    copr_webhook_url="https://copr.fedorainfracloud.org/webhooks/custom/226828/${COPR_WEBHOOK_UUID}/fp-appimage-updater/"
-    
-    echo "Triggering COPR webhook..."
-    curl --fail --silent --show-error --request POST "${copr_webhook_url}"
+
+    if [[ -n "${HOMEBREW_TAP_REPO_URL:-}" && -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+        echo "Syncing Homebrew tap recipe..."
+        bash scripts/gitlab/sync-homebrew-tap.sh
+    else
+        echo "Homebrew tap sync skipped because HOMEBREW_TAP_REPO_URL or HOMEBREW_TAP_TOKEN is not set."
+    fi
 fi

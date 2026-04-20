@@ -60,16 +60,25 @@ package_registry_url="${PACKAGE_REGISTRY_URL:-${CI_API_V4_URL}/projects/${CI_PRO
 tap_workdir="$(mktemp -d)"
 trap 'rm -rf "$tap_workdir"' EXIT
 
+# Disable terminal prompts for git
+export GIT_TERMINAL_PROMPT=0
+
+# Add credentials to URL for better compatibility in CI environment
+if [[ "$tap_repo_url" =~ ^https:// ]]; then
+    # Use oauth2 as username for GitLab Personal/Project Access Tokens
+    tap_repo_url_auth="${tap_repo_url/https:\/\//https:\/\/oauth2:${tap_push_token}@}"
+else
+    tap_repo_url_auth="$tap_repo_url"
+fi
+
 git init -b "$tap_branch" "$tap_workdir" >/dev/null
 cd "$tap_workdir"
-git remote add origin "$tap_repo_url"
+git remote add origin "$tap_repo_url_auth"
 git config user.name "${HOMEBREW_TAP_GIT_NAME:-GitLab CI}"
 git config user.email "${HOMEBREW_TAP_GIT_EMAIL:-ci@gitlab.local}"
 
-git_auth=(-c "http.extraHeader=PRIVATE-TOKEN: ${tap_push_token}")
-
-if git "${git_auth[@]}" ls-remote --exit-code --heads origin "$tap_branch" >/dev/null 2>&1; then
-    git "${git_auth[@]}" fetch --depth 1 origin "$tap_branch"
+if git ls-remote --exit-code --heads origin "$tap_branch" >/dev/null 2>&1; then
+    git fetch --depth 1 origin "$tap_branch"
     git checkout -B "$tap_branch" "origin/$tap_branch" >/dev/null
 fi
 
@@ -124,6 +133,6 @@ fi
 
 git add "$tap_formula_path"
 git commit -m "chore: update Homebrew tap for ${CI_TAG}" >/dev/null
-git "${git_auth[@]}" push -u origin "$tap_branch"
+git push -u origin "$tap_branch"
 
 echo "Homebrew tap recipe synced successfully."
