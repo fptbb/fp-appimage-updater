@@ -222,10 +222,10 @@ pub fn run(
                 if download_scheduler.try_acquire(&job.provider, download_limit) {
                     let storage_dir = storage_dir.to_path_buf();
                     let naming_format = job
-                    .app
-                    .naming_format
-                    .clone()
-                    .unwrap_or_else(|| global_config.naming_format.clone());
+                        .app
+                        .naming_format
+                        .clone()
+                        .unwrap_or_else(|| global_config.naming_format.clone());
                     let segmented_downloads = job
                         .segmented_downloads
                         .or(job.app.segmented_downloads)

@@ -2,8 +2,8 @@ use fp_appimage_updater::extractor::{extract_zip_asset, is_zip_file};
 use std::fs::File;
 use std::io::Write;
 use tempfile::tempdir;
-use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
+use zip::write::SimpleFileOptions;
 
 #[test]
 fn test_is_zip_file() {
@@ -11,7 +11,8 @@ fn test_is_zip_file() {
     let zip_path = dir.path().join("test.zip");
     let file = File::create(&zip_path).unwrap();
     let mut zip = ZipWriter::new(file);
-    zip.start_file("test.txt", SimpleFileOptions::default()).unwrap();
+    zip.start_file("test.txt", SimpleFileOptions::default())
+        .unwrap();
     zip.write_all(b"hello").unwrap();
     zip.finish().unwrap();
 
@@ -30,13 +31,15 @@ fn test_extract_zip_asset_by_name() {
     let zip_path = dir.path().join("test.zip");
     let file = File::create(&zip_path).unwrap();
     let mut zip = ZipWriter::new(file);
-    
-    zip.start_file("wrong.txt", SimpleFileOptions::default()).unwrap();
+
+    zip.start_file("wrong.txt", SimpleFileOptions::default())
+        .unwrap();
     zip.write_all(b"wrong").unwrap();
-    
-    zip.start_file("target.AppImage", SimpleFileOptions::default()).unwrap();
+
+    zip.start_file("target.AppImage", SimpleFileOptions::default())
+        .unwrap();
     zip.write_all(b"target content").unwrap();
-    
+
     zip.finish().unwrap();
 
     let dest_path = dir.path().join("extracted.AppImage");
@@ -52,13 +55,15 @@ fn test_extract_zip_asset_heuristic_appimage() {
     let zip_path = dir.path().join("test.zip");
     let file = File::create(&zip_path).unwrap();
     let mut zip = ZipWriter::new(file);
-    
-    zip.start_file("something.txt", SimpleFileOptions::default()).unwrap();
+
+    zip.start_file("something.txt", SimpleFileOptions::default())
+        .unwrap();
     zip.write_all(b"something").unwrap();
-    
-    zip.start_file("MyApp.AppImage", SimpleFileOptions::default()).unwrap();
+
+    zip.start_file("MyApp.AppImage", SimpleFileOptions::default())
+        .unwrap();
     zip.write_all(b"appimage content").unwrap();
-    
+
     zip.finish().unwrap();
 
     let dest_path = dir.path().join("extracted.AppImage");
@@ -74,15 +79,17 @@ fn test_extract_zip_asset_heuristic_elf() {
     let zip_path = dir.path().join("test.zip");
     let file = File::create(&zip_path).unwrap();
     let mut zip = ZipWriter::new(file);
-    
-    zip.start_file("data.bin", SimpleFileOptions::default()).unwrap();
+
+    zip.start_file("data.bin", SimpleFileOptions::default())
+        .unwrap();
     zip.write_all(b"random data").unwrap();
-    
+
     let mut elf_content = b"\x7fELF".to_vec();
     elf_content.extend_from_slice(&[0u8; 16]);
-    zip.start_file("my-binary", SimpleFileOptions::default()).unwrap();
+    zip.start_file("my-binary", SimpleFileOptions::default())
+        .unwrap();
     zip.write_all(&elf_content).unwrap();
-    
+
     zip.finish().unwrap();
 
     let dest_path = dir.path().join("extracted-binary");

@@ -1,3 +1,4 @@
+use fp_appimage_updater::config::ensure_safe_path_component;
 use fp_appimage_updater::config::{AppConfig, GithubProxyPrefixes, GlobalConfig, StrategyConfig};
 
 #[test]
@@ -145,4 +146,11 @@ gitlab_release_web_url: "https://gitlab.example.com/{repo_path}"
         config.gitlab_release_web_url.as_deref(),
         Some("https://gitlab.example.com/{repo_path}")
     );
+}
+
+#[test]
+fn safe_path_component_validation_blocks_separators() {
+    assert!(ensure_safe_path_component("demo.AppImage", "test").is_ok());
+    assert!(ensure_safe_path_component("../demo.AppImage", "test").is_err());
+    assert!(ensure_safe_path_component("demo/AppImage", "test").is_err());
 }

@@ -19,7 +19,7 @@ pub fn extract_zip_asset(
     if let Some(pattern) = inner_asset_match {
         let matcher = glob::Pattern::new(pattern)
             .with_context(|| format!("Invalid inner_asset_match pattern: {}", pattern))?;
-        
+
         for i in 0..archive.len() {
             let file = archive.by_index(i)?;
             if file.is_file() && matcher.matches(file.name()) {
@@ -40,7 +40,7 @@ pub fn extract_zip_asset(
         }
 
         if asset_index.is_none() {
-             for i in 0..archive.len() {
+            for i in 0..archive.len() {
                 let mut file = archive.by_index(i)?;
                 if file.is_file() {
                     let mut header = [0u8; 4];
@@ -70,9 +70,13 @@ pub fn extract_zip_asset(
     let mut asset_file = archive.by_index(index)?;
     let mut out_file = fs::File::create(dest_path)
         .with_context(|| format!("Failed to create destination file {}", dest_path.display()))?;
-    
-    io::copy(&mut asset_file, &mut out_file)
-        .with_context(|| format!("Failed to extract asset from zip to {}", dest_path.display()))?;
+
+    io::copy(&mut asset_file, &mut out_file).with_context(|| {
+        format!(
+            "Failed to extract asset from zip to {}",
+            dest_path.display()
+        )
+    })?;
 
     #[cfg(unix)]
     {
@@ -86,8 +90,12 @@ pub fn extract_zip_asset(
 }
 
 pub fn is_zip_file(path: &Path) -> bool {
-    let Ok(mut file) = fs::File::open(path) else { return false };
+    let Ok(mut file) = fs::File::open(path) else {
+        return false;
+    };
     let mut magic = [0u8; 4];
-    if file.read_exact(&mut magic).is_err() { return false }
+    if file.read_exact(&mut magic).is_err() {
+        return false;
+    }
     &magic == b"PK\x03\x04"
 }

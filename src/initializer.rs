@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::cli::InitStrategy;
-use crate::config::GlobalConfig;
+use crate::config::{GlobalConfig, ensure_safe_path_component};
 use crate::parser::ConfigPaths;
 
 pub struct InitResult {
@@ -29,6 +29,7 @@ pub fn run(
     }
 
     if let Some(app_name) = app_name {
+        ensure_safe_path_component(app_name, "app name")?;
         let app_path = paths.apps_dir().join(format!("{app_name}.yml"));
         let content = app_template(app_name, strategy);
         write_file(&app_path, &content, force, &mut created, &mut skipped)?;

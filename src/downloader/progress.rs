@@ -44,7 +44,11 @@ impl ProgressGuard {
     }
 
     pub fn finish(&mut self, bytes: u64, elapsed: Duration) -> Result<bool> {
-        self.finish_with_summary(bytes, elapsed, format_finished_line(&self.app_name, &self.version, bytes, elapsed))
+        self.finish_with_summary(
+            bytes,
+            elapsed,
+            format_finished_line(&self.app_name, &self.version, bytes, elapsed),
+        )
     }
 
     pub fn finish_with_summary(

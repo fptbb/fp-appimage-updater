@@ -58,3 +58,46 @@ fn script_failure_reports_full_context() {
     assert!(message.contains("stdout:"));
     assert!(message.contains("stderr:"));
 }
+
+#[test]
+fn script_path_is_not_interpreted_by_a_shell() {
+    let config_dir = temp_config_dir();
+    let script_path = config_dir.join("resolver.sh");
+    let sentinel = config_dir.join("sentinel");
+
+    fs::write(
+        &script_path,
+        "#!/bin/sh\necho \"https://example.com/app.AppImage\"\necho \"1.0.0\"\n",
+    )
+    .expect("failed to write script");
+
+    let mut perms = fs::metadata(&script_path).unwrap().permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(&script_path, perms).unwrap();
+
+    let app = AppConfig {
+        config_dir: config_dir.clone(),
+        name: "safe-script".to_string(),
+        zsync: None,
+        integration: None,
+        create_symlink: None,
+        segmented_downloads: None,
+        github_proxy: None,
+        github_proxy_prefix: None,
+        respect_rate_limits: None,
+        storage_dir: None,
+        naming_format: None,
+        inner_asset_match: None,
+        strategy: StrategyConfig::Script {
+            script_path: "./resolver.sh".to_string(),
+        },
+    };
+    let client = Agent::new_with_defaults();
+
+    let err = resolve(&client, &app, "./resolver.sh; touch sentinel", None)
+        .expect_err("expected the injected script path to fail");
+
+    let message = format!("{:#}", err);
+    assert!(message.contains("./resolver.sh; touch sentinel"));
+    assert!(!sentinel.exists(), "shell metacharacters should not run");
+}

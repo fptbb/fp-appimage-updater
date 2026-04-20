@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use anyhow::{Result, bail};
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum GithubProxyPrefixes {
@@ -62,6 +64,22 @@ impl Default for GlobalConfig {
             gitlab_release_web_url: None,
             github_token: None,
         }
+    }
+}
+
+pub fn ensure_safe_path_component(value: &str, label: &str) -> Result<()> {
+    let mut components = std::path::Path::new(value).components();
+    match components.next() {
+        Some(std::path::Component::Normal(_))
+            if components.next().is_none() && !value.contains('\0') =>
+        {
+            Ok(())
+        }
+        _ => bail!(
+            "Invalid {} '{}': must be a single path component without separators",
+            label,
+            value
+        ),
     }
 }
 

@@ -188,7 +188,11 @@ pub fn resolve(
     let host = forge_host(client, repository, state)?;
     let url = release_api_url_with_config(host, repository, global_config)?;
 
-    let mut request = client.get(&url).config().http_status_as_error(false).build();
+    let mut request = client
+        .get(&url)
+        .config()
+        .http_status_as_error(false)
+        .build();
 
     if host == ForgeHost::GitHub {
         if let Some(token) = &global_config.github_token {

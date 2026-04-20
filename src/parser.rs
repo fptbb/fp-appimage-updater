@@ -8,7 +8,7 @@ use serde_yaml::Value;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::config::{AppConfig, GlobalConfig, SecretsConfig};
+use crate::config::{AppConfig, GlobalConfig, SecretsConfig, ensure_safe_path_component};
 
 const APP_NAME: &str = "fp-appimage-updater";
 
@@ -169,6 +169,7 @@ pub fn load_app_configs(paths: &ConfigPaths) -> Result<AppConfigLoadResult> {
 fn parse_app_config(path: &std::path::Path) -> Result<AppConfig> {
     let content = fs::read_to_string(path)?;
     let mut app: AppConfig = serde_yaml::from_str(&content)?;
+    ensure_safe_path_component(&app.name, "app name")?;
     if let Some(parent) = path.parent() {
         app.config_dir = parent.to_path_buf();
     }

@@ -11,6 +11,7 @@ pub mod progress;
 pub use http::*;
 pub use progress::*;
 
+use crate::config::ensure_safe_path_component;
 use crate::config::{AppConfig, ZsyncConfig};
 use crate::resolvers::UpdateInfo;
 use crate::state::AppState;
@@ -65,6 +66,7 @@ pub fn download_app(
     let file_name = naming_format
         .replace("{name}", &app.name)
         .replace("{version}", &update_info.version);
+    ensure_safe_path_component(&file_name, "download filename")?;
 
     let final_path = actual_storage_dir.join(&file_name);
     let tmp_path = actual_storage_dir.join(format!("{}.tmp", file_name));
@@ -91,9 +93,7 @@ pub fn download_app(
     {
         let old_path = Path::new(old_path_str);
         if old_path.exists() {
-            let was_update = state
-                .and_then(|s| s.local_version.as_ref())
-                .is_some();
+            let was_update = state.and_then(|s| s.local_version.as_ref()).is_some();
             let (success, completion_rendered) = try_zsync(
                 &zurl,
                 old_path,

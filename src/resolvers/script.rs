@@ -12,7 +12,6 @@ pub fn resolve(
     state: Option<&AppState>,
 ) -> Result<CheckResult> {
     let output = Command::new("sh")
-        .arg("-c")
         .arg(script_path)
         .current_dir(&app.config_dir)
         .output()

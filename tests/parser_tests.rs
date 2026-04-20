@@ -27,11 +27,39 @@ fn infer_name_from_valid_yaml() {
 }
 
 #[test]
+fn invalid_app_name_is_rejected() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock went backwards")
+        .as_nanos();
+    let config_dir = std::env::temp_dir().join(format!("fp-appimage-updater-parser-{}", unique));
+    let apps_dir = config_dir.join("apps");
+    fs::create_dir_all(&apps_dir).expect("failed to create temp config dir");
+
+    fs::write(
+        apps_dir.join("escape.yml"),
+        "name: ../escape\nstrategy:\n  strategy: direct\n  url: https://example.org/x.AppImage\n  check_method: etag\n",
+    )
+    .expect("failed to write config");
+
+    let paths = ConfigPaths::with_config_dir(config_dir).expect("expected config paths");
+    let result = load_app_configs(&paths).expect("expected config load");
+
+    assert!(result.apps.is_empty());
+    assert_eq!(result.errors.len(), 1);
+    assert!(
+        result.errors[0]
+            .message
+            .contains("must be a single path component without separators")
+    );
+}
+
+#[test]
 fn test_github_token_loading_priority() {
     let tmp = tempdir().unwrap();
     let config_dir = tmp.path().join("config");
     fs::create_dir_all(&config_dir).unwrap();
-    
+
     let paths = ConfigPaths {
         config_dir: config_dir.clone(),
         state_dir: tmp.path().join("state"),
@@ -39,10 +67,7 @@ fn test_github_token_loading_priority() {
 
     // 1. Test loading from secrets.yml
     unsafe { std::env::remove_var("GITHUB_TOKEN") };
-    fs::write(
-        paths.secrets_path(),
-        "github_token: \"token-from-file\"",
-    ).unwrap();
+    fs::write(paths.secrets_path(), "github_token: \"token-from-file\"").unwrap();
 
     let config = load_global_config(&paths).unwrap();
     assert_eq!(config.github_token, Some("token-from-file".to_string()));
@@ -51,7 +76,7 @@ fn test_github_token_loading_priority() {
     unsafe { std::env::set_var("GITHUB_TOKEN", "token-from-env") };
     let config = load_global_config(&paths).unwrap();
     assert_eq!(config.github_token, Some("token-from-env".to_string()));
-    
+
     // Cleanup
     unsafe { std::env::remove_var("GITHUB_TOKEN") };
 }
