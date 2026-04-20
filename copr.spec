@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 
 Name:           fp-appimage-updater
-Version:        1.4.4
+Version:        1.4.5
 Release:        1%{?dist}
 Summary:        A lightweight declarative AppImage updater
 
@@ -69,6 +69,8 @@ install -D -m 0644 fp-appimage-updater.fish %{buildroot}%{_datadir}/fish/vendor_
 %license LICENSE
 
 %changelog
+* Sun Apr 19 2026 fp-appimage-updater Maintainer - 1.4.5-1
+- Update to version 1.4.5
 * Fri Apr 17 2026 fp-appimage-updater Maintainer - 1.4.4-2
 - Add automatic shell completions for bash, zsh and fish
 * Fri Apr 17 2026 fp-appimage-updater Maintainer - 1.4.4-1
