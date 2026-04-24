@@ -107,6 +107,7 @@ pub struct AppConfig {
     pub config_dir: PathBuf,
 
     pub name: String,
+    pub ignore: Option<bool>,
     pub zsync: Option<ZsyncConfig>,
     pub integration: Option<bool>,
     pub create_symlink: Option<bool>,

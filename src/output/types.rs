@@ -11,6 +11,7 @@ pub struct ListApp {
     pub name: String,
     pub strategy: String,
     pub local_version: Option<String>,
+    pub ignored: bool,
     pub integration: bool,
     pub symlink: bool,
 }

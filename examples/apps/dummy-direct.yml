@@ -1,4 +1,5 @@
 name: dummy-direct
+ignore: true
 strategy:
   strategy: direct
   url: http://localhost:8123/dummy.AppImage

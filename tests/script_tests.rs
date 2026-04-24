@@ -34,6 +34,7 @@ fn script_failure_reports_full_context() {
     let app = AppConfig {
         config_dir: config_dir.clone(),
         name: "broken-script".to_string(),
+        ignore: None,
         zsync: None,
         integration: None,
         create_symlink: None,
@@ -78,6 +79,7 @@ fn script_path_is_not_interpreted_by_a_shell() {
     let app = AppConfig {
         config_dir: config_dir.clone(),
         name: "safe-script".to_string(),
+        ignore: None,
         zsync: None,
         integration: None,
         create_symlink: None,

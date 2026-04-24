@@ -13,7 +13,7 @@ description: "Answers to common questions about fp-appimage-updater."
   </Accordion>
 
   <Accordion title="How do I stop fp-appimage-updater from updating a specific app automatically?">
-    There is no "disabled" flag. To remove an app from management, delete its recipe file from `~/.config/fp-appimage-updater/apps/`.
+    Set `ignore: true` in the recipe to keep the app in your config while skipping it in `check` and `update`.
 
     If you want to keep the recipe but skip rate-limit cooldowns, set `respect_rate_limits: false` globally in `config.yml` or per-app in the recipe:
 

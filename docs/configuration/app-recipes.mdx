@@ -33,6 +33,10 @@ Place recipe files inside `~/.config/fp-appimage-updater/apps/`. Each file can b
   Defines how fp-appimage-updater finds and downloads updates. See [update strategies](/configuration/update-strategies) for the full reference and examples.
 </ParamField>
 
+<ParamField path="ignore" type="boolean">
+  Skip this recipe in `check` and `update`, and show it as ignored in `list`. This is useful for keeping a recipe in your config without having fp-appimage-updater touch it.
+</ParamField>
+
 <ParamField path="integration" type="boolean">
   Override the global `manage_desktop_files` setting for this app. Set to `false` to skip `.desktop` file and icon extraction for apps that don't ship a proper AppImage desktop manifest.
 </ParamField>
@@ -97,6 +101,7 @@ strategy:
 
 ```yaml whatpulse.yml
 name: whatpulse
+ignore: true
 strategy:
   strategy: direct
   url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"

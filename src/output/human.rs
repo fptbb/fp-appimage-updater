@@ -13,6 +13,7 @@ pub fn print_list_human(apps: &[ListApp], colors: bool) {
             .as_deref()
             .map(|s| s.to_string())
             .unwrap_or_else(|| "not installed".to_string());
+        let ignored = if app.ignored { "ignored" } else { "included" };
         let integration = if app.integration {
             "enabled"
         } else {
@@ -21,10 +22,19 @@ pub fn print_list_human(apps: &[ListApp], colors: bool) {
         let symlink = if app.symlink { "enabled" } else { "disabled" };
 
         println!(
-            "- {} {} | local: {} | integration: {} | symlink: {}",
+            "- {} {} | local: {} | ignore: {} | integration: {} | symlink: {}",
             bold(&app.name, colors),
             bracketed(&strategy, colors),
             colorize(&version, color_for_version(&version), colors),
+            colorize(
+                ignored,
+                if app.ignored {
+                    Color::Yellow
+                } else {
+                    Color::Green
+                },
+                colors
+            ),
             colorize(
                 integration,
                 if app.integration {

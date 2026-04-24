@@ -82,6 +82,34 @@ strategy:
 }
 
 #[test]
+fn app_ignore_flag_defaults_to_false_and_parses_true() {
+    let defaulted: AppConfig = serde_yaml::from_str(
+        r#"
+name: demo
+strategy:
+  strategy: direct
+  url: "https://example.com/file.AppImage"
+  check_method: etag
+"#,
+    )
+    .expect("expected defaulted ignore flag to parse");
+    assert_eq!(defaulted.ignore, None);
+
+    let ignored: AppConfig = serde_yaml::from_str(
+        r#"
+name: demo
+ignore: true
+strategy:
+  strategy: direct
+  url: "https://example.com/file.AppImage"
+  check_method: etag
+"#,
+    )
+    .expect("expected ignore flag to parse");
+    assert_eq!(ignored.ignore, Some(true));
+}
+
+#[test]
 fn forge_asset_match_defaults_when_regex_is_used() {
     let app: AppConfig = serde_yaml::from_str(
         r#"

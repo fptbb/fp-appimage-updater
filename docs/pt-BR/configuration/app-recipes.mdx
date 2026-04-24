@@ -33,6 +33,10 @@ Coloque arquivos de receita dentro de `~/.config/fp-appimage-updater/apps/`. Cad
   Define como fp-appimage-updater encontra e baixa atualizações. Veja [estratégias de atualização](/pt-BR/configuration/update-strategies) para a referência completa e exemplos.
 </ParamField>
 
+<ParamField path="ignore" type="boolean">
+  Ignora esta receita em `check` e `update`, e a mostra como ignorada em `list`. Isso é útil quando você quer manter o app na configuração sem que o fp-appimage-updater mexa nele.
+</ParamField>
+
 <ParamField path="integration" type="boolean">
   Sobrescreve a configuração global `manage_desktop_files` para este app. Defina como `false` para pular a extração de arquivos `.desktop` e ícones para apps que não enviam um manifesto de desktop AppImage adequado.
 </ParamField>
@@ -97,6 +101,7 @@ strategy:
 
 ```yaml whatpulse.yml
 name: whatpulse
+ignore: true
 strategy:
   strategy: direct
   url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"

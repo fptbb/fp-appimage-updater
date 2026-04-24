@@ -1,3 +1,4 @@
+use crate::commands::helpers::app_is_ignored;
 use crate::config;
 use crate::output::{ListApp, ListResponse, print_json, print_list_human};
 use crate::state::StateManager;
@@ -18,6 +19,7 @@ pub fn run(
                 name: app.name.clone(),
                 strategy: strategy_label(&app.strategy).to_string(),
                 local_version: state.and_then(|s| s.local_version.clone()),
+                ignored: app_is_ignored(app),
                 integration: app
                     .integration
                     .unwrap_or(global_config.manage_desktop_files),

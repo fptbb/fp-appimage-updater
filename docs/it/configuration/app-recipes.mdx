@@ -33,6 +33,10 @@ Pone fasciculos formulae intra `~/.config/fp-appimage-updater/apps/`. Quilibet f
   Definit quomodo fp-appimage-updater renovationes invenit et dēscribit. Vide [strategias renovationis](/la/configuration/update-strategies) pro referentia completa et exemplis.
 </ParamField>
 
+<ParamField path="ignore" type="boolean">
+  Praetermittit hanc formulam in `check` et `update`, et eam ut ignoratam in `list` ostendit. Hoc utile est cum formulam in configuratione servare vis, sed fp-appimage-updater eam tangere non vis.
+</ParamField>
+
 <ParamField path="integration" type="boolean">
   Superat configurationem globalem `manage_desktop_files` pro hac applicatione. Pone ad `false` ad omittendam extractionem fasciculorum `.desktop` et iconum pro applicationibus quae manifestum desktopi AppImage idoneum non mittunt.
 </ParamField>
@@ -97,6 +101,7 @@ strategy:
 
 ```yaml whatpulse.yml
 name: whatpulse
+ignore: true
 strategy:
   strategy: direct
   url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"

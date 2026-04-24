@@ -8,6 +8,7 @@ fn app_config(prefix: Option<GithubProxyPrefixes>) -> AppConfig {
     AppConfig {
         config_dir: PathBuf::new(),
         name: "demo".to_string(),
+        ignore: None,
         zsync: None,
         integration: None,
         create_symlink: None,

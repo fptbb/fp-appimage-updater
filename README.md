@@ -118,12 +118,15 @@ github_proxy_prefix:
 ### App Recipe Example (`apps/whatpulse.yml`)
 ```yaml
 name: whatpulse
+ignore: true
 strategy:
   strategy: direct
   url: "https://releases.whatpulse.org/latest/linux/whatpulse-linux-latest_amd64.AppImage"
   check_method: etag
 segmented_downloads: true
 ```
+
+Set `ignore: true` on a recipe to keep it listed in your config while skipping it in `check` and `update`.
 
 ### Zsync Delta Updates
 `zsync` is an optional per-app delta download path powered by the built-in `zsync-rs` backend. It only runs when the recipe includes a `zsync` field and the updater can find both an existing installed AppImage and a matching `.zsync` manifest.

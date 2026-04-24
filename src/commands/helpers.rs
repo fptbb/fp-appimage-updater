@@ -29,6 +29,10 @@ pub fn rate_limit_enabled(app: &config::AppConfig, global: &config::GlobalConfig
         .unwrap_or(global.respect_rate_limits)
 }
 
+pub fn app_is_ignored(app: &config::AppConfig) -> bool {
+    app.ignore.unwrap_or(false)
+}
+
 pub fn github_proxy_enabled(app: &config::AppConfig, global: &config::GlobalConfig) -> bool {
     app.github_proxy.unwrap_or(global.github_proxy)
 }

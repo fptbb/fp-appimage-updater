@@ -11,6 +11,8 @@ fn test_cli_list() {
 
         let stdout = run_updater_success(&container, &["list"]).await;
 
+        assert!(stdout.contains("dummy-direct"));
+        assert!(stdout.to_lowercase().contains("ignore: ignored"));
         assert!(stdout.contains("winboat"));
         assert!(stdout.contains("whatpulse"));
         assert!(stdout.contains("hayase"));
@@ -45,6 +47,7 @@ fn test_cli_check() {
         let lower = stdout.to_lowercase();
 
         assert!(lower.contains("check results"));
+        assert!(!lower.contains("dummy-direct"));
         assert!(lower.contains("winboat"));
         assert!(lower.contains("whatpulse"));
         assert!(lower.contains("update available") || lower.contains("up to date"));

@@ -48,6 +48,9 @@ pub fn run(
             continue;
         }
         found = true;
+        if crate::commands::helpers::app_is_ignored(app) {
+            continue;
+        }
         let state = snapshot_app_state(state_manager, &app.name, now);
         let rate_limited_until = state.rate_limited_until;
         let github_proxy = github_proxy_enabled(app, global_config);

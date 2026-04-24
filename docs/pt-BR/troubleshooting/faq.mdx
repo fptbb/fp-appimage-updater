@@ -13,7 +13,7 @@ description: "Respostas para perguntas comuns sobre fp-appimage-updater."
   </Accordion>
 
   <Accordion title="Como faço para impedir que fp-appimage-updater atualize um app específico automaticamente?">
-    Não há uma flag "desativado". Para remover um app do gerenciamento, exclua seu arquivo de receita de `~/.config/fp-appimage-updater/apps/`.
+    Defina `ignore: true` na receita para manter o app na configuração enquanto ele é ignorado em `check` e `update`.
 
     Se você quiser manter a receita, mas pular os cooldowns de limite de taxa, defina `respect_rate_limits: false` globalmente em `config.yml` ou por app na receita:
 
