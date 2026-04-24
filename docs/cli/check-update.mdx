@@ -59,7 +59,7 @@ fp-appimage-updater --json check | jq
 fp-appimage-updater update [app-name]
 ```
 
-Downloads and installs updates for all configured apps, or for a single named app. Each successful update reports the elapsed time so you can see how long each app took.
+Downloads and installs updates for all configured apps, or for a single named app. By default, the output only lists apps that were actually updated, rate-limited, or failed. Pass `--show-all` or set `show_all: true` in `config.yml` to restore the older verbose listing that includes already up-to-date apps. Each successful update reports the elapsed time so you can see how long each app took.
 
 If a rate-limit was hit on a previous run, the affected app is skipped until its retry window expires — unless `respect_rate_limits` is disabled globally or for that app.
 
@@ -102,6 +102,10 @@ fp-appimage-updater --json update whatpulse | jq '.[0].is_updated'
 
 <ParamField query="--debug-version <VER>" type="string">
   **Debug only**: Force a specific version string for the update, bypassing the resolver. Requires `app-name`.
+</ParamField>
+
+<ParamField query="--show-all" type="boolean">
+  Show every app in the update results, including apps that were already up to date.
 </ParamField>
 
 <Note>

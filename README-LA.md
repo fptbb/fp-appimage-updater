@@ -116,6 +116,7 @@ naming_format: "{name}.AppImage"
 manage_desktop_files: true
 create_symlinks: false
 segmented_downloads: true
+show_all: false
 respect_rate_limits: true
 github_proxy: true
 github_proxy_prefix:
@@ -345,6 +346,12 @@ Renova omnes configurationes simul:
 
 ```bash
 fp-appimage-updater update
+```
+
+Defaltā, `update` tantum applicationes ostendit quae renovatae sunt, ob limitem rate praetermissae sunt, aut erraverunt. Utere `--show-all` vel pone `show_all: true` in `config.yml` si veterem enumerationem verbosam vis, quae etiam applicationes iam renovatas includit:
+
+```bash
+fp-appimage-updater update --show-all
 ```
 
 Renovationes felicies nunc tempus elapsum in secundis includunt ut videre possis quantum temporis quaeque app ad installandum aut renovandum cepit.

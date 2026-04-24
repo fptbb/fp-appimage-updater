@@ -15,6 +15,7 @@ use crate::output::{
 };
 use crate::parser::AppConfigLoadError;
 use crate::state::{AppState, StateManager};
+use crate::update::filter_update_apps;
 use anyhow::Result;
 use std::sync::mpsc;
 
@@ -25,6 +26,7 @@ pub fn run(
     state_manager: &mut StateManager,
     client: &ureq::Agent,
     app_name: Option<&str>,
+    show_all: bool,
     forced_update: Option<ForcedUpdateInfo>,
     json_output: bool,
     color_output: bool,
@@ -384,7 +386,7 @@ pub fn run(
                             duration_seconds: None,
                             error: None,
                         });
-                        if !json_output {
+                        if !json_output && show_all {
                             deferred_status_messages.push(format!(
                                 "{} is already up to date ({})",
                                 name,
@@ -747,6 +749,8 @@ pub fn run(
         }
     }
 
+    let visible_results = filter_update_apps(&results, show_all);
+
     if json_output {
         let error = if let Some(target) = app_name
             && !found
@@ -757,7 +761,7 @@ pub fn run(
         };
         print_json(&UpdateResponse {
             command: "update",
-            apps: results,
+            apps: visible_results,
             total_downloaded_bytes: Some(total_downloaded_bytes),
             median_download_speed_bps: median_speed_bps(&download_speed_samples),
             error,

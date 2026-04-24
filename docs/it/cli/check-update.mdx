@@ -59,7 +59,7 @@ fp-appimage-updater --json check | jq
 fp-appimage-updater update [nomen-app]
 ```
 
-Dēscribit et installet renovationes pro omnibus applicationibus configuratis, vel pro unica applicatione nominata. Quaeque renovatio prospera refert tempus transactum ut videre possis quantum temporis quaeque applicatio sumpserit.
+Dēscribit et installet renovationes pro omnibus applicationibus configuratis, vel pro unica applicatione nominata. Defaltā, egressus tantum applicationes ostendit quae vere renovatae sunt, ob limitem rate praetermissae sunt, aut erraverunt. Utere `--show-all` vel pone `show_all: true` in `config.yml` ut ad antiquam et verbosam ostentationem redeas, quae etiam applicationes iam renovatas includit. Quaeque renovatio prospera refert tempus transactum ut videre possis quantum temporis quaeque applicatio sumpserit.
 
 Si limes rate in exsecutione priore attactus est, applicatio affecta praetermittitur donec fenestra tentaminis novi exspiret - nisi `respect_rate_limits` globaliter vel pro ea applicatione dishabilita sit.
 
@@ -101,6 +101,10 @@ fp-appimage-updater --json update whatpulse | jq '.[0].is_updated'
 
 <ParamField query="--debug-version <VER>" type="string">
   **Debug tantum**: Cogit stringam versionis specificam pro renovatione, praeteriens resolutorem. Requirit `nomen-app`.
+</ParamField>
+
+<ParamField query="--show-all" type="boolean">
+  Omnes applicationes in resultatis renovationis ostendit, etiam eas quae iam renovatae erant.
 </ParamField>
 
 <Note>

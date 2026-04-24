@@ -7,6 +7,7 @@ use fp_appimage_updater::output::colors_enabled;
 use fp_appimage_updater::output::print_warning;
 use fp_appimage_updater::parser::{self, ConfigPaths};
 use fp_appimage_updater::state::StateManager;
+use fp_appimage_updater::update::effective_show_all;
 
 fn main() -> Result<()> {
     let cli = Cli::parse()?;
@@ -88,10 +89,12 @@ fn main() -> Result<()> {
         }
         Commands::Update {
             app_name,
+            show_all,
             self_update,
             debug_download_url,
             debug_version,
         } => {
+            let show_all = effective_show_all(global_config.show_all, *show_all);
             commands::update::run(
                 &app_configs,
                 &app_config_errors,
@@ -99,6 +102,7 @@ fn main() -> Result<()> {
                 &mut state_manager,
                 &client,
                 app_name.as_deref(),
+                show_all,
                 debug_download_url.as_deref(),
                 debug_version.as_deref(),
                 json_output,

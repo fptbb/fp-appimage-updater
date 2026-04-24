@@ -59,9 +59,9 @@ fp-appimage-updater --json check | jq
 fp-appimage-updater update [app-name]
 ```
 
-Baixa e instala atualizações para todos os apps configurados, ou para um único app nomeado. Cada atualização bem-sucedida reporta o tempo decorrido para que você possa ver quanto tempo cada app levou.
+Baixa e instala atualizações para todos os apps configurados, ou para um único app nomeado. Por padrão, a saída mostra apenas os apps que foram realmente atualizados, ficaram limitados por rate limit ou falharam. Use `--show-all` ou defina `show_all: true` no `config.yml` para voltar ao comportamento antigo e verboso, que também lista os apps que já estavam atualizados. Cada atualização bem-sucedida reporta o tempo decorrido para que você possa ver quanto tempo cada app levou.
 
-If a rate-limit was hit on a previous run, the affected app is skipped until its retry window expires — unless `respect_rate_limits` is disabled globally or for that app.
+Se um rate-limit foi atingido em uma execução anterior, o app afetado é pulado até a janela de retry expirar - a menos que `respect_rate_limits` esteja desativado globalmente ou para esse app.
 
 ### Exemplos
 
@@ -101,6 +101,10 @@ fp-appimage-updater --json update whatpulse | jq '.[0].is_updated'
 
 <ParamField query="--debug-version <VER>" type="string">
   **Apenas debug**: Força uma string de versão específica para a atualização, ignorando o resolvedor. Requer `app-name`.
+</ParamField>
+
+<ParamField query="--show-all" type="boolean">
+  Mostra todos os apps nos resultados da atualização, incluindo os que já estavam atualizados.
 </ParamField>
 
 <Note>

@@ -26,6 +26,7 @@ naming_format: '{name}.AppImage'
 manage_desktop_files: true
 create_symlinks: false
 segmented_downloads: true
+show_all: false
 respect_rate_limits: true
 github_proxy: true
 github_proxy_prefix: https://gh-proxy.com/
@@ -57,6 +58,10 @@ github_proxy_prefix: https://gh-proxy.com/
 
 <ParamField path="segmented_downloads" type="boolean" default="true">
   Divide downloads em requisições HTTP range paralelas quando o servidor oferece suporte. Acelera downloads grandes de AppImage em servidores capazes.
+</ParamField>
+
+<ParamField path="show_all" type="boolean" default="false">
+  Quando habilitado, `update` inclui no resultado os apps que já estavam atualizados. Por padrão, só aparecem os apps que foram atualizados, ficaram em rate limit ou falharam.
 </ParamField>
 
 <ParamField path="respect_rate_limits" type="boolean" default="true">

@@ -38,6 +38,7 @@ pub const COMMAND_DEFS: &[CmdInfo] = &[
         name: "update",
         desc: "Update applications (all, or specify one)",
         opts: &[
+            "--show-all",
             "--self-update",
             "--debug-download-url <URL>",
             "--debug-version <VER>",
@@ -119,6 +120,7 @@ pub enum Commands {
     },
     Update {
         app_name: Option<String>,
+        show_all: bool,
         self_update: bool,
         debug_download_url: Option<String>,
         debug_version: Option<String>,
@@ -199,12 +201,14 @@ impl Cli {
                 app_name: args.opt_free_from_str()?,
             },
             "update" => {
+                let show_all = args.contains("--show-all");
                 let self_update = args.contains("--self-update");
                 let debug_download_url: Option<String> =
                     args.opt_value_from_str("--debug-download-url")?;
                 let debug_version: Option<String> = args.opt_value_from_str("--debug-version")?;
                 Commands::Update {
                     app_name: args.opt_free_from_str()?,
+                    show_all,
                     self_update,
                     debug_download_url,
                     debug_version,

@@ -28,6 +28,8 @@ pub struct GlobalConfig {
     pub create_symlinks: bool,
     #[serde(default)]
     pub segmented_downloads: bool,
+    #[serde(default)]
+    pub show_all: bool,
     #[serde(default = "default_respect_rate_limits")]
     pub respect_rate_limits: bool,
     #[serde(default = "default_github_proxy")]
@@ -55,6 +57,7 @@ impl Default for GlobalConfig {
             manage_desktop_files: true,
             create_symlinks: false,
             segmented_downloads: true,
+            show_all: false,
             respect_rate_limits: true,
             github_proxy: true,
             github_proxy_prefix: GithubProxyPrefixes::Single("all".to_string()),

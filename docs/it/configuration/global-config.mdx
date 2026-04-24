@@ -26,6 +26,7 @@ naming_format: '{name}.AppImage'
 manage_desktop_files: true
 create_symlinks: false
 segmented_downloads: true
+show_all: false
 respect_rate_limits: true
 github_proxy: true
 github_proxy_prefix: https://gh-proxy.com/
@@ -81,6 +82,10 @@ github_token: ghp_tua_tessera_secreta_hic
 
 <ParamField path="segmented_downloads" type="boolean" default="true">
   Dividit downloads in petitiones HTTP range parallelas cum servitor sustinet. Accelerat downloads magnos AppImage in servitoribus capabilibus.
+</ParamField>
+
+<ParamField path="show_all" type="boolean" default="false">
+  Cum habilitatum, `update` etiam applicationes iam renovatas in egressu includit. Defaltā, tantum applicationes quae renovatae sunt, ob limitem rate praetermissae sunt, aut erraverunt ostenduntur.
 </ParamField>
 
 <ParamField path="respect_rate_limits" type="boolean" default="true">

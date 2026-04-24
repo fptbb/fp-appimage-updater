@@ -110,6 +110,42 @@ strategy:
 }
 
 #[test]
+fn global_show_all_defaults_to_false_and_parses_true() {
+    let defaulted: GlobalConfig = serde_yaml::from_str(
+        r#"
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: "{name}.AppImage"
+manage_desktop_files: true
+create_symlinks: false
+segmented_downloads: true
+respect_rate_limits: true
+github_proxy: true
+github_proxy_prefix: https://gh-proxy.com/
+"#,
+    )
+    .expect("expected defaulted show_all flag to parse");
+    assert!(!defaulted.show_all);
+
+    let enabled: GlobalConfig = serde_yaml::from_str(
+        r#"
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: "{name}.AppImage"
+manage_desktop_files: true
+create_symlinks: false
+segmented_downloads: true
+show_all: true
+respect_rate_limits: true
+github_proxy: true
+github_proxy_prefix: https://gh-proxy.com/
+"#,
+    )
+    .expect("expected show_all flag to parse");
+    assert!(enabled.show_all);
+}
+
+#[test]
 fn forge_asset_match_defaults_when_regex_is_used() {
     let app: AppConfig = serde_yaml::from_str(
         r#"

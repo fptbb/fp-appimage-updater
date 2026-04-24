@@ -107,6 +107,7 @@ naming_format: "{name}.AppImage"
 manage_desktop_files: true
 create_symlinks: false
 segmented_downloads: true
+show_all: false
 respect_rate_limits: true
 github_proxy: true
 github_proxy_prefix:
@@ -305,6 +306,11 @@ fp-appimage-updater update whatpulse
 Update all configurations at once:
 ```bash
 fp-appimage-updater update
+```
+
+By default, `update` only prints apps that were updated, rate-limited, or failed. Add `--show-all` or set `show_all: true` in `config.yml` if you want the older verbose listing that also includes apps that were already up to date:
+```bash
+fp-appimage-updater update --show-all
 ```
 
 Successful updates now include the elapsed time in seconds so you can see how long each app took to install or update.

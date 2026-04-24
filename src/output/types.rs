@@ -60,7 +60,7 @@ pub struct UpdateResponse {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct UpdateApp {
     pub name: String,
     pub status: UpdateStatus,
@@ -75,7 +75,7 @@ pub struct UpdateApp {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UpdateStatus {
     Updated,
