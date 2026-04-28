@@ -4,22 +4,34 @@ Thank you for your interest in contributing to `fp-appimage-updater`! This docum
 
 ## Development Environment setup
 
-This project is written in Rust. You will need:
+This project is written in Rust. To build and release all targets (glibc and musl), you will need:
 - `rustc` and `cargo` installed (preferably via `rustup`).
+- `zig` (required for cross-compilation and musl builds). You can install it via your package manager or simply with `pip install ziglang`.
+- `cargo-zigbuild` (`pip install cargo-zigbuild`).
 - `just` (optional, but recommended) for running build commands defined in the `Justfile`.
 - `upx` (optional) if you want to test binary compression locally.
 
 ### Building
-The project exclusively uses `just` to orchestrate builds, cross-compilation, compressing, and deployment.
+The project uses `just` and `cargo-zigbuild` to orchestrate builds, cross-compilation, and deployment. This ensures that binaries are portable and compatible with older distributions.
 
 To list all available commands:
 ```bash
 just --list
 ```
 
-To compile natively and build the application:
+To compile natively and build the application (glibc):
 ```bash
 just build-linux-x64
+```
+
+To build a fully static binary for musl-based systems (like Alpine):
+```bash
+just build-linux-x64-musl
+```
+
+To build all 4 release targets (x64/ARM, glibc/musl):
+```bash
+just build-all
 ```
 
 To install the binary and active background systemd timers to your `~/.local` user-space:
