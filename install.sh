@@ -179,6 +179,12 @@ main() {
     
     echo -e "\e[34m[INFO]\e[0m Starting $SCOPE-wide installation of $APP_NAME..."
     
+    # detects libc style
+    LIBC_STYLE="glibc"
+    if [ -f /lib/ld-musl-x86_64.so.1 ] || [ -f /lib/ld-musl-aarch64.so.1 ] || (command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -iq musl); then
+        LIBC_STYLE="musl"
+    fi
+
     # detects architecture
     ARCH=$(uname -m)
     case "$ARCH" in
@@ -193,6 +199,10 @@ main() {
             exit 1
         ;;
     esac
+
+    if [ "$LIBC_STYLE" = "musl" ]; then
+        TARGET_ARCH="${TARGET_ARCH}-musl"
+    fi
     
     # fetches release version
     extract_tag_name() {

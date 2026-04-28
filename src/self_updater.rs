@@ -23,8 +23,20 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 fn asset_suffix() -> Result<&'static str> {
     // The release assets are published with architecture-specific suffixes.
     match std::env::consts::ARCH {
-        "x86_64" => Ok("x64"),
-        "aarch64" => Ok("ARM"),
+        "x86_64" => {
+            if cfg!(target_env = "musl") {
+                Ok("x64-musl")
+            } else {
+                Ok("x64")
+            }
+        }
+        "aarch64" => {
+            if cfg!(target_env = "musl") {
+                Ok("ARM-musl")
+            } else {
+                Ok("ARM")
+            }
+        }
         arch => bail!("Unsupported architecture for self-update: {}", arch),
     }
 }
