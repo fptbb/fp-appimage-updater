@@ -135,7 +135,9 @@ ci_build_changelog_body() {
 ci_github_release_files() {
     cat <<'EOF'
 build/fp-appimage-updater.x64
+build/fp-appimage-updater.x64-musl
 build/fp-appimage-updater.ARM
+build/fp-appimage-updater.ARM-musl
 build/checksums.txt
 systemd/fp-appimage-updater.service
 systemd/fp-appimage-updater.timer
@@ -145,10 +147,14 @@ EOF
 ci_gitlab_release_files() {
     cat <<'EOF'
 build/fp-appimage-updater.x64
+build/fp-appimage-updater.x64-musl
 build/fp-appimage-updater.ARM
+build/fp-appimage-updater.ARM-musl
 build/checksums.txt
 build/fp-appimage-updater.x64.bundle
+build/fp-appimage-updater.x64-musl.bundle
 build/fp-appimage-updater.ARM.bundle
+build/fp-appimage-updater.ARM-musl.bundle
 systemd/fp-appimage-updater.service
 systemd/fp-appimage-updater.timer
 EOF
@@ -157,10 +163,14 @@ EOF
 ci_gitlab_release_asset_links() {
     cat <<EOF
 {"name":"fp-appimage-updater.x64","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64","direct_asset_path":"/bin/fp-appimage-updater.x64"}
+{"name":"fp-appimage-updater.x64-musl","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64-musl","direct_asset_path":"/bin/fp-appimage-updater.x64-musl"}
 {"name":"checksums.txt","url":"${PACKAGE_REGISTRY_URL}/checksums.txt","direct_asset_path":"/bin/checksums.txt"}
 {"name":"fp-appimage-updater.x64.bundle","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64.bundle","direct_asset_path":"/bin/fp-appimage-updater.x64.bundle"}
+{"name":"fp-appimage-updater.x64-musl.bundle","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64-musl.bundle","direct_asset_path":"/bin/fp-appimage-updater.x64-musl.bundle"}
 {"name":"fp-appimage-updater.ARM","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.ARM","direct_asset_path":"/bin/fp-appimage-updater.ARM"}
+{"name":"fp-appimage-updater.ARM-musl","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.ARM-musl","direct_asset_path":"/bin/fp-appimage-updater.ARM-musl"}
 {"name":"fp-appimage-updater.ARM.bundle","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.ARM.bundle","direct_asset_path":"/bin/fp-appimage-updater.ARM.bundle"}
+{"name":"fp-appimage-updater.ARM-musl.bundle","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.ARM-musl.bundle","direct_asset_path":"/bin/fp-appimage-updater.ARM-musl.bundle"}
 {"name":"fp-appimage-updater.service","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.service","direct_asset_path":"/systemd/fp-appimage-updater.service"}
 {"name":"fp-appimage-updater.timer","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.timer","direct_asset_path":"/systemd/fp-appimage-updater.timer"}
 EOF

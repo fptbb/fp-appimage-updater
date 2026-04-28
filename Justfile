@@ -7,7 +7,7 @@ BUILD_DIR := "build"
 _default:
     @just --list
 
-build-all: prepare build-linux-x64 build-linux-arm
+build-all: prepare build-linux-x64 build-linux-x64-musl build-linux-arm build-linux-arm-musl
 
 prepare:
     #!/usr/bin/env bash
@@ -21,12 +21,12 @@ dev it commands:
 
 clean-root:
     #!/usr/bin/env bash
-    rm -f {{APP_NAME}} {{APP_NAME}}.x64 {{APP_NAME}}.ARM
+    rm -f {{APP_NAME}} {{APP_NAME}}.x64 {{APP_NAME}}.x64-musl {{APP_NAME}}.ARM {{APP_NAME}}.ARM-musl
 
 build-linux-x64: prepare
     #!/usr/bin/env bash
-    echo "Building Linux x64..."
-    cargo build --release --target x86_64-unknown-linux-gnu
+    echo "Building Linux x64 (glibc)..."
+    cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.28
     if command -v upx >/dev/null; then \
         echo "Compressing Linux x64..."; \
         upx --best --lzma target/x86_64-unknown-linux-gnu/release/{{APP_NAME}}; \
@@ -34,16 +34,38 @@ build-linux-x64: prepare
     mv target/x86_64-unknown-linux-gnu/release/{{APP_NAME}} {{BUILD_DIR}}/{{APP_NAME}}.x64
     echo "Done: {{BUILD_DIR}}/{{APP_NAME}}.x64"
 
+build-linux-x64-musl: prepare
+    #!/usr/bin/env bash
+    echo "Building Linux x64 (musl)..."
+    cargo zigbuild --release --target x86_64-unknown-linux-musl
+    if command -v upx >/dev/null; then \
+        echo "Compressing Linux x64 musl..."; \
+        upx --best --lzma target/x86_64-unknown-linux-musl/release/{{APP_NAME}}; \
+    fi
+    mv target/x86_64-unknown-linux-musl/release/{{APP_NAME}} {{BUILD_DIR}}/{{APP_NAME}}.x64-musl
+    echo "Done: {{BUILD_DIR}}/{{APP_NAME}}.x64-musl"
+
 build-linux-arm: prepare
     #!/usr/bin/env bash
-    echo "Building Linux ARM64..."
-    cargo build --release --target aarch64-unknown-linux-gnu
+    echo "Building Linux ARM64 (glibc)..."
+    cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.28
     if command -v upx >/dev/null; then \
         echo "Compressing Linux ARM64..."; \
         upx --best --lzma target/aarch64-unknown-linux-gnu/release/{{APP_NAME}}; \
     fi
     mv target/aarch64-unknown-linux-gnu/release/{{APP_NAME}} {{BUILD_DIR}}/{{APP_NAME}}.ARM
     echo "Done: {{BUILD_DIR}}/{{APP_NAME}}.ARM"
+
+build-linux-arm-musl: prepare
+    #!/usr/bin/env bash
+    echo "Building Linux ARM64 (musl)..."
+    cargo zigbuild --release --target aarch64-unknown-linux-musl
+    if command -v upx >/dev/null; then \
+        echo "Compressing Linux ARM64 musl..."; \
+        upx --best --lzma target/aarch64-unknown-linux-musl/release/{{APP_NAME}}; \
+    fi
+    mv target/aarch64-unknown-linux-musl/release/{{APP_NAME}} {{BUILD_DIR}}/{{APP_NAME}}.ARM-musl
+    echo "Done: {{BUILD_DIR}}/{{APP_NAME}}.ARM-musl"
 
 clean: clean-root
     #!/usr/bin/env bash
