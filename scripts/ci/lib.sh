@@ -127,9 +127,10 @@ ci_build_changelog_body() {
         fi
     fi
     
-    CI_CHANGELOG_BODY=$'## What'\''s Changed\n'
-    CI_CHANGELOG_BODY+=$'**Full Changelog**: ['"${CI_BASE_SHA}...${CI_HEAD_SHA}"']('"${CI_COMPARE_URL}"')\n\n'
-    CI_CHANGELOG_BODY+="${log_content}"
+    export CI_CHANGELOG_BODY="## What's Changed
+**Full Changelog**: [${CI_BASE_SHA}...${CI_HEAD_SHA}](${CI_COMPARE_URL})
+
+${log_content}"
 }
 
 ci_github_release_files() {
