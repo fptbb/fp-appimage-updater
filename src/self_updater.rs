@@ -147,7 +147,7 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
     // Safety check: ensure we are not trying to update a system-owned binary
     if !is_writable_by_user(&current_binary) {
         print_warning(
-            "The current binary is not writable by the user. It might be installed in a system directory or managed by a package manager. Self-update aborted.",
+            "The current binary is not writable. Please update it via your package manager or the source where it was installed.",
             colors,
         );
         return Ok(());

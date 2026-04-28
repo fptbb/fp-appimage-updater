@@ -111,7 +111,7 @@ fn main() -> Result<()> {
             save_state_best_effort(&state_manager, color_output);
 
             // After application updates, handle self-update
-            if *self_update {
+            if *self_update || global_config.auto_self_update {
                 commands::self_update::run(&client, false, color_output)?;
             } else if !json_output {
                 // By default, just check for updates if not in JSON mode

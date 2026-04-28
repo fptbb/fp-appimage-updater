@@ -213,6 +213,34 @@ gitlab_release_web_url: "https://gitlab.example.com/{repo_path}"
 }
 
 #[test]
+fn global_auto_self_update_defaults_to_false_and_parses_true() {
+    let defaulted: GlobalConfig = serde_yaml::from_str(
+        r#"
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: "{name}.AppImage"
+manage_desktop_files: true
+create_symlinks: false
+"#,
+    )
+    .expect("expected defaulted auto_self_update flag to parse");
+    assert!(!defaulted.auto_self_update);
+
+    let enabled: GlobalConfig = serde_yaml::from_str(
+        r#"
+storage_dir: ~/.local/bin/AppImages
+symlink_dir: ~/.local/bin
+naming_format: "{name}.AppImage"
+manage_desktop_files: true
+create_symlinks: false
+auto_self_update: true
+"#,
+    )
+    .expect("expected auto_self_update flag to parse");
+    assert!(enabled.auto_self_update);
+}
+
+#[test]
 fn safe_path_component_validation_blocks_separators() {
     assert!(ensure_safe_path_component("demo.AppImage", "test").is_ok());
     assert!(ensure_safe_path_component("../demo.AppImage", "test").is_err());

@@ -44,6 +44,8 @@ pub struct GlobalConfig {
     pub gitlab_release_api_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub gitlab_release_web_url: Option<String>,
+    #[serde(default)]
+    pub auto_self_update: bool,
     #[serde(skip)]
     pub github_token: Option<String>,
 }
@@ -65,6 +67,7 @@ impl Default for GlobalConfig {
             github_release_web_url: None,
             gitlab_release_api_url: None,
             gitlab_release_web_url: None,
+            auto_self_update: false,
             github_token: None,
         }
     }
