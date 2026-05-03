@@ -112,7 +112,7 @@ fn main() -> Result<()> {
 
             // After application updates, handle self-update
             if *self_update || global_config.auto_self_update {
-                commands::self_update::run(&client, false, color_output)?;
+                commands::self_update::run_if_available(&client, false, color_output)?;
             } else if !json_output {
                 // By default, just check for updates if not in JSON mode
                 commands::self_update::check(&client, false, color_output)?;

@@ -87,13 +87,7 @@ fn resolve_latest_tag(client: &Agent, pre_release: bool) -> Result<String> {
 
 pub fn check_for_update(client: &Agent, pre_release: bool, colors: bool) -> Result<Option<String>> {
     let latest_tag = resolve_latest_tag(client, pre_release)?;
-    let latest_semver = latest_tag
-        .trim_start_matches('v')
-        .split('-')
-        .next()
-        .unwrap_or("");
-
-    if latest_semver != CURRENT_VERSION {
+    if is_update_available(&latest_tag) {
         print_self_update_available(CURRENT_VERSION, &latest_tag, colors);
         return Ok(Some(latest_tag));
     }
@@ -153,34 +147,81 @@ fn verify_checksum(binary_path: &PathBuf, checksums_content: &str, asset_name: &
     bail!("No checksum found for {} in checksums.txt", asset_name);
 }
 
-pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()> {
-    let current_binary = env::current_exe().context("Failed to resolve current executable path")?;
-
-    // Safety check: ensure we are not trying to update a system-owned binary
-    if !is_writable_by_user(&current_binary) {
-        print_warning(
-            "The current binary is not writable. Please update it via your package manager or the source where it was installed.",
-            colors,
-        );
-        return Ok(());
-    }
-
-    let kind = if pre_release { "pre-release" } else { "stable" };
-    print_self_update_start(kind, CURRENT_VERSION, colors);
-
-    let latest_tag = resolve_latest_tag(client, pre_release)?;
+fn is_update_available(latest_tag: &str) -> bool {
     let latest_semver = latest_tag
         .trim_start_matches('v')
         .split('-')
         .next()
         .unwrap_or("");
 
-    if latest_semver == CURRENT_VERSION {
-        print_self_update_current(CURRENT_VERSION, colors);
-        return Ok(());
+    latest_semver != CURRENT_VERSION
+}
+
+enum SelfUpdatePlan {
+    AlreadyCurrent,
+    UpdateAvailable,
+    UpdateAvailableButBinaryNotWritable,
+}
+
+#[derive(Clone, Copy)]
+enum SelfUpdateMode {
+    Interactive,
+    QuietIfCurrent,
+}
+
+fn plan_self_update(current_binary: &PathBuf, latest_tag: &str) -> SelfUpdatePlan {
+    if !is_update_available(latest_tag) {
+        return SelfUpdatePlan::AlreadyCurrent;
     }
 
-    print_self_update_available(CURRENT_VERSION, &latest_tag, colors);
+    if !is_writable_by_user(current_binary) {
+        return SelfUpdatePlan::UpdateAvailableButBinaryNotWritable;
+    }
+
+    SelfUpdatePlan::UpdateAvailable
+}
+
+fn should_print_start_message(mode: SelfUpdateMode) -> bool {
+    matches!(mode, SelfUpdateMode::Interactive)
+}
+
+fn should_print_current_message(mode: SelfUpdateMode) -> bool {
+    matches!(mode, SelfUpdateMode::Interactive)
+}
+
+fn self_update_with_mode(
+    client: &Agent,
+    pre_release: bool,
+    colors: bool,
+    mode: SelfUpdateMode,
+) -> Result<()> {
+    let current_binary = env::current_exe().context("Failed to resolve current executable path")?;
+
+    if should_print_start_message(mode) {
+        let kind = if pre_release { "pre-release" } else { "stable" };
+        print_self_update_start(kind, CURRENT_VERSION, colors);
+    }
+
+    let latest_tag = resolve_latest_tag(client, pre_release)?;
+    match plan_self_update(&current_binary, &latest_tag) {
+        SelfUpdatePlan::AlreadyCurrent => {
+            if should_print_current_message(mode) {
+                print_self_update_current(CURRENT_VERSION, colors);
+            }
+            return Ok(());
+        }
+        SelfUpdatePlan::UpdateAvailableButBinaryNotWritable => {
+            print_self_update_available(CURRENT_VERSION, &latest_tag, colors);
+            print_warning(
+                "The current binary is not writable. Please update it via your package manager or the source where it was installed.",
+                colors,
+            );
+            return Ok(());
+        }
+        SelfUpdatePlan::UpdateAvailable => {
+            print_self_update_available(CURRENT_VERSION, &latest_tag, colors);
+        }
+    }
 
     let suffix = asset_suffix()?;
     let binary_name = format!("fp-appimage-updater.{}", suffix);
@@ -241,4 +282,74 @@ pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()
 
     print_self_update_success(&latest_tag, colors);
     Ok(())
+}
+
+pub fn self_update(client: &Agent, pre_release: bool, colors: bool) -> Result<()> {
+    self_update_with_mode(client, pre_release, colors, SelfUpdateMode::Interactive)
+}
+
+pub fn self_update_if_available(client: &Agent, pre_release: bool, colors: bool) -> Result<()> {
+    self_update_with_mode(client, pre_release, colors, SelfUpdateMode::QuietIfCurrent)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        SelfUpdateMode, SelfUpdatePlan, is_update_available, plan_self_update,
+        should_print_current_message, should_print_start_message,
+    };
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn stable_release_matching_current_version_is_not_an_update() {
+        assert!(!is_update_available(&format!(
+            "v{}",
+            env!("CARGO_PKG_VERSION")
+        )));
+    }
+
+    #[test]
+    fn prerelease_with_same_semver_is_not_an_update() {
+        assert!(!is_update_available(&format!(
+            "v{}-RC1",
+            env!("CARGO_PKG_VERSION")
+        )));
+    }
+
+    #[test]
+    fn newer_release_is_an_update() {
+        assert!(is_update_available("v999.0.0"));
+    }
+
+    #[test]
+    fn unwritable_binary_only_warns_when_update_exists() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let binary_path = temp_dir.path().join("fp-appimage-updater");
+        fs::write(&binary_path, b"binary").expect("write test binary");
+
+        let mut permissions = fs::metadata(&binary_path).expect("metadata").permissions();
+        permissions.set_mode(0o444);
+        fs::set_permissions(&binary_path, permissions).expect("set readonly perms");
+
+        assert!(matches!(
+            plan_self_update(&binary_path, &format!("v{}", env!("CARGO_PKG_VERSION"))),
+            SelfUpdatePlan::AlreadyCurrent
+        ));
+
+        assert!(matches!(
+            plan_self_update(&binary_path, "v999.0.0"),
+            SelfUpdatePlan::UpdateAvailableButBinaryNotWritable
+        ));
+    }
+
+    #[test]
+    fn quiet_mode_suppresses_routine_self_update_messages() {
+        assert!(!should_print_start_message(SelfUpdateMode::QuietIfCurrent));
+        assert!(!should_print_current_message(
+            SelfUpdateMode::QuietIfCurrent
+        ));
+        assert!(should_print_start_message(SelfUpdateMode::Interactive));
+        assert!(should_print_current_message(SelfUpdateMode::Interactive));
+    }
 }
