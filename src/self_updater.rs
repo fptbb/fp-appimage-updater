@@ -6,8 +6,10 @@ use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};
 use std::env;
 use std::fs;
+use std::ffi::CString;
 use std::io::{Read, Write};
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 use ureq::Agent;
 
@@ -95,23 +97,14 @@ pub fn check_for_update(client: &Agent, pre_release: bool, colors: bool) -> Resu
     Ok(None)
 }
 
-fn is_writable_by_user(path: &PathBuf) -> bool {
-    use std::os::unix::fs::MetadataExt;
-    let metadata = match fs::metadata(path) {
-        Ok(m) => m,
+fn is_writable_by_user(path: &std::path::Path) -> bool {
+    let c_path = match CString::new(path.as_os_str().as_bytes()) {
+        Ok(p) => p,
         Err(_) => return false,
     };
 
-    let uid = unsafe { libc::getuid() };
-    if uid == 0 {
-        return true;
-    } // root can write anywhere usually
-
-    if metadata.uid() == uid {
-        return metadata.permissions().mode() & 0o200 != 0;
-    }
-
-    false
+    // SAFETY: access() reads a valid null-terminated C string.
+    unsafe { libc::access(c_path.as_ptr(), libc::W_OK) == 0 }
 }
 
 fn verify_checksum(binary_path: &PathBuf, checksums_content: &str, asset_name: &str) -> Result<()> {
@@ -174,7 +167,7 @@ fn plan_self_update(current_binary: &PathBuf, latest_tag: &str) -> SelfUpdatePla
         return SelfUpdatePlan::AlreadyCurrent;
     }
 
-    if !is_writable_by_user(current_binary) {
+    if !is_writable_by_user(current_binary.as_path()) {
         return SelfUpdatePlan::UpdateAvailableButBinaryNotWritable;
     }
 

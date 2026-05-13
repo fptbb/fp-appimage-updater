@@ -273,6 +273,15 @@ fn process_is_running(pid: u32) -> bool {
         return false;
     }
 
+    // SAFETY: kill(pid, 0) performs permission/existence checks only
+    // and does not send a signal.
     let result = unsafe { libc::kill(pid as libc::pid_t, 0) };
-    result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+    if result == 0 {
+        true
+    } else {
+        match std::io::Error::last_os_error().raw_os_error() {
+            Some(errno) if errno == libc::EPERM => true,
+            _ => false,
+        }
+    }
 }
