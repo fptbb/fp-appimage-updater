@@ -55,8 +55,6 @@ fn main() -> Result<()> {
                 &paths,
                 &global_config,
                 &client,
-                app_configs.len(),
-                app_config_errors.len(),
                 &app_config_errors,
                 json_output,
                 color_output,
