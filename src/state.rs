@@ -24,6 +24,8 @@ pub struct AppState {
     pub last_modified: Option<String>,
     pub file_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sanitized_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_limited_until: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<String>,

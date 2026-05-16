@@ -5,7 +5,7 @@ use anyhow::Result;
 use std::fs;
 
 use crate::config::{AppConfig, GlobalConfig};
-use crate::integrator::expand_tilde;
+use crate::integrator::{expand_tilde, legacy_desktop_asset_names, sanitized_app_name};
 use crate::output::{print_success, print_warning};
 use crate::state::AppState;
 
@@ -59,14 +59,20 @@ fn remove_desktop(app: &AppConfig, state: Option<&AppState>, colors: bool) -> Re
 
     let apps_dir = data_local_dir.join("applications");
 
-    let desktop_path = apps_dir.join(format!("{}.desktop", app.name));
-    if desktop_path.exists()
-        && let Err(e) = fs::remove_file(&desktop_path)
-    {
-        print_warning(
-            &format!("Failed to remove desktop file {:?}: {}", desktop_path, e),
-            colors,
-        );
+    let sanitized_name = sanitized_app_name(&app.name);
+    let mut desktop_names = vec![sanitized_name.clone()];
+    desktop_names.extend(legacy_desktop_asset_names(app, state, &sanitized_name));
+
+    for name in desktop_names {
+        let desktop_path = apps_dir.join(format!("{}.desktop", name));
+        if desktop_path.exists()
+            && let Err(e) = fs::remove_file(&desktop_path)
+        {
+            print_warning(
+                &format!("Failed to remove desktop file {:?}: {}", desktop_path, e),
+                colors,
+            );
+        }
     }
 
     if let Some(s) = state
@@ -75,12 +81,15 @@ fn remove_desktop(app: &AppConfig, state: Option<&AppState>, colors: bool) -> Re
         let file_path = std::path::Path::new(file_path_str);
         if let Some(parent_dir) = file_path.parent() {
             let icons_dir = parent_dir.join(".icons");
-            let png_icon = icons_dir.join(format!("{}.png", app.name));
-            let svg_icon = icons_dir.join(format!("{}.svg", app.name));
+            let mut icon_names = vec![sanitized_name];
+            icon_names.extend(legacy_desktop_asset_names(app, state, &icon_names[0]));
 
-            for icon_path in [png_icon, svg_icon] {
-                if icon_path.exists() {
-                    let _ = fs::remove_file(&icon_path);
+            for name in icon_names {
+                for ext in ["png", "svg"] {
+                    let icon_path = icons_dir.join(format!("{}.{}", name, ext));
+                    if icon_path.exists() {
+                        let _ = fs::remove_file(&icon_path);
+                    }
                 }
             }
         }

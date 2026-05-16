@@ -5,11 +5,11 @@
 use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};
 use std::env;
-use std::fs;
 use std::ffi::CString;
+use std::fs;
 use std::io::{Read, Write};
-use std::os::unix::fs::PermissionsExt;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use ureq::Agent;
 

@@ -1,5 +1,8 @@
 use fp_appimage_updater::commands::remove::clear_installed_state;
+use fp_appimage_updater::config::{AppConfig, StrategyConfig};
+use fp_appimage_updater::integrator::legacy_desktop_asset_names;
 use fp_appimage_updater::state::{AppState, ForgePlatform};
+use std::path::PathBuf;
 
 #[test]
 fn clearing_installed_state_keeps_download_history() {
@@ -8,6 +11,7 @@ fn clearing_installed_state_keeps_download_history() {
         etag: Some("abc".to_string()),
         last_modified: Some("yesterday".to_string()),
         file_path: Some("/tmp/app.AppImage".to_string()),
+        sanitized_name: Some("app".to_string()),
         rate_limited_until: Some(123),
         capabilities: vec!["segmented_downloads".to_string()],
         segmented_downloads: Some(true),
@@ -22,10 +26,42 @@ fn clearing_installed_state_keeps_download_history() {
     assert_eq!(state.etag, None);
     assert_eq!(state.last_modified, None);
     assert_eq!(state.file_path, None);
+    assert_eq!(state.sanitized_name, None);
     assert_eq!(state.rate_limited_until, None);
     assert_eq!(state.download_bytes, Some(42));
     assert_eq!(state.capabilities, vec!["segmented_downloads".to_string()]);
     assert_eq!(state.segmented_downloads, Some(true));
     assert_eq!(state.forge_repository, Some("repo".to_string()));
     assert_eq!(state.forge_platform, Some(ForgePlatform::GitHub));
+}
+
+#[test]
+fn legacy_desktop_asset_names_include_old_variants() {
+    let app = AppConfig {
+        config_dir: PathBuf::new(),
+        name: "My App".to_string(),
+        ignore: None,
+        zsync: None,
+        integration: None,
+        create_symlink: None,
+        segmented_downloads: None,
+        respect_rate_limits: None,
+        github_proxy: None,
+        github_proxy_prefix: None,
+        storage_dir: None,
+        naming_format: None,
+        inner_asset_match: None,
+        strategy: StrategyConfig::Direct {
+            url: "https://example.com/My.AppImage".to_string(),
+            check_method: fp_appimage_updater::config::CheckMethod::Etag,
+        },
+    };
+    let state = AppState {
+        sanitized_name: Some("old-app".to_string()),
+        ..AppState::default()
+    };
+
+    let names = legacy_desktop_asset_names(&app, Some(&state), "my-app");
+
+    assert_eq!(names, vec!["My App".to_string(), "old-app".to_string()]);
 }

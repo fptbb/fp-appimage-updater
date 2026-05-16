@@ -135,5 +135,6 @@ pub fn clear_installed_state(state: &mut AppState) {
     state.etag = None;
     state.last_modified = None;
     state.file_path = None;
+    state.sanitized_name = None;
     state.rate_limited_until = None;
 }

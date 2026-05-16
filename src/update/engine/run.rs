@@ -508,6 +508,7 @@ pub fn run(
                         let to_version = info.version.clone();
                         let old_path_ref = old_path.as_deref();
                         let was_update = from_version.is_some();
+                        let integration_state = state_manager.get_app(&app_name).cloned();
                         let download_bps = download_elapsed.map(|download_elapsed| {
                             if download_elapsed.is_zero() {
                                 0.0
@@ -516,9 +517,13 @@ pub fn run(
                             }
                         });
 
-                        if let Err(e) =
-                            integrator::integrate(&app, global_config, &new_path, old_path_ref)
-                        {
+                        if let Err(e) = integrator::integrate(
+                            &app,
+                            global_config,
+                            &new_path,
+                            old_path_ref,
+                            integration_state.as_ref(),
+                        ) {
                             let state = state_manager.get_app_mut(&app_name);
                             cache_app_metadata(
                                 state,
@@ -546,7 +551,13 @@ pub fn run(
                                 ));
                             }
 
-                            integrator::rollback(&app, global_config, &new_path, old_path_ref);
+                            integrator::rollback(
+                                &app,
+                                global_config,
+                                &new_path,
+                                old_path_ref,
+                                integration_state.as_ref(),
+                            );
                         } else {
                             let duration_seconds = elapsed.as_secs_f64();
                             let state_mut = state_manager.get_app_mut(&app_name);
@@ -559,6 +570,8 @@ pub fn run(
                                 state_mut.last_modified = Some(lm);
                             }
                             state_mut.file_path = Some(new_path.to_string_lossy().to_string());
+                            state_mut.sanitized_name =
+                                Some(integrator::sanitized_app_name(&app_name));
                             state_mut.download_bytes = Some(downloaded_bytes);
                             cache_app_metadata(
                                 state_mut,
