@@ -196,6 +196,9 @@ fn try_appimage_run_extract(exec_path: &Path, extracted_root: &Path) -> Result<(
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stderr = stderr.trim();
+        if let Some(message) = nixos_unsupported_appimage_message(stderr) {
+            anyhow::bail!("{}", message);
+        }
         anyhow::bail!(
             "appimage-run fallback failed{}",
             format_stderr_detail(stderr)
@@ -213,6 +216,18 @@ fn format_stderr_detail(stderr: &str) -> String {
 
 fn first_line(text: &str) -> &str {
     text.lines().next().unwrap_or(text)
+}
+
+pub(crate) fn nixos_unsupported_appimage_message(stderr: &str) -> Option<String> {
+    let lowered = stderr.to_ascii_lowercase();
+    if lowered.contains("can't find a valid squashfs superblock") {
+        Some(
+            "this AppImage format is not supported on NixOS in this app yet: appimage-run expected a SquashFS-based AppImage, but this file does not appear to use SquashFS"
+                .to_string(),
+        )
+    } else {
+        None
+    }
 }
 
 pub(crate) fn is_nixos_host() -> bool {
@@ -422,8 +437,8 @@ pub fn rollback(
 #[cfg(test)]
 mod tests {
     use super::{
-        extract_appimage_root, find_best_icon, find_desktop_file, parse_os_release_id,
-        sanitized_app_name,
+        extract_appimage_root, find_best_icon, find_desktop_file,
+        nixos_unsupported_appimage_message, parse_os_release_id, sanitized_app_name,
     };
     use std::ffi::OsString;
     use std::fs;
@@ -499,6 +514,17 @@ mod tests {
             parse_os_release_id("NAME=\"Fedora Linux\"\nID=\"fedora\"\n"),
             Some("fedora".to_string())
         );
+    }
+
+    #[test]
+    fn detects_non_squashfs_appimage_message() {
+        assert!(
+            nixos_unsupported_appimage_message(
+                "FATAL ERROR: Can't find a valid SQUASHFS superblock on /tmp/demo.AppImage"
+            )
+            .is_some()
+        );
+        assert!(nixos_unsupported_appimage_message("extract failed").is_none());
     }
 
     #[cfg(unix)]

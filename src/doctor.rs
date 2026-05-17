@@ -3,7 +3,7 @@ use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::{self, GlobalConfig};
-use crate::integrator::{expand_tilde, is_nixos_host};
+use crate::integrator::{expand_tilde, is_nixos_host, nixos_unsupported_appimage_message};
 use crate::lock::{self, LockState};
 use crate::parser::{self, ConfigPaths};
 use crate::{config::StrategyConfig, state::State};
@@ -436,12 +436,16 @@ fn check_appimage_support_with_appimage_run(appimage_path: &Path) -> anyhow::Res
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stderr = stderr.trim();
-        let extra = if stderr.is_empty() {
-            format!("exit status {}", output.status)
+        if let Some(message) = nixos_unsupported_appimage_message(stderr) {
+            Err(anyhow::anyhow!(message))
         } else {
-            format!("exit status {}: {}", output.status, first_line(stderr))
-        };
-        Err(anyhow::anyhow!(extra))
+            let extra = if stderr.is_empty() {
+                format!("exit status {}", output.status)
+            } else {
+                format!("exit status {}: {}", output.status, first_line(stderr))
+            };
+            Err(anyhow::anyhow!(extra))
+        }
     };
 
     let _ = std::fs::remove_dir_all(&extract_root);

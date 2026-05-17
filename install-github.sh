@@ -183,9 +183,21 @@ main() {
     
     echo -e "\e[34m[INFO]\e[0m Starting $SCOPE-wide installation of $APP_NAME..."
     
+    is_nixos() {
+        if [ -f /run/current-system/nixos-version ]; then
+            return 0
+        fi
+        if [ -f /etc/os-release ] && grep -Eq '^ID="?nixos"?$' /etc/os-release; then
+            return 0
+        fi
+        return 1
+    }
+
     # detects libc style
     LIBC_STYLE="glibc"
-    if [ -f /lib/ld-musl-x86_64.so.1 ] || [ -f /lib/ld-musl-aarch64.so.1 ] || (command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -iq musl); then
+    if is_nixos; then
+        LIBC_STYLE="musl"
+    elif [ -f /lib/ld-musl-x86_64.so.1 ] || [ -f /lib/ld-musl-aarch64.so.1 ] || (command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -iq musl); then
         LIBC_STYLE="musl"
     fi
 

@@ -638,6 +638,61 @@ fn reports_appimage_runtime_as_warn_on_nixos_when_appimage_run_fails() {
     let _ = fs::remove_dir_all(&root);
 }
 
+#[cfg(unix)]
+#[test]
+fn reports_appimage_runtime_as_warn_on_nixos_for_non_squashfs_appimages() {
+    let _guard = env_lock().lock().unwrap_or_else(|err| err.into_inner());
+    let root = unique_temp_dir("appimage-runtime-nixos-non-squashfs");
+    let bin_dir = root.join("bin");
+    let appimage_path = root.join("nixos-non-squashfs.AppImage");
+    let paths = ConfigPaths {
+        config_dir: root.join("config"),
+        state_dir: root.join("state"),
+    };
+    fs::create_dir_all(&bin_dir).expect("failed to create bin dir");
+    fs::create_dir_all(&paths.state_dir).expect("failed to create state dir");
+    write_global_config(&paths);
+    write_app_recipe(
+        &paths,
+        "nixos-non-squashfs.yml",
+        "name: nixos-non-squashfs-app\nstrategy:\n  strategy: direct\n  url: https://example.org/nixos-non-squashfs.AppImage\n  check_method: etag\n",
+    );
+    write_executable(&appimage_path, "#!/bin/sh\nexit 1\n");
+    write_executable(
+        &bin_dir.join("appimage-run"),
+        "#!/bin/sh\nif [ \"$1\" = \"-x\" ]; then\n  echo \"FATAL ERROR: Can't find a valid SQUASHFS superblock on $3\" >&2\n  exit 127\nfi\nexit 1\n",
+    );
+    let _path = EnvVarGuard::prepend_path(&bin_dir);
+    let _os = EnvVarGuard::set_value("FP_APPIMAGE_UPDATER_OS_ID", "nixos");
+    fs::write(
+        paths.cache_path(),
+        format!(
+            "{{\n  \"apps\": {{\n    \"nixos-non-squashfs-app\": {{\n      \"file_path\": \"{}\"\n    }}\n  }}\n}}\n",
+            appimage_path.display()
+        ),
+    )
+    .expect("failed to write cache");
+
+    let global_config = GlobalConfig::default();
+    let client = ureq::Agent::new_with_defaults();
+    let checks = doctor::run(&paths, &global_config, &client);
+
+    let runtime_check = doctor_check(&checks, "appimage_runtime");
+    assert!(matches!(runtime_check.status, DoctorStatus::Warn));
+    assert!(
+        runtime_check
+            .detail
+            .contains("AppImage runtime check failed")
+    );
+    assert!(
+        runtime_check
+            .detail
+            .contains("does not appear to use SquashFS")
+    );
+
+    let _ = fs::remove_dir_all(&root);
+}
+
 #[test]
 fn reports_appimage_runtime_as_warn_when_no_installed_appimage_exists() {
     let root = unique_temp_dir("appimage-runtime-missing");
