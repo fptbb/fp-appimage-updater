@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process::{Command, Stdio};
 
 use crate::config::{self, GlobalConfig};
 use crate::integrator::expand_tilde;
@@ -44,6 +45,7 @@ pub fn run(paths: &ConfigPaths, global_config: &GlobalConfig, client: &Agent) ->
     checks.push(app_recipes_scan_check(app_load.as_ref()));
     checks.push(script_resolvers_access_check(app_load.as_ref()));
     checks.push(general_check(paths, global_config, app_load.as_ref()));
+    checks.push(appimage_runtime_check(paths, app_load.as_ref()));
     checks.push(lock_check(&paths.lock_path()));
     checks.push(github_api_check(global_config, client));
 
@@ -326,6 +328,86 @@ fn general_check(
     }
 }
 
+fn appimage_runtime_check(
+    paths: &ConfigPaths,
+    app_load: Result<&parser::AppConfigLoadResult, &anyhow::Error>,
+) -> DoctorCheck {
+    let Ok(result) = app_load else {
+        return DoctorCheck {
+            name: "appimage_runtime".to_string(),
+            status: DoctorStatus::Warn,
+            detail: "skipped because app recipes could not be loaded".to_string(),
+        };
+    };
+
+    let state = std::fs::read_to_string(paths.cache_path())
+        .ok()
+        .and_then(|content| serde_json::from_str::<State>(&content).ok())
+        .unwrap_or_default();
+
+    let Some((app_name, appimage_path)) = result.apps.iter().find_map(|app| {
+        state
+            .apps
+            .get(&app.name)
+            .and_then(|app_state| app_state.file_path.as_deref())
+            .map(|file_path| (app.name.as_str(), Path::new(file_path)))
+            .filter(|(_, path)| path.exists())
+    }) else {
+        return DoctorCheck {
+            name: "appimage_runtime".to_string(),
+            status: DoctorStatus::Warn,
+            detail: "no installed AppImage found in state to validate host support".to_string(),
+        };
+    };
+
+    match Command::new(appimage_path)
+        .arg("--appimage-version")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()
+    {
+        Ok(output) if output.status.success() => DoctorCheck {
+            name: "appimage_runtime".to_string(),
+            status: DoctorStatus::Ok,
+            detail: format!(
+                "AppImage runtime responds correctly for {} at {}",
+                app_name,
+                display_path(appimage_path)
+            ),
+        },
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stderr = stderr.trim();
+            let extra = if stderr.is_empty() {
+                format!("exit status {}", output.status)
+            } else {
+                format!("exit status {}: {}", output.status, first_line(stderr))
+            };
+            DoctorCheck {
+                name: "appimage_runtime".to_string(),
+                status: DoctorStatus::Warn,
+                detail: format!(
+                    "AppImage runtime check failed for {} at {} ({})",
+                    app_name,
+                    display_path(appimage_path),
+                    extra
+                ),
+            }
+        }
+        Err(err) => DoctorCheck {
+            name: "appimage_runtime".to_string(),
+            status: DoctorStatus::Warn,
+            detail: format!(
+                "failed to execute AppImage runtime check for {} at {} ({})",
+                app_name,
+                display_path(appimage_path),
+                err
+            ),
+        },
+    }
+}
+
 fn desktop_applications_dir() -> std::path::PathBuf {
     let data_local_dir = std::env::var_os("XDG_DATA_HOME")
         .map(std::path::PathBuf::from)
@@ -350,6 +432,10 @@ fn display_path(path: &Path) -> String {
         }
     }
     path.display().to_string()
+}
+
+fn first_line(text: &str) -> &str {
+    text.lines().next().unwrap_or(text)
 }
 
 fn lock_check(path: &Path) -> DoctorCheck {

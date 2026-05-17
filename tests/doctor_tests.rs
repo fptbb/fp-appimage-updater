@@ -31,6 +31,18 @@ fn doctor_check<'a>(checks: &'a [doctor::DoctorCheck], name: &str) -> &'a doctor
         .expect("missing doctor check")
 }
 
+#[cfg(unix)]
+fn write_executable(path: &std::path::Path, content: &str) {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::write(path, content).expect("failed to write executable");
+    let mut permissions = fs::metadata(path)
+        .expect("failed to stat executable")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(path, permissions).expect("failed to chmod executable");
+}
+
 fn write_global_config(paths: &ConfigPaths) {
     fs::create_dir_all(&paths.config_dir).expect("failed to create config dir");
     let content =
@@ -417,6 +429,113 @@ fn reports_general_check_as_warn_when_installed_desktop_appimage_is_missing() {
             .detail
             .contains("installed desktop AppImage missing")
     );
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[cfg(unix)]
+#[test]
+fn reports_appimage_runtime_as_ok_when_installed_appimage_responds() {
+    let root = unique_temp_dir("appimage-runtime-ok");
+    let appimage_path = root.join("working.AppImage");
+    let paths = ConfigPaths {
+        config_dir: root.join("config"),
+        state_dir: root.join("state"),
+    };
+    fs::create_dir_all(&paths.state_dir).expect("failed to create state dir");
+    write_global_config(&paths);
+    write_app_recipe(
+        &paths,
+        "working.yml",
+        "name: working-app\nstrategy:\n  strategy: direct\n  url: https://example.org/working.AppImage\n  check_method: etag\n",
+    );
+    write_executable(
+        &appimage_path,
+        "#!/bin/sh\nif [ \"$1\" = \"--appimage-version\" ]; then\n  exit 0\nfi\nexit 1\n",
+    );
+    fs::write(
+        paths.cache_path(),
+        format!(
+            "{{\n  \"apps\": {{\n    \"working-app\": {{\n      \"file_path\": \"{}\"\n    }}\n  }}\n}}\n",
+            appimage_path.display()
+        ),
+    )
+    .expect("failed to write cache");
+
+    let global_config = GlobalConfig::default();
+    let client = ureq::Agent::new_with_defaults();
+    let checks = doctor::run(&paths, &global_config, &client);
+
+    let runtime_check = doctor_check(&checks, "appimage_runtime");
+    assert!(matches!(runtime_check.status, DoctorStatus::Ok));
+    assert!(runtime_check.detail.contains("runtime responds correctly"));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[cfg(unix)]
+#[test]
+fn reports_appimage_runtime_as_warn_when_installed_appimage_fails() {
+    let root = unique_temp_dir("appimage-runtime-fail");
+    let appimage_path = root.join("broken.AppImage");
+    let paths = ConfigPaths {
+        config_dir: root.join("config"),
+        state_dir: root.join("state"),
+    };
+    fs::create_dir_all(&paths.state_dir).expect("failed to create state dir");
+    write_global_config(&paths);
+    write_app_recipe(
+        &paths,
+        "broken.yml",
+        "name: broken-app\nstrategy:\n  strategy: direct\n  url: https://example.org/broken.AppImage\n  check_method: etag\n",
+    );
+    write_executable(
+        &appimage_path,
+        "#!/bin/sh\nif [ \"$1\" = \"--appimage-version\" ]; then\n  echo 'missing runtime support' >&2\n  exit 1\nfi\nexit 1\n",
+    );
+    fs::write(
+        paths.cache_path(),
+        format!(
+            "{{\n  \"apps\": {{\n    \"broken-app\": {{\n      \"file_path\": \"{}\"\n    }}\n  }}\n}}\n",
+            appimage_path.display()
+        ),
+    )
+    .expect("failed to write cache");
+
+    let global_config = GlobalConfig::default();
+    let client = ureq::Agent::new_with_defaults();
+    let checks = doctor::run(&paths, &global_config, &client);
+
+    let runtime_check = doctor_check(&checks, "appimage_runtime");
+    assert!(matches!(runtime_check.status, DoctorStatus::Warn));
+    assert!(runtime_check.detail.contains("runtime check failed"));
+    assert!(runtime_check.detail.contains("missing runtime support"));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn reports_appimage_runtime_as_warn_when_no_installed_appimage_exists() {
+    let root = unique_temp_dir("appimage-runtime-missing");
+    let paths = ConfigPaths {
+        config_dir: root.join("config"),
+        state_dir: root.join("state"),
+    };
+    fs::create_dir_all(&paths.state_dir).expect("failed to create state dir");
+    write_global_config(&paths);
+    write_app_recipe(
+        &paths,
+        "configured.yml",
+        "name: configured-app\nstrategy:\n  strategy: direct\n  url: https://example.org/configured.AppImage\n  check_method: etag\n",
+    );
+
+    let global_config = GlobalConfig::default();
+    let client = ureq::Agent::new_with_defaults();
+    let checks = doctor::run(&paths, &global_config, &client);
+
+    let runtime_check = doctor_check(&checks, "appimage_runtime");
+    assert!(matches!(runtime_check.status, DoctorStatus::Warn));
+    assert!(runtime_check.detail.contains("no installed AppImage found"));
 
     let _ = fs::remove_dir_all(&root);
 }

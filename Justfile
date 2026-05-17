@@ -21,7 +21,7 @@ dev it commands:
 
 clean-root:
     #!/usr/bin/env bash
-    rm -f {{APP_NAME}} {{APP_NAME}}.x64 {{APP_NAME}}.x64-musl {{APP_NAME}}.ARM {{APP_NAME}}.ARM-musl
+    rm -f {{APP_NAME}} {{APP_NAME}}.x64 {{APP_NAME}}.x64-v3 {{APP_NAME}}.x64-musl {{APP_NAME}}.ARM {{APP_NAME}}.ARM-musl
 
 build-linux-x64: prepare
     #!/usr/bin/env bash
@@ -33,6 +33,17 @@ build-linux-x64: prepare
     fi
     mv target/x86_64-unknown-linux-gnu/release/{{APP_NAME}} {{BUILD_DIR}}/{{APP_NAME}}.x64
     echo "Done: {{BUILD_DIR}}/{{APP_NAME}}.x64"
+
+build-linux-x64-v3: prepare
+    #!/usr/bin/env bash
+    echo "Building Linux x64-v3 (Host glibc)..."
+    RUSTFLAGS="-C target-cpu=x86-64-v3" cargo build --release
+    if command -v upx >/dev/null; then \
+        echo "Compressing Linux x64-v3..."; \
+        upx --best --lzma target/release/{{APP_NAME}}; \
+    fi
+    mv target/release/{{APP_NAME}} {{BUILD_DIR}}/{{APP_NAME}}.x64-v3
+    echo "Done: {{BUILD_DIR}}/{{APP_NAME}}.x64-v3"
 
 build-linux-x64-musl: prepare
     #!/usr/bin/env bash
@@ -101,7 +112,7 @@ uninstall:
 
 test:
     #!/usr/bin/env bash
-    cargo test --test cli_tests --test resolver_tests -- --nocapture
+    cargo test -- --nocapture
 
 clippy:
     #!/usr/bin/env bash
