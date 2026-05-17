@@ -74,6 +74,30 @@ impl EnvVarGuard {
         }
         Self { key, original }
     }
+
+    fn set_value(key: &'static str, value: &str) -> Self {
+        let original = std::env::var_os(key);
+        unsafe {
+            std::env::set_var(key, value);
+        }
+        Self { key, original }
+    }
+
+    fn prepend_path(path: &std::path::Path) -> Self {
+        let original = std::env::var_os("PATH");
+        let mut joined = std::ffi::OsString::from(path.as_os_str());
+        if let Some(existing) = &original {
+            joined.push(":");
+            joined.push(existing);
+        }
+        unsafe {
+            std::env::set_var("PATH", &joined);
+        }
+        Self {
+            key: "PATH",
+            original,
+        }
+    }
 }
 
 impl Drop for EnvVarGuard {
@@ -159,7 +183,7 @@ fn reports_active_lock_as_ok() {
 
 #[test]
 fn reports_directory_access_checks_as_ok_when_present_and_writable() {
-    let _guard = env_lock().lock().expect("failed to lock env");
+    let _guard = env_lock().lock().unwrap_or_else(|err| err.into_inner());
     let root = unique_temp_dir("dir-access-ok");
     let config_dir = root.join("config");
     let state_dir = root.join("state");
@@ -248,7 +272,7 @@ fn reports_directory_access_checks_as_ok_when_present_and_writable() {
 fn reports_directory_access_check_as_warn_when_not_writable() {
     use std::os::unix::fs::PermissionsExt;
 
-    let _guard = env_lock().lock().expect("failed to lock env");
+    let _guard = env_lock().lock().unwrap_or_else(|err| err.into_inner());
     let root = unique_temp_dir("dir-access-readonly");
     let config_dir = root.join("config");
     let state_dir = root.join("state");
@@ -340,7 +364,7 @@ fn reports_config_and_apps_directory_access_as_warn_when_not_writable() {
 
 #[test]
 fn displays_home_paths_with_tilde() {
-    let _guard = env_lock().lock().expect("failed to lock env");
+    let _guard = env_lock().lock().unwrap_or_else(|err| err.into_inner());
     let root = unique_temp_dir("tilde-paths");
     let home_dir = root.join("home");
     let config_dir = home_dir.join(".config/fp-appimage-updater");
@@ -436,6 +460,7 @@ fn reports_general_check_as_warn_when_installed_desktop_appimage_is_missing() {
 #[cfg(unix)]
 #[test]
 fn reports_appimage_runtime_as_ok_when_installed_appimage_responds() {
+    let _guard = env_lock().lock().unwrap_or_else(|err| err.into_inner());
     let root = unique_temp_dir("appimage-runtime-ok");
     let appimage_path = root.join("working.AppImage");
     let paths = ConfigPaths {
@@ -461,6 +486,7 @@ fn reports_appimage_runtime_as_ok_when_installed_appimage_responds() {
         ),
     )
     .expect("failed to write cache");
+    let _os = EnvVarGuard::set_value("FP_APPIMAGE_UPDATER_OS_ID", "fedora");
 
     let global_config = GlobalConfig::default();
     let client = ureq::Agent::new_with_defaults();
@@ -475,7 +501,58 @@ fn reports_appimage_runtime_as_ok_when_installed_appimage_responds() {
 
 #[cfg(unix)]
 #[test]
+fn reports_appimage_runtime_as_ok_on_nixos_when_appimage_run_extracts() {
+    let _guard = env_lock().lock().unwrap_or_else(|err| err.into_inner());
+    let root = unique_temp_dir("appimage-runtime-nixos-ok");
+    let bin_dir = root.join("bin");
+    let appimage_path = root.join("nixos.AppImage");
+    let paths = ConfigPaths {
+        config_dir: root.join("config"),
+        state_dir: root.join("state"),
+    };
+    fs::create_dir_all(&bin_dir).expect("failed to create bin dir");
+    fs::create_dir_all(&paths.state_dir).expect("failed to create state dir");
+    write_global_config(&paths);
+    write_app_recipe(
+        &paths,
+        "nixos.yml",
+        "name: nixos-app\nstrategy:\n  strategy: direct\n  url: https://example.org/nixos.AppImage\n  check_method: etag\n",
+    );
+    write_executable(&appimage_path, "#!/bin/sh\nexit 1\n");
+    write_executable(
+        &bin_dir.join("appimage-run"),
+        "#!/bin/sh\nif [ \"$1\" = \"-x\" ]; then\n  dest=\"$2\"\n  mkdir -p \"$dest\"\n  printf demo > \"$dest/extracted\"\n  exit 0\nfi\nexit 1\n",
+    );
+    let _path = EnvVarGuard::prepend_path(&bin_dir);
+    let _os = EnvVarGuard::set_value("FP_APPIMAGE_UPDATER_OS_ID", "nixos");
+    fs::write(
+        paths.cache_path(),
+        format!(
+            "{{\n  \"apps\": {{\n    \"nixos-app\": {{\n      \"file_path\": \"{}\"\n    }}\n  }}\n}}\n",
+            appimage_path.display()
+        ),
+    )
+    .expect("failed to write cache");
+
+    let global_config = GlobalConfig::default();
+    let client = ureq::Agent::new_with_defaults();
+    let checks = doctor::run(&paths, &global_config, &client);
+
+    let runtime_check = doctor_check(&checks, "appimage_runtime");
+    assert!(matches!(runtime_check.status, DoctorStatus::Ok));
+    assert!(
+        runtime_check
+            .detail
+            .contains("appimage-run extracted metadata successfully")
+    );
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[cfg(unix)]
+#[test]
 fn reports_appimage_runtime_as_warn_when_installed_appimage_fails() {
+    let _guard = env_lock().lock().unwrap_or_else(|err| err.into_inner());
     let root = unique_temp_dir("appimage-runtime-fail");
     let appimage_path = root.join("broken.AppImage");
     let paths = ConfigPaths {
@@ -501,6 +578,7 @@ fn reports_appimage_runtime_as_warn_when_installed_appimage_fails() {
         ),
     )
     .expect("failed to write cache");
+    let _os = EnvVarGuard::set_value("FP_APPIMAGE_UPDATER_OS_ID", "fedora");
 
     let global_config = GlobalConfig::default();
     let client = ureq::Agent::new_with_defaults();
@@ -510,6 +588,52 @@ fn reports_appimage_runtime_as_warn_when_installed_appimage_fails() {
     assert!(matches!(runtime_check.status, DoctorStatus::Warn));
     assert!(runtime_check.detail.contains("runtime check failed"));
     assert!(runtime_check.detail.contains("missing runtime support"));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[cfg(unix)]
+#[test]
+fn reports_appimage_runtime_as_warn_on_nixos_when_appimage_run_fails() {
+    let _guard = env_lock().lock().unwrap_or_else(|err| err.into_inner());
+    let root = unique_temp_dir("appimage-runtime-nixos-fail");
+    let bin_dir = root.join("bin");
+    let appimage_path = root.join("nixos-broken.AppImage");
+    let paths = ConfigPaths {
+        config_dir: root.join("config"),
+        state_dir: root.join("state"),
+    };
+    fs::create_dir_all(&bin_dir).expect("failed to create bin dir");
+    fs::create_dir_all(&paths.state_dir).expect("failed to create state dir");
+    write_global_config(&paths);
+    write_app_recipe(
+        &paths,
+        "nixos-broken.yml",
+        "name: nixos-broken-app\nstrategy:\n  strategy: direct\n  url: https://example.org/nixos-broken.AppImage\n  check_method: etag\n",
+    );
+    write_executable(&appimage_path, "#!/bin/sh\nexit 1\n");
+    write_executable(
+        &bin_dir.join("appimage-run"),
+        "#!/bin/sh\nif [ \"$1\" = \"-x\" ]; then\n  echo 'extract failed' >&2\n  exit 127\nfi\nexit 1\n",
+    );
+    let _path = EnvVarGuard::prepend_path(&bin_dir);
+    let _os = EnvVarGuard::set_value("FP_APPIMAGE_UPDATER_OS_ID", "nixos");
+    fs::write(
+        paths.cache_path(),
+        format!(
+            "{{\n  \"apps\": {{\n    \"nixos-broken-app\": {{\n      \"file_path\": \"{}\"\n    }}\n  }}\n}}\n",
+            appimage_path.display()
+        ),
+    )
+    .expect("failed to write cache");
+
+    let global_config = GlobalConfig::default();
+    let client = ureq::Agent::new_with_defaults();
+    let checks = doctor::run(&paths, &global_config, &client);
+
+    let runtime_check = doctor_check(&checks, "appimage_runtime");
+    assert!(matches!(runtime_check.status, DoctorStatus::Warn));
+    assert!(runtime_check.detail.contains("extract failed"));
 
     let _ = fs::remove_dir_all(&root);
 }

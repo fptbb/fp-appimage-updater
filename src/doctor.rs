@@ -1,8 +1,9 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::{self, GlobalConfig};
-use crate::integrator::expand_tilde;
+use crate::integrator::{expand_tilde, is_nixos_host};
 use crate::lock::{self, LockState};
 use crate::parser::{self, ConfigPaths};
 use crate::{config::StrategyConfig, state::State};
@@ -360,52 +361,91 @@ fn appimage_runtime_check(
         };
     };
 
-    match Command::new(appimage_path)
-        .arg("--appimage-version")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .output()
-    {
-        Ok(output) if output.status.success() => DoctorCheck {
+    let result = if is_nixos_host() {
+        check_appimage_support_with_appimage_run(appimage_path)
+            .map(|_| "appimage-run extracted metadata successfully".to_string())
+    } else {
+        Command::new(appimage_path)
+            .arg("--appimage-version")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(anyhow::Error::from)
+            .and_then(|output| {
+                if output.status.success() {
+                    Ok("embedded AppImage runtime responds correctly".to_string())
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let stderr = stderr.trim();
+                    let extra = if stderr.is_empty() {
+                        format!("exit status {}", output.status)
+                    } else {
+                        format!("exit status {}: {}", output.status, first_line(stderr))
+                    };
+                    Err(anyhow::anyhow!(extra))
+                }
+            })
+    };
+
+    match result {
+        Ok(detail) => DoctorCheck {
             name: "appimage_runtime".to_string(),
             status: DoctorStatus::Ok,
             detail: format!(
-                "AppImage runtime responds correctly for {} at {}",
+                "{} for {} at {}",
+                detail,
                 app_name,
                 display_path(appimage_path)
             ),
         },
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stderr = stderr.trim();
-            let extra = if stderr.is_empty() {
-                format!("exit status {}", output.status)
-            } else {
-                format!("exit status {}: {}", output.status, first_line(stderr))
-            };
-            DoctorCheck {
-                name: "appimage_runtime".to_string(),
-                status: DoctorStatus::Warn,
-                detail: format!(
-                    "AppImage runtime check failed for {} at {} ({})",
-                    app_name,
-                    display_path(appimage_path),
-                    extra
-                ),
-            }
-        }
         Err(err) => DoctorCheck {
             name: "appimage_runtime".to_string(),
             status: DoctorStatus::Warn,
             detail: format!(
-                "failed to execute AppImage runtime check for {} at {} ({})",
+                "AppImage runtime check failed for {} at {} ({})",
                 app_name,
                 display_path(appimage_path),
                 err
             ),
         },
     }
+}
+
+fn check_appimage_support_with_appimage_run(appimage_path: &Path) -> anyhow::Result<()> {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let extract_root = std::env::temp_dir().join(format!(
+        "fp-appimage-updater-doctor-appimage-run-{}-{nanos}",
+        std::process::id()
+    ));
+
+    let output = Command::new("appimage-run")
+        .arg("-x")
+        .arg(&extract_root)
+        .arg(appimage_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()?;
+
+    let result = if output.status.success() && extract_root.exists() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = stderr.trim();
+        let extra = if stderr.is_empty() {
+            format!("exit status {}", output.status)
+        } else {
+            format!("exit status {}: {}", output.status, first_line(stderr))
+        };
+        Err(anyhow::anyhow!(extra))
+    };
+
+    let _ = std::fs::remove_dir_all(&extract_root);
+    result
 }
 
 fn desktop_applications_dir() -> std::path::PathBuf {
