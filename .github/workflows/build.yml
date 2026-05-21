@@ -81,6 +81,12 @@ jobs:
           pip install ziglang cargo-zigbuild
           sudo ln -s $(which python-zig) /usr/local/bin/zig
 
+      - name: Generate Schemas
+        run: |
+          mkdir -p build
+          cargo run --features schema-gen -- generate-schema global > build/schema-global.json
+          cargo run --features schema-gen -- generate-schema recipe > build/schema-recipe.json
+
       - name: Build All Release Binaries
         run: |
           cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.28

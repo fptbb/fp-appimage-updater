@@ -13,6 +13,10 @@ fn main() -> Result<()> {
     let cli = Cli::parse()?;
     let json_output = cli.json;
 
+    if let Commands::GenerateSchema { schema_type } = &cli.command {
+        return commands::generate_schema::run(schema_type);
+    }
+
     let paths = if let Some(config_dir) = cli.config.clone() {
         ConfigPaths::with_config_dir(config_dir)?
     } else {
@@ -134,6 +138,7 @@ fn main() -> Result<()> {
         Commands::Completion { shell } => {
             commands::completion::run(shell)?;
         }
+        Commands::GenerateSchema { .. } => unreachable!("generate-schema handled early"),
     }
 
     Ok(())

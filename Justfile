@@ -13,6 +13,13 @@ prepare:
     #!/usr/bin/env bash
     mkdir -p {{BUILD_DIR}}
 
+generate-schemas: prepare
+    #!/usr/bin/env bash
+    echo "Generating JSON schemas..."
+    cargo run --features schema-gen -- generate-schema global > {{BUILD_DIR}}/schema-global.json
+    cargo run --features schema-gen -- generate-schema recipe > {{BUILD_DIR}}/schema-recipe.json
+    echo "Schemas generated successfully under {{BUILD_DIR}}/"
+
 alias do := dev
 
 dev it commands:

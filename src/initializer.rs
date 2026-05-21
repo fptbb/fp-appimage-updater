@@ -24,7 +24,11 @@ pub fn run(
 
     if should_create_global {
         let global_path = paths.global_config_path();
-        let content = serde_yaml::to_string(&GlobalConfig::default())?;
+        let serialized = serde_yaml::to_string(&GlobalConfig::default())?;
+        let content = format!(
+            "# yaml-language-server: $schema=https://fau.fpt.icu/schema-global.json\n\n{}",
+            serialized
+        );
         write_file(&global_path, &content, force, &mut created, &mut skipped)?;
     }
 
@@ -84,7 +88,8 @@ fn write_file(
 }
 
 fn app_template(name: &str, strategy: InitStrategy) -> String {
-    match strategy {
+    let header = "# yaml-language-server: $schema=https://fau.fpt.icu/schema-recipe.json\n\n";
+    let body = match strategy {
         InitStrategy::Direct => format!(
             "name: {name}\nstrategy:\n  strategy: direct\n  url: \"https://example.org/{name}.AppImage\"\n  check_method: etag\n"
         ),
@@ -94,7 +99,8 @@ fn app_template(name: &str, strategy: InitStrategy) -> String {
         InitStrategy::Script => format!(
             "name: {name}\nstrategy:\n  strategy: script\n  script_path: ./{name}/resolver.sh\n"
         ),
-    }
+    };
+    format!("{}{}", header, body)
 }
 
 fn script_template() -> &'static str {

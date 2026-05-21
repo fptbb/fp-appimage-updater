@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../build/schema-recipe.json
 name: obsidian
 strategy:
   strategy: forge

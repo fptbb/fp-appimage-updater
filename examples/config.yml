@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../build/schema-global.json
 storage_dir: ~/.local/bin/AppImages
 symlink_dir: ~/.local/bin
 naming_format: '{name}.AppImage'

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../build/schema-recipe.json
 name: whatpulse
 strategy:
   strategy: direct

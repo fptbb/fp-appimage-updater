@@ -135,6 +135,9 @@ pub enum Commands {
     Completion {
         shell: String,
     },
+    GenerateSchema {
+        schema_type: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -229,6 +232,12 @@ impl Cli {
                     .opt_free_from_str()?
                     .unwrap_or_else(|| String::from("bash")),
             },
+            "generate-schema" | "generate_schema" => {
+                let schema_type = args
+                    .opt_free_from_str()?
+                    .unwrap_or_else(|| String::from("recipe"));
+                Commands::GenerateSchema { schema_type }
+            }
             _ => {
                 print_help();
                 std::process::exit(1);

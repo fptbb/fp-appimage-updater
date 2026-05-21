@@ -140,6 +140,8 @@ build/fp-appimage-updater.x64-musl
 build/fp-appimage-updater.ARM
 build/fp-appimage-updater.ARM-musl
 build/checksums.txt
+build/schema-global.json
+build/schema-recipe.json
 systemd/fp-appimage-updater.service
 systemd/fp-appimage-updater.timer
 EOF
@@ -156,6 +158,8 @@ build/fp-appimage-updater.x64.bundle
 build/fp-appimage-updater.x64-musl.bundle
 build/fp-appimage-updater.ARM.bundle
 build/fp-appimage-updater.ARM-musl.bundle
+build/schema-global.json
+build/schema-recipe.json
 systemd/fp-appimage-updater.service
 systemd/fp-appimage-updater.timer
 EOF
@@ -166,6 +170,8 @@ ci_gitlab_release_asset_links() {
 {"name":"fp-appimage-updater.x64","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64","direct_asset_path":"/bin/fp-appimage-updater.x64"}
 {"name":"fp-appimage-updater.x64-musl","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64-musl","direct_asset_path":"/bin/fp-appimage-updater.x64-musl"}
 {"name":"checksums.txt","url":"${PACKAGE_REGISTRY_URL}/checksums.txt","direct_asset_path":"/bin/checksums.txt"}
+{"name":"schema-global.json","url":"${PACKAGE_REGISTRY_URL}/schema-global.json","direct_asset_path":"/bin/schema-global.json"}
+{"name":"schema-recipe.json","url":"${PACKAGE_REGISTRY_URL}/schema-recipe.json","direct_asset_path":"/bin/schema-recipe.json"}
 {"name":"fp-appimage-updater.x64.bundle","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64.bundle","direct_asset_path":"/bin/fp-appimage-updater.x64.bundle"}
 {"name":"fp-appimage-updater.x64-musl.bundle","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.x64-musl.bundle","direct_asset_path":"/bin/fp-appimage-updater.x64-musl.bundle"}
 {"name":"fp-appimage-updater.ARM","url":"${PACKAGE_REGISTRY_URL}/fp-appimage-updater.ARM","direct_asset_path":"/bin/fp-appimage-updater.ARM"}
