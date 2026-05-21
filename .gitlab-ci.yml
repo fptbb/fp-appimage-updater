@@ -4,6 +4,10 @@ spec:
       description: "Force a release on manual trigger"
       type: boolean
       default: false
+    force_pages:
+      description: "Force pages rebuild on manual trigger"
+      type: boolean
+      default: false
     prerelease:
       description: "Publish as pre-release (appends -RC<N> to the version tag)"
       type: boolean
@@ -29,6 +33,7 @@ stages:
 variables:
   GIT_DEPTH: 0
   FORCE_RELEASE: "$[[ inputs.force_release ]]"
+  FORCE_PAGES: "$[[ inputs.force_pages ]]"
   PRERELEASE: "$[[ inputs.prerelease ]]"
   CATEGORIZE: "$[[ inputs.categorize ]]"
   SHOW_AUTHORS: "$[[ inputs.show_authors ]]"
@@ -84,6 +89,7 @@ build-and-compress:
       - systemd/
     expire_in: 7 days
   rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
     - if: $CI_COMMIT_BRANCH
       changes:
         - "src/**/*"
@@ -115,13 +121,22 @@ release:
 pages:
   stage: pages
   image: alpine:latest
+  needs:
+    - job: build-and-compress
+      artifacts: true
   script:
     - sh scripts/gitlab/pages.sh
   artifacts:
     paths:
       - public
   rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && ($FORCE_PAGES == "true" || $FORCE_RELEASE == "true")
+    - if: $CI_COMMIT_MESSAGE =~ /^chore:\s*bump\s*version\s*to\s*.*\s*in\s*Cargo\.toml/ && $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
-        - README.md
         - install.sh
+        - install-github.sh
+        - scripts/gitlab/pages.sh
+        - src/**/*
+        - Cargo.toml
+        - .gitlab-ci.yml
