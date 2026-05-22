@@ -36,7 +36,7 @@ pub fn run(
         print_doctor_human(&checks, color_output);
         if !app_config_errors.is_empty() {
             print_progress(
-                &format!("Tip: run `{} validate` for detailed parse errors.", env!("CARGO_PKG_NAME")),
+                &format!("Tip: run `{} validate` for detailed parse errors.", crate::cli::current_bin_name()),
                 color_output,
             );
         }

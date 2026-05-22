@@ -72,6 +72,7 @@ pub const GLOBAL_OPTS: &[&str] = &[
 ];
 
 pub fn print_help() {
+    let bin_name = current_bin_name();
     println!(
         "{} {}
 Data-Driven AppImage Manager
@@ -88,7 +89,7 @@ OPTIONS:
 COMMANDS:",
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
-        env!("CARGO_PKG_NAME")
+        bin_name
     );
 
     for cmd in COMMAND_DEFS {
@@ -258,4 +259,15 @@ impl Cli {
             command,
         })
     }
+}
+
+pub fn current_bin_name() -> String {
+    std::env::args()
+        .next()
+        .and_then(|arg| {
+            std::path::Path::new(&arg)
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| env!("CARGO_PKG_NAME").to_string())
 }

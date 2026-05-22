@@ -1,7 +1,7 @@
 use crate::cli::{COMMAND_DEFS, GLOBAL_OPTS};
 
 pub fn run(shell: &str) -> anyhow::Result<()> {
-    let app_name = env!("CARGO_PKG_NAME");
+    let app_name = crate::cli::current_bin_name();
     let fn_name = format!("_{}", app_name.replace('-', "_"));
 
     let cmds_str = COMMAND_DEFS

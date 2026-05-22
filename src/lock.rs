@@ -88,8 +88,7 @@ impl FileLock {
                 }
                 LockState::Active { .. } => {
                     bail!(
-                        "Another {} process is already running (lock file exists at {}).",
-                        env!("CARGO_PKG_NAME"),
+                        "Another process is already running (lock file exists at {}).",
                         path.display()
                     );
                 }

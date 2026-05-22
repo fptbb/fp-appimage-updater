@@ -40,7 +40,7 @@ pub fn run(
         for path in &result.created {
             print_success(&format!("Created {}", path.display()), color_output);
             print_progress(&format!("Edit: {}", path.display()), color_output);
-            print_progress(&format!("Then run: {} validate", env!("CARGO_PKG_NAME")), color_output);
+            print_progress(&format!("Then run: {} validate", crate::cli::current_bin_name()), color_output);
         }
         for path in &result.skipped {
             print_warning(
