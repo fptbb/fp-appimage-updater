@@ -1,20 +1,14 @@
-use crate::commands::helpers::app_is_ignored;
+use crate::commands::helpers::{ExecutionContext, app_is_ignored};
 use crate::config;
 use crate::output::{ListApp, ListResponse, print_json, print_list_human};
-use crate::state::StateManager;
 use anyhow::Result;
 
-pub fn run(
-    app_configs: &[config::AppConfig],
-    global_config: &config::GlobalConfig,
-    state_manager: &StateManager,
-    json_output: bool,
-    color_output: bool,
-) -> Result<()> {
-    let apps = app_configs
+pub fn run(ctx: &ExecutionContext) -> Result<()> {
+    let apps = ctx
+        .app_configs
         .iter()
         .map(|app| {
-            let state = state_manager.get_app(&app.name);
+            let state = ctx.state_manager.get_app(&app.name);
             ListApp {
                 name: app.name.clone(),
                 strategy: strategy_label(&app.strategy).to_string(),
@@ -22,19 +16,21 @@ pub fn run(
                 ignored: app_is_ignored(app),
                 integration: app
                     .integration
-                    .unwrap_or(global_config.manage_desktop_files),
-                symlink: app.create_symlink.unwrap_or(global_config.create_symlinks),
+                    .unwrap_or(ctx.global_config.manage_desktop_files),
+                symlink: app
+                    .create_symlink
+                    .unwrap_or(ctx.global_config.create_symlinks),
             }
         })
         .collect::<Vec<_>>();
 
-    if json_output {
+    if ctx.json_output {
         print_json(&ListResponse {
             command: "list",
             apps,
         })?;
     } else {
-        print_list_human(&apps, color_output);
+        print_list_human(&apps, ctx.color_output);
     }
     Ok(())
 }

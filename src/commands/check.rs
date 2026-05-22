@@ -1,9 +1,8 @@
 use crate::commands::helpers::*;
 use crate::config;
 use crate::output::{CheckApp, CheckResponse, CheckStatus, print_check_human, print_json};
-use crate::parser::AppConfigLoadError;
 use crate::resolvers;
-use crate::state::{AppState, StateManager};
+use crate::state::AppState;
 use anyhow::Result;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -28,23 +27,14 @@ pub enum CheckWorkResult {
     },
 }
 
-pub fn run(
-    app_configs: &[config::AppConfig],
-    app_config_errors: &[AppConfigLoadError],
-    global_config: &config::GlobalConfig,
-    state_manager: &mut StateManager,
-    client: &ureq::Agent,
-    app_name: Option<&str>,
-    json_output: bool,
-    color_output: bool,
-) -> Result<()> {
+pub fn run(ctx: &mut ExecutionContext, app_name: Option<&str>) -> Result<()> {
     let mut found = false;
     let mut results = Vec::new();
     let mut check_jobs = Vec::new();
     let mut rate_limit_note_needed = false;
     let now = now_epoch_seconds();
 
-    for app in app_configs {
+    for app in ctx.app_configs {
         if let Some(target) = app_name
             && app.name != *target
         {
@@ -54,10 +44,10 @@ pub fn run(
         if app_is_ignored(app) {
             continue;
         }
-        let state = snapshot_app_state(state_manager, &app.name, now);
+        let state = snapshot_app_state(ctx.state_manager, &app.name, now);
         let rate_limited_until = state.rate_limited_until;
-        let github_proxy = github_proxy_enabled(app, global_config);
-        if rate_limit_enabled(app, global_config)
+        let github_proxy = github_proxy_enabled(app, ctx.global_config);
+        if rate_limit_enabled(app, ctx.global_config)
             && !(github_proxy && app_uses_github_forge(app))
             && matches!(rate_limited_until, Some(until) if until > now)
         {
@@ -109,15 +99,15 @@ pub fn run(
 
     while active < worker_limit {
         if let Some((app, state)) = pending.next() {
-            let github_proxy = github_proxy_enabled(&app, global_config);
-            let github_proxy_prefixes = github_proxy_prefixes(&app, global_config);
+            let github_proxy = github_proxy_enabled(&app, ctx.global_config);
+            let github_proxy_prefixes = github_proxy_prefixes(&app, ctx.global_config);
             spawn_check_worker(
                 app,
                 state,
-                client.clone(),
+                ctx.client.clone(),
                 github_proxy,
                 github_proxy_prefixes,
-                global_config.clone(),
+                ctx.global_config.clone(),
                 tx.clone(),
             );
             active += 1;
@@ -139,7 +129,7 @@ pub fn run(
                 forge_repository,
                 forge_platform,
             } => {
-                let state = state_manager.get_app_mut(&app_result.name);
+                let state = ctx.state_manager.get_app_mut(&app_result.name);
                 cache_app_metadata(
                     state,
                     cache_capabilities,
@@ -155,7 +145,7 @@ pub fn run(
                 elapsed,
                 rate_limited_until,
             } => {
-                let state = state_manager.get_app_mut(&app_result.name);
+                let state = ctx.state_manager.get_app_mut(&app_result.name);
                 if let Some(until) = rate_limited_until {
                     state.rate_limited_until = Some(until);
                 }
@@ -173,22 +163,22 @@ pub fn run(
         }
 
         if let Some((app, state)) = pending.next() {
-            let github_proxy = github_proxy_enabled(&app, global_config);
-            let github_proxy_prefixes = github_proxy_prefixes(&app, global_config);
+            let github_proxy = github_proxy_enabled(&app, ctx.global_config);
+            let github_proxy_prefixes = github_proxy_prefixes(&app, ctx.global_config);
             spawn_check_worker(
                 app,
                 state,
-                client.clone(),
+                ctx.client.clone(),
                 github_proxy,
                 github_proxy_prefixes,
-                global_config.clone(),
+                ctx.global_config.clone(),
                 tx.clone(),
             );
             active += 1;
         }
     }
 
-    for parse_error in app_config_errors {
+    for parse_error in ctx.app_config_errors {
         if !matches_target(app_name, parse_error.app_name.as_deref()) {
             continue;
         }
@@ -220,7 +210,7 @@ pub fn run(
         None
     };
 
-    if json_output {
+    if ctx.json_output {
         print_json(&CheckResponse {
             command: "check",
             apps: results,
@@ -235,7 +225,7 @@ pub fn run(
             } else {
                 None
             },
-            color_output,
+            ctx.color_output,
         );
     }
     Ok(())

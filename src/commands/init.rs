@@ -1,22 +1,20 @@
 use crate::cli::InitStrategy;
+use crate::commands::helpers::ExecutionContext;
 use crate::initializer;
 use crate::output::{print_json, print_progress, print_success, print_warning};
-use crate::parser::ConfigPaths;
 use anyhow::Result;
 use serde::Serialize;
 
 pub fn run(
-    paths: &ConfigPaths,
+    ctx: &ExecutionContext,
     global: bool,
     app: Option<&str>,
     strategy: InitStrategy,
     force: bool,
-    json_output: bool,
-    color_output: bool,
 ) -> Result<()> {
-    let result = initializer::run(paths, global, app, strategy, force)?;
+    let result = initializer::run(ctx.paths, global, app, strategy, force)?;
 
-    if json_output {
+    if ctx.json_output {
         #[derive(Serialize)]
         struct InitResponse {
             command: &'static str,
@@ -38,11 +36,11 @@ pub fn run(
         })?;
     } else {
         for path in &result.created {
-            print_success(&format!("Created {}", path.display()), color_output);
-            print_progress(&format!("Edit: {}", path.display()), color_output);
+            print_success(&format!("Created {}", path.display()), ctx.color_output);
+            print_progress(&format!("Edit: {}", path.display()), ctx.color_output);
             print_progress(
                 &format!("Then run: {} validate", crate::cli::current_bin_name()),
-                color_output,
+                ctx.color_output,
             );
         }
         for path in &result.skipped {
@@ -51,11 +49,11 @@ pub fn run(
                     "Skipped existing file {} (use --force to overwrite)",
                     path.display()
                 ),
-                color_output,
+                ctx.color_output,
             );
         }
         if result.created.is_empty() && result.skipped.is_empty() {
-            print_progress("Nothing to initialize.", color_output);
+            print_progress("Nothing to initialize.", ctx.color_output);
         }
     }
     Ok(())

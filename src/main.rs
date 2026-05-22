@@ -1,7 +1,7 @@
 use anyhow::Result;
 use fp_appimage_updater::cli::{Cli, Commands};
 use fp_appimage_updater::commands;
-use fp_appimage_updater::commands::helpers::build_http_agent;
+use fp_appimage_updater::commands::helpers::{ExecutionContext, build_http_agent};
 use fp_appimage_updater::lock;
 use fp_appimage_updater::output::colors_enabled;
 use fp_appimage_updater::output::print_warning;
@@ -33,15 +33,22 @@ fn main() -> Result<()> {
         force,
     } = &cli.command
     {
-        return commands::init::run(
-            &paths,
-            *global,
-            app.as_deref(),
-            *strategy,
-            *force,
+        let global_config = fp_appimage_updater::config::GlobalConfig::default();
+        let app_configs = [];
+        let app_config_errors = [];
+        let mut state_manager = StateManager::load("");
+        let client = build_http_agent();
+        let ctx = ExecutionContext {
+            paths: &paths,
+            global_config: &global_config,
+            app_configs: &app_configs,
+            app_config_errors: &app_config_errors,
+            state_manager: &mut state_manager,
+            client: &client,
             json_output,
             color_output,
-        );
+        };
+        return commands::init::run(&ctx, *global, app.as_deref(), *strategy, *force);
     }
 
     let global_config = parser::load_global_config(&paths)?;
@@ -52,42 +59,31 @@ fn main() -> Result<()> {
 
     let client = build_http_agent();
 
+    let mut ctx = ExecutionContext {
+        paths: &paths,
+        global_config: &global_config,
+        app_configs: &app_configs,
+        app_config_errors: &app_config_errors,
+        state_manager: &mut state_manager,
+        client: &client,
+        json_output,
+        color_output,
+    };
+
     match &cli.command {
         Commands::Init { .. } => unreachable!("init handled before config loading"),
         Commands::Doctor => {
-            commands::doctor::run(
-                &paths,
-                &global_config,
-                &client,
-                &app_config_errors,
-                json_output,
-                color_output,
-            )?;
+            commands::doctor::run(&ctx)?;
         }
         Commands::Validate { app_name } => {
-            commands::validate::run(&paths, app_name.as_deref(), json_output, color_output)?;
+            commands::validate::run(&ctx, app_name.as_deref())?;
         }
         Commands::List => {
-            commands::list::run(
-                &app_configs,
-                &global_config,
-                &state_manager,
-                json_output,
-                color_output,
-            )?;
+            commands::list::run(&ctx)?;
         }
         Commands::Check { app_name } => {
-            commands::check::run(
-                &app_configs,
-                &app_config_errors,
-                &global_config,
-                &mut state_manager,
-                &client,
-                app_name.as_deref(),
-                json_output,
-                color_output,
-            )?;
-            save_state_best_effort(&state_manager, color_output);
+            commands::check::run(&mut ctx, app_name.as_deref())?;
+            save_state_best_effort(ctx.state_manager, ctx.color_output);
         }
         Commands::Update {
             app_name,
@@ -96,44 +92,30 @@ fn main() -> Result<()> {
             debug_download_url,
             debug_version,
         } => {
-            let show_all = effective_show_all(global_config.show_all, *show_all);
+            let show_all = effective_show_all(ctx.global_config.show_all, *show_all);
             commands::update::run(
-                &app_configs,
-                &app_config_errors,
-                &global_config,
-                &mut state_manager,
-                &client,
+                &mut ctx,
                 app_name.as_deref(),
                 show_all,
                 debug_download_url.as_deref(),
                 debug_version.as_deref(),
-                json_output,
-                color_output,
             )?;
-            save_state_best_effort(&state_manager, color_output);
+            save_state_best_effort(ctx.state_manager, ctx.color_output);
 
             // After application updates, handle self-update
-            if *self_update || global_config.auto_self_update {
-                commands::self_update::run_if_available(&client, false, color_output)?;
-            } else if !json_output {
+            if *self_update || ctx.global_config.auto_self_update {
+                commands::self_update::run_if_available(&ctx, false)?;
+            } else if !ctx.json_output {
                 // By default, just check for updates if not in JSON mode
-                commands::self_update::check(&client, false, color_output)?;
+                commands::self_update::check(&ctx, false)?;
             }
         }
         Commands::Remove { app_name, all } => {
-            commands::remove::run(
-                &app_configs,
-                &global_config,
-                &mut state_manager,
-                app_name.as_ref(),
-                *all,
-                json_output,
-                color_output,
-            )?;
-            save_state_best_effort(&state_manager, color_output);
+            commands::remove::run(&mut ctx, app_name.as_ref(), *all)?;
+            save_state_best_effort(ctx.state_manager, ctx.color_output);
         }
         Commands::SelfUpdate { pre_release } => {
-            commands::self_update::run(&client, *pre_release, color_output)?;
+            commands::self_update::run(&ctx, *pre_release)?;
         }
         Commands::Completion { shell } => {
             commands::completion::run(shell)?;

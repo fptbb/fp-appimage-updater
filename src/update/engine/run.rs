@@ -13,24 +13,25 @@ use crate::output::{
     UpdateApp, UpdateResponse, UpdateStatus, format_rate_limit_retry_text, print_json,
     print_progress, print_success, print_warning,
 };
-use crate::parser::AppConfigLoadError;
-use crate::state::{AppState, StateManager};
+use crate::state::AppState;
 use crate::update::filter_update_apps;
 use anyhow::Result;
 use std::sync::mpsc;
 
 pub fn run(
-    app_configs: &[config::AppConfig],
-    app_config_errors: &[AppConfigLoadError],
-    global_config: &config::GlobalConfig,
-    state_manager: &mut StateManager,
-    client: &ureq::Agent,
+    ctx: &mut ExecutionContext,
     app_name: Option<&str>,
     show_all: bool,
     forced_update: Option<ForcedUpdateInfo>,
-    json_output: bool,
-    color_output: bool,
 ) -> Result<()> {
+    let global_config = ctx.global_config;
+    let app_configs = ctx.app_configs;
+    let app_config_errors = ctx.app_config_errors;
+    let state_manager = &mut *ctx.state_manager;
+    let client = ctx.client;
+    let json_output = ctx.json_output;
+    let color_output = ctx.color_output;
+
     let storage_dir = integrator::expand_tilde(&global_config.storage_dir);
     let mut results = Vec::new();
     let mut found = false;

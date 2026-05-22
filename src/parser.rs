@@ -176,11 +176,15 @@ fn parse_app_config(path: &std::path::Path) -> Result<AppConfig> {
     Ok(app)
 }
 
-fn infer_name_from_yaml_path(path: &std::path::Path) -> Option<String> {
-    let content = fs::read_to_string(path).ok()?;
-    let value: Value = serde_yaml::from_str(&content).ok()?;
+pub fn infer_name_from_yaml(content: &str) -> Option<String> {
+    let value: Value = serde_yaml::from_str(content).ok()?;
     let map = value.as_mapping()?;
     map.get(Value::String("name".to_string()))?
         .as_str()
         .map(ToOwned::to_owned)
+}
+
+fn infer_name_from_yaml_path(path: &std::path::Path) -> Option<String> {
+    let content = fs::read_to_string(path).ok()?;
+    infer_name_from_yaml(&content)
 }

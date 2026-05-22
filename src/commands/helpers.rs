@@ -7,6 +7,17 @@ use crate::resolvers;
 use crate::state::{AppState, StateManager};
 use std::time::Duration;
 
+pub struct ExecutionContext<'a> {
+    pub paths: &'a crate::parser::ConfigPaths,
+    pub global_config: &'a config::GlobalConfig,
+    pub app_configs: &'a [config::AppConfig],
+    pub app_config_errors: &'a [crate::parser::AppConfigLoadError],
+    pub state_manager: &'a mut StateManager,
+    pub client: &'a ureq::Agent,
+    pub json_output: bool,
+    pub color_output: bool,
+}
+
 pub const MAX_CONCURRENT_CHECK_JOBS: usize = 3;
 pub const MAX_CONCURRENT_DOWNLOADS: usize = 6;
 pub const FAST_JOB_SECONDS: f64 = 2.0;

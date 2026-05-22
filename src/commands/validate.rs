@@ -1,17 +1,12 @@
+use crate::commands::helpers::ExecutionContext;
 use crate::output::{
     ValidateApp, ValidateResponse, ValidateStatus, print_json, print_validate_human,
 };
-use crate::parser::ConfigPaths;
 use crate::validator;
 use anyhow::Result;
 
-pub fn run(
-    paths: &ConfigPaths,
-    app_name: Option<&str>,
-    json_output: bool,
-    color_output: bool,
-) -> Result<()> {
-    let (apps, error) = validator::validate_app_configs(paths, app_name)?;
+pub fn run(ctx: &ExecutionContext, app_name: Option<&str>) -> Result<()> {
+    let (apps, error) = validator::validate_app_configs(ctx.paths, app_name)?;
     let results = apps
         .into_iter()
         .map(|app| ValidateApp {
@@ -25,14 +20,14 @@ pub fn run(
         })
         .collect::<Vec<_>>();
 
-    if json_output {
+    if ctx.json_output {
         print_json(&ValidateResponse {
             command: "validate",
             apps: results,
             error,
         })?;
     } else {
-        print_validate_human(&results, error.as_deref(), color_output);
+        print_validate_human(&results, error.as_deref(), ctx.color_output);
     }
     Ok(())
 }

@@ -1,20 +1,12 @@
-use crate::config;
-use crate::parser::AppConfigLoadError;
-use crate::state::StateManager;
+use crate::commands::helpers::ExecutionContext;
 use anyhow::Result;
 
 pub fn run(
-    app_configs: &[config::AppConfig],
-    app_config_errors: &[AppConfigLoadError],
-    global_config: &config::GlobalConfig,
-    state_manager: &mut StateManager,
-    client: &ureq::Agent,
+    ctx: &mut ExecutionContext,
     app_name: Option<&str>,
     show_all: bool,
     debug_download_url: Option<&str>,
     debug_version: Option<&str>,
-    json_output: bool,
-    color_output: bool,
 ) -> Result<()> {
     let forced_update = match (debug_download_url, debug_version) {
         (Some(download_url), Some(version)) => {
@@ -32,16 +24,5 @@ pub fn run(
         }
     };
 
-    crate::update::run(
-        app_configs,
-        app_config_errors,
-        global_config,
-        state_manager,
-        client,
-        app_name,
-        show_all,
-        forced_update,
-        json_output,
-        color_output,
-    )
+    crate::update::run(ctx, app_name, show_all, forced_update)
 }

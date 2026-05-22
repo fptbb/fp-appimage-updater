@@ -1,11 +1,10 @@
 use anyhow::Result;
 use glob::glob;
-use serde_yaml::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::config::AppConfig;
-use crate::parser::ConfigPaths;
+use crate::parser::{ConfigPaths, infer_name_from_yaml};
 
 #[derive(Debug)]
 pub struct ValidationResult {
@@ -99,14 +98,6 @@ fn validate_file(path: &Path) -> ValidationResult {
             error: Some(error.to_string()),
         },
     }
-}
-
-fn infer_name_from_yaml(content: &str) -> Option<String> {
-    let value: Value = serde_yaml::from_str(content).ok()?;
-    let map = value.as_mapping()?;
-    map.get(Value::String("name".to_string()))?
-        .as_str()
-        .map(ToOwned::to_owned)
 }
 
 fn app_not_found_error(name: &str) -> String {

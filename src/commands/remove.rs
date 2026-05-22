@@ -1,32 +1,24 @@
-use crate::config;
+use crate::commands::helpers::ExecutionContext;
 use crate::disintegrator;
 use crate::output::{
     RemoveApp, RemoveResponse, RemoveStatus, print_json, print_progress, print_warning,
 };
-use crate::state::{AppState, StateManager};
+use crate::state::AppState;
 use anyhow::Result;
 
-pub fn run(
-    app_configs: &[config::AppConfig],
-    global_config: &config::GlobalConfig,
-    state_manager: &mut StateManager,
-    app_name: Option<&String>,
-    all: bool,
-    json_output: bool,
-    color_output: bool,
-) -> Result<()> {
+pub fn run(ctx: &mut ExecutionContext, app_name: Option<&String>, all: bool) -> Result<()> {
     let mut found = false;
     let mut apps_to_remove = Vec::new();
     let mut results = Vec::new();
 
     if all {
-        for app in app_configs {
+        for app in ctx.app_configs {
             apps_to_remove.push(app.name.clone());
         }
     } else if let Some(target) = app_name {
         apps_to_remove.push(target.clone());
     } else {
-        if json_output {
+        if ctx.json_output {
             print_json(&RemoveResponse {
                 command: "remove",
                 apps: Vec::new(),
@@ -37,7 +29,7 @@ pub fn run(
         } else {
             print_warning(
                 "Error: Please provide an application name to remove, or use --all.",
-                color_output,
+                ctx.color_output,
             );
         }
         return Ok(());
@@ -45,16 +37,20 @@ pub fn run(
 
     for target_name in apps_to_remove {
         let mut target_found_in_configs = false;
-        for app in app_configs {
+        for app in ctx.app_configs {
             if app.name == target_name {
                 found = true;
                 target_found_in_configs = true;
-                let state = state_manager.get_app(&app.name);
+                let state = ctx.state_manager.get_app(&app.name);
 
-                if let Err(e) =
-                    disintegrator::remove_app(app, global_config, state, json_output, color_output)
-                {
-                    if json_output {
+                if let Err(e) = disintegrator::remove_app(
+                    app,
+                    ctx.global_config,
+                    state,
+                    ctx.json_output,
+                    ctx.color_output,
+                ) {
+                    if ctx.json_output {
                         results.push(RemoveApp {
                             name: app.name.clone(),
                             status: RemoveStatus::Error,
@@ -63,14 +59,14 @@ pub fn run(
                     } else {
                         print_warning(
                             &format!("Error removing {}: {:#}", app.name, e),
-                            color_output,
+                            ctx.color_output,
                         );
                     }
                 } else {
-                    if let Some(state) = state_manager.state.apps.get_mut(&app.name) {
+                    if let Some(state) = ctx.state_manager.state.apps.get_mut(&app.name) {
                         clear_installed_state(state);
                     }
-                    if json_output {
+                    if ctx.json_output {
                         results.push(RemoveApp {
                             name: app.name.clone(),
                             status: RemoveStatus::Removed,
@@ -81,7 +77,7 @@ pub fn run(
                 break;
             }
         }
-        if !target_found_in_configs && json_output {
+        if !target_found_in_configs && ctx.json_output {
             results.push(RemoveApp {
                 name: target_name,
                 status: RemoveStatus::NotFound,
@@ -90,7 +86,7 @@ pub fn run(
         }
     }
 
-    if json_output {
+    if ctx.json_output {
         let error = if !found && !all {
             app_name.map(|target| format!("App '{}' not found in configuration.", target))
         } else {
@@ -104,7 +100,7 @@ pub fn run(
     } else if !found && !all {
         print_warning(
             &format!("App '{:?}' not found in configuration.", app_name),
-            color_output,
+            ctx.color_output,
         );
     } else {
         let removed = results
@@ -124,7 +120,7 @@ pub fn run(
                 "summary: {} removed, {} missing, {} failed",
                 removed, missing, failed
             ),
-            color_output,
+            ctx.color_output,
         );
     }
     Ok(())

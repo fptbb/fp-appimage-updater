@@ -1,21 +1,12 @@
-use crate::config::GlobalConfig;
+use crate::commands::helpers::ExecutionContext;
 use crate::doctor;
 use crate::output::{
     DoctorCheck, DoctorResponse, DoctorStatus, print_doctor_human, print_json, print_progress,
 };
-use crate::parser::{AppConfigLoadError, ConfigPaths};
 use anyhow::Result;
-use ureq::Agent;
 
-pub fn run(
-    paths: &ConfigPaths,
-    global_config: &GlobalConfig,
-    client: &Agent,
-    app_config_errors: &[AppConfigLoadError],
-    json_output: bool,
-    color_output: bool,
-) -> Result<()> {
-    let checks = doctor::run(paths, global_config, client)
+pub fn run(ctx: &ExecutionContext) -> Result<()> {
+    let checks = doctor::run(ctx.paths, ctx.global_config, ctx.client)
         .into_iter()
         .map(|check| DoctorCheck {
             name: check.name,
@@ -27,20 +18,20 @@ pub fn run(
         })
         .collect::<Vec<_>>();
 
-    if json_output {
+    if ctx.json_output {
         print_json(&DoctorResponse {
             command: "doctor",
             checks,
         })?;
     } else {
-        print_doctor_human(&checks, color_output);
-        if !app_config_errors.is_empty() {
+        print_doctor_human(&checks, ctx.color_output);
+        if !ctx.app_config_errors.is_empty() {
             print_progress(
                 &format!(
                     "Tip: run `{} validate` for detailed parse errors.",
                     crate::cli::current_bin_name()
                 ),
-                color_output,
+                ctx.color_output,
             );
         }
     }

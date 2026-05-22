@@ -24,27 +24,10 @@ pub fn effective_show_all(config_show_all: bool, cli_show_all: bool) -> bool {
 }
 
 pub fn run(
-    app_configs: &[crate::config::AppConfig],
-    app_config_errors: &[crate::parser::AppConfigLoadError],
-    global_config: &crate::config::GlobalConfig,
-    state_manager: &mut crate::state::StateManager,
-    client: &ureq::Agent,
+    ctx: &mut crate::commands::helpers::ExecutionContext,
     app_name: Option<&str>,
     show_all: bool,
     forced_update: Option<engine::ForcedUpdateInfo>,
-    json_output: bool,
-    color_output: bool,
 ) -> anyhow::Result<()> {
-    engine::run(
-        app_configs,
-        app_config_errors,
-        global_config,
-        state_manager,
-        client,
-        app_name,
-        show_all,
-        forced_update,
-        json_output,
-        color_output,
-    )
+    engine::run(ctx, app_name, show_all, forced_update)
 }
