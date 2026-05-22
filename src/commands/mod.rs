@@ -1,6 +1,7 @@
 pub mod check;
 pub mod completion;
 pub mod doctor;
+pub mod generate_schema;
 pub mod helpers;
 pub mod init;
 pub mod list;
@@ -8,5 +9,3 @@ pub mod remove;
 pub mod self_update;
 pub mod update;
 pub mod validate;
-pub mod generate_schema;
-

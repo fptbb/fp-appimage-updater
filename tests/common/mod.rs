@@ -53,8 +53,8 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         .await
         .expect("Failed to start Fedora container");
 
-    let binary_path =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("build/{}.x64", env!("CARGO_PKG_NAME")));
+    let binary_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("build/{}.x64", env!("CARGO_PKG_NAME")));
 
     if !binary_path.exists() {
         panic!(
@@ -134,7 +134,10 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         .arg(container_id)
         .arg("chmod")
         .arg("+x")
-        .arg(format!("/root/.config/{}/apps/hayase/resolver.sh", env!("CARGO_PKG_NAME")))
+        .arg(format!(
+            "/root/.config/{}/apps/hayase/resolver.sh",
+            env!("CARGO_PKG_NAME")
+        ))
         .status()
         .unwrap_or_else(|_| Default::default());
 
