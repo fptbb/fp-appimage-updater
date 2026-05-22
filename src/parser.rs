@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 use crate::config::{AppConfig, GlobalConfig, SecretsConfig, ensure_safe_path_component};
 
-const APP_NAME: &str = "fp-appimage-updater";
+const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
 pub struct ConfigPaths {
     pub config_dir: PathBuf,

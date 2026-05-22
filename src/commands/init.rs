@@ -40,7 +40,7 @@ pub fn run(
         for path in &result.created {
             print_success(&format!("Created {}", path.display()), color_output);
             print_progress(&format!("Edit: {}", path.display()), color_output);
-            print_progress("Then run: fp-appimage-updater validate", color_output);
+            print_progress(&format!("Then run: {} validate", env!("CARGO_PKG_NAME")), color_output);
         }
         for path in &result.skipped {
             print_warning(

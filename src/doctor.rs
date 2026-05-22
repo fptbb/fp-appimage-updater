@@ -418,8 +418,10 @@ fn check_appimage_support_with_appimage_run(appimage_path: &Path) -> anyhow::Res
         .unwrap_or_default()
         .as_nanos();
     let extract_root = std::env::temp_dir().join(format!(
-        "fp-appimage-updater-doctor-appimage-run-{}-{nanos}",
-        std::process::id()
+        "{}-doctor-appimage-run-{}-{}",
+        env!("CARGO_PKG_NAME"),
+        std::process::id(),
+        nanos
     ));
 
     let output = Command::new("appimage-run")

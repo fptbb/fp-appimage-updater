@@ -51,7 +51,7 @@ pub const COMMAND_DEFS: &[CmdInfo] = &[
     },
     CmdInfo {
         name: "self-update",
-        desc: "Update fp-appimage-updater itself",
+        desc: concat!("Update ", env!("CARGO_PKG_NAME"), " itself"),
         opts: &["--pre-release"],
     },
     CmdInfo {
@@ -73,11 +73,11 @@ pub const GLOBAL_OPTS: &[&str] = &[
 
 pub fn print_help() {
     println!(
-        "fp-appimage-updater {}
+        "{} {}
 Data-Driven AppImage Manager
 
 USAGE:
-    fp-appimage-updater [OPTIONS] <COMMAND>
+    {} [OPTIONS] <COMMAND>
 
 OPTIONS:
     -c, --config <PATH>  Override the default configuration directory
@@ -86,7 +86,9 @@ OPTIONS:
     -V, --version        Print version information
 
 COMMANDS:",
-        env!("CARGO_PKG_VERSION")
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        env!("CARGO_PKG_NAME")
     );
 
     for cmd in COMMAND_DEFS {
@@ -169,7 +171,7 @@ impl Cli {
         }
 
         if args.contains(["-V", "--version"]) {
-            println!("fp-appimage-updater {}", env!("CARGO_PKG_VERSION"));
+            println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
             std::process::exit(0);
         }
 

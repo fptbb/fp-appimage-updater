@@ -88,7 +88,8 @@ impl FileLock {
                 }
                 LockState::Active { .. } => {
                     bail!(
-                        "Another fp-appimage-updater process is already running (lock file exists at {}).",
+                        "Another {} process is already running (lock file exists at {}).",
+                        env!("CARGO_PKG_NAME"),
                         path.display()
                     );
                 }

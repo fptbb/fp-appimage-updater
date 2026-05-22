@@ -54,7 +54,7 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         .expect("Failed to start Fedora container");
 
     let binary_path =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("build/fp-appimage-updater.x64");
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("build/{}.x64", env!("CARGO_PKG_NAME")));
 
     if !binary_path.exists() {
         panic!(
@@ -69,8 +69,9 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         .arg("cp")
         .arg(&binary_path)
         .arg(format!(
-            "{}:/usr/local/bin/fp-appimage-updater",
-            container_id
+            "{}:/usr/local/bin/{}",
+            container_id,
+            env!("CARGO_PKG_NAME")
         ))
         .status()
         .expect("Failed to execute docker cp for binary");
@@ -81,7 +82,7 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         .arg(container_id)
         .arg("chmod")
         .arg("+x")
-        .arg("/usr/local/bin/fp-appimage-updater")
+        .arg(format!("/usr/local/bin/{}", env!("CARGO_PKG_NAME")))
         .status()
         .expect("Failed to chmod binary");
     assert!(status.success(), "Failed to chmod binary in container");
@@ -91,7 +92,7 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         .arg(container_id)
         .arg("mkdir")
         .arg("-p")
-        .arg("/root/.config/fp-appimage-updater/")
+        .arg(format!("/root/.config/{}/", env!("CARGO_PKG_NAME")))
         .status()
         .expect("Failed to create config dir");
     assert!(status.success(), "Failed to create config dir in container");
@@ -101,8 +102,9 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         .arg("cp")
         .arg(&config_path)
         .arg(format!(
-            "{}:/root/.config/fp-appimage-updater/apps",
-            container_id
+            "{}:/root/.config/{}/apps",
+            container_id,
+            env!("CARGO_PKG_NAME")
         ))
         .status()
         .expect("Failed to copy apps config");
@@ -116,8 +118,9 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         .arg("cp")
         .arg(&global_config_path)
         .arg(format!(
-            "{}:/root/.config/fp-appimage-updater/config.yml",
-            container_id
+            "{}:/root/.config/{}/config.yml",
+            container_id,
+            env!("CARGO_PKG_NAME")
         ))
         .status()
         .expect("Failed to copy global config");
@@ -131,7 +134,7 @@ pub async fn setup_fedora_container() -> ContainerAsync<GenericImage> {
         .arg(container_id)
         .arg("chmod")
         .arg("+x")
-        .arg("/root/.config/fp-appimage-updater/apps/hayase/resolver.sh")
+        .arg(format!("/root/.config/{}/apps/hayase/resolver.sh", env!("CARGO_PKG_NAME")))
         .status()
         .unwrap_or_else(|_| Default::default());
 
@@ -190,7 +193,7 @@ pub async fn run_updater_cmd(container: &ContainerAsync<GenericImage>, args: &[&
     Command::new("docker")
         .arg("exec")
         .arg(container.id())
-        .arg("fp-appimage-updater")
+        .arg(env!("CARGO_PKG_NAME"))
         .args(args)
         .output()
         .expect("Failed to execute updater command inside container")

@@ -1,6 +1,9 @@
 use crate::cli::{COMMAND_DEFS, GLOBAL_OPTS};
 
 pub fn run(shell: &str) -> anyhow::Result<()> {
+    let app_name = env!("CARGO_PKG_NAME");
+    let fn_name = format!("_{}", app_name.replace('-', "_"));
+
     let cmds_str = COMMAND_DEFS
         .iter()
         .map(|c| c.name)
@@ -20,7 +23,7 @@ pub fn run(shell: &str) -> anyhow::Result<()> {
             }
             format!(
                 r#"
-_fp_appimage_updater() {{
+{fn_name}() {{
     local cur prev cmds opts global_opts subcommand
     COMPREPLY=()
     cur="${{COMP_WORDS[COMP_CWORD]}}"
@@ -51,8 +54,13 @@ _fp_appimage_updater() {{
         COMPREPLY=( $(compgen -W "${{opts}}" -- "${{cur}}") )
     fi
 }}
-complete -F _fp_appimage_updater fp-appimage-updater
-"#
+complete -F {fn_name} {app_name}
+"#,
+                fn_name = fn_name,
+                cmds_str = cmds_str,
+                global_opts_str = global_opts_str,
+                cases = cases,
+                app_name = app_name,
             )
         }
         "zsh" => {
@@ -66,8 +74,8 @@ complete -F _fp_appimage_updater fp-appimage-updater
             }
             format!(
                 r#"
-#compdef fp-appimage-updater
-_fp_appimage_updater() {{
+#compdef {app_name}
+{fn_name}() {{
     local curcontext="$curcontext" state line
     typeset -A opt_args
 
@@ -82,30 +90,34 @@ _fp_appimage_updater() {{
             ;;
     esac
 }}
-if [[ "$funcstack[1]" == "_fp_appimage_updater" ]]; then
-    _fp_appimage_updater "$@"
+if [[ "$funcstack[1]" == "{fn_name}" ]]; then
+    {fn_name} "$@"
 else
-    compdef _fp_appimage_updater fp-appimage-updater
+    compdef {fn_name} {app_name}
 fi
-"#
+"#,
+                app_name = app_name,
+                fn_name = fn_name,
+                cmds_str = cmds_str,
+                cases = cases,
             )
         }
         "fish" => {
-            let mut s = String::from("complete -c fp-appimage-updater -f\n");
+            let mut s = format!("complete -c {app_name} -f\n");
             for opt in GLOBAL_OPTS {
                 if let Some(stripped) = opt.strip_prefix("--") {
-                    s.push_str(&format!("complete -c fp-appimage-updater -n 'not __fish_seen_subcommand_from {cmds_str}' -l '{stripped}'\n"));
+                    s.push_str(&format!("complete -c {app_name} -n 'not __fish_seen_subcommand_from {cmds_str}' -l '{stripped}'\n"));
                 } else if let Some(stripped) = opt.strip_prefix('-') {
-                    s.push_str(&format!("complete -c fp-appimage-updater -n 'not __fish_seen_subcommand_from {cmds_str}' -o '{stripped}'\n"));
+                    s.push_str(&format!("complete -c {app_name} -n 'not __fish_seen_subcommand_from {cmds_str}' -o '{stripped}'\n"));
                 }
             }
             for cmd in COMMAND_DEFS {
-                s.push_str(&format!("complete -c fp-appimage-updater -n 'not __fish_seen_subcommand_from {cmds_str}' -a '{}'\n", cmd.name));
+                s.push_str(&format!("complete -c {app_name} -n 'not __fish_seen_subcommand_from {cmds_str}' -a '{}'\n", cmd.name));
                 for opt in cmd.opts {
                     if let Some(stripped) = opt.strip_prefix("--") {
-                        s.push_str(&format!("complete -c fp-appimage-updater -n '__fish_seen_subcommand_from {}' -l '{stripped}'\n", cmd.name));
+                        s.push_str(&format!("complete -c {app_name} -n '__fish_seen_subcommand_from {}' -l '{stripped}'\n", cmd.name));
                     } else if let Some(stripped) = opt.strip_prefix('-') {
-                        s.push_str(&format!("complete -c fp-appimage-updater -n '__fish_seen_subcommand_from {}' -o '{stripped}'\n", cmd.name));
+                        s.push_str(&format!("complete -c {app_name} -n '__fish_seen_subcommand_from {}' -o '{stripped}'\n", cmd.name));
                     }
                 }
             }

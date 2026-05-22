@@ -18,8 +18,8 @@ use crate::output::{
     print_self_update_download, print_self_update_start, print_self_update_success, print_warning,
 };
 
-const REPO: &str = "fpsys/fp-appimage-updater";
-const REPO_ENCODED: &str = "fpsys%2Ffp-appimage-updater";
+const REPO: &str = concat!("fpsys/", env!("CARGO_PKG_NAME"));
+const REPO_ENCODED: &str = concat!("fpsys%2F", env!("CARGO_PKG_NAME"));
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn asset_suffix() -> Result<&'static str> {
@@ -217,7 +217,7 @@ fn self_update_with_mode(
     }
 
     let suffix = asset_suffix()?;
-    let binary_name = format!("fp-appimage-updater.{}", suffix);
+    let binary_name = format!("{}.{}", env!("CARGO_PKG_NAME"), suffix);
     let download_url = format!(
         "https://gitlab.com/{}/-/releases/{}/downloads/bin/{}",
         REPO, latest_tag, binary_name
@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn unwritable_binary_only_warns_when_update_exists() {
         let temp_dir = tempfile::tempdir().expect("tempdir");
-        let binary_path = temp_dir.path().join("fp-appimage-updater");
+        let binary_path = temp_dir.path().join(env!("CARGO_PKG_NAME"));
         fs::write(&binary_path, b"binary").expect("write test binary");
 
         let mut permissions = fs::metadata(&binary_path).expect("metadata").permissions();

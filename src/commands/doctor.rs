@@ -36,7 +36,7 @@ pub fn run(
         print_doctor_human(&checks, color_output);
         if !app_config_errors.is_empty() {
             print_progress(
-                "Tip: run `fp-appimage-updater validate` for detailed parse errors.",
+                &format!("Tip: run `{} validate` for detailed parse errors.", env!("CARGO_PKG_NAME")),
                 color_output,
             );
         }
