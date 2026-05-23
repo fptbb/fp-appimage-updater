@@ -146,3 +146,45 @@ fn finds_nested_desktop_and_icon_from_desktop_entry() {
     assert_eq!(found_desktop, desktop_path);
     assert_eq!(found_icon, icon_path);
 }
+
+#[test]
+fn rollback_restores_backup_file_and_deletes_failed_binary() {
+    let dir = tempfile::tempdir().expect("failed to create tempdir");
+    let failed_path = dir.path().join("app.AppImage");
+    let backup_path = dir.path().join("app.bak");
+
+    // Write a dummy failed new binary
+    fs::write(&failed_path, "failed new binary").expect("failed to write failed binary");
+    // Write a dummy backup file (representing the old working binary)
+    fs::write(&backup_path, "working backup binary").expect("failed to write backup binary");
+
+    let app = fp_appimage_updater::config::AppConfig {
+        config_dir: std::path::PathBuf::new(),
+        name: "test-app".to_string(),
+        ignore: None,
+        zsync: None,
+        integration: Some(false), // Disable desktop integration to keep it simple
+        create_symlink: Some(false),
+        segmented_downloads: None,
+        respect_rate_limits: None,
+        github_proxy: None,
+        github_proxy_prefix: None,
+        storage_dir: None,
+        naming_format: None,
+        inner_asset_match: None,
+        strategy: fp_appimage_updater::config::StrategyConfig::Direct {
+            url: String::new(),
+            check_method: fp_appimage_updater::config::CheckMethod::Etag,
+        },
+    };
+    let global = fp_appimage_updater::config::GlobalConfig::default();
+
+    // Call rollback
+    fp_appimage_updater::integrator::rollback(&app, &global, &failed_path, None, None);
+
+    // Assert that the failed binary is deleted/restored
+    assert!(failed_path.exists());
+    let restored_content = fs::read_to_string(&failed_path).expect("failed to read restored binary");
+    assert_eq!(restored_content, "working backup binary");
+    assert!(!backup_path.exists());
+}

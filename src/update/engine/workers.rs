@@ -123,6 +123,7 @@ pub(crate) fn process_update_download_job(
     storage_dir: std::path::PathBuf,
     naming_format: String,
     segmented_downloads: bool,
+    manage_desktop_files: bool,
     json_output: bool,
     color_output: bool,
 ) -> UpdateWorkResult {
@@ -171,6 +172,7 @@ pub(crate) fn process_update_download_job(
         &naming_format,
         Some(&state),
         segmented_downloads,
+        manage_desktop_files,
         json_output,
         color_output,
     ) {

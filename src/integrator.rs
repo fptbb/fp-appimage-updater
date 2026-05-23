@@ -62,6 +62,11 @@ pub fn integrate(
         );
     }
 
+    let backup_path = appimage_path.with_extension("bak");
+    if backup_path.exists() {
+        let _ = fs::remove_file(&backup_path);
+    }
+
     Ok(())
 }
 
@@ -429,6 +434,11 @@ pub fn rollback(
 ) {
     if failed_new_appimage_path.exists() {
         let _ = fs::remove_file(failed_new_appimage_path);
+    }
+
+    let backup_path = failed_new_appimage_path.with_extension("bak");
+    if backup_path.exists() {
+        let _ = fs::rename(&backup_path, failed_new_appimage_path);
     }
 
     if let Some(old_path) = old_appimage_path

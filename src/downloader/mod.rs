@@ -5,6 +5,9 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use ureq::Agent;
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 pub mod http;
 pub mod progress;
 
@@ -46,6 +49,62 @@ pub fn finalize_progress_output() -> Result<()> {
     Ok(())
 }
 
+fn validate_downloaded_appimage(app: &AppConfig, path: &Path, manage_desktop_files: bool) -> Result<()> {
+    // 1. Make executable first so we can extract/check it
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(path)
+            .with_context(|| format!("Failed to read metadata of temp AppImage at {:?}", path))?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(path, perms)
+            .with_context(|| format!("Failed to set executable permissions on temp AppImage at {:?}", path))?;
+    }
+
+    // 2. Check architecture match
+    ensure_downloaded_appimage_matches_host(path)?;
+
+    // 3. Check extractability (if integration is enabled for this app)
+    let should_integrate = app.integration.unwrap_or(manage_desktop_files);
+    if should_integrate {
+        let temp_extract_parent = std::env::temp_dir().join(format!("fp-appimage-val-{}", app.name));
+        if temp_extract_parent.exists() {
+            let _ = fs::remove_dir_all(&temp_extract_parent);
+        }
+        fs::create_dir_all(&temp_extract_parent)?;
+
+        let extracted_root = temp_extract_parent.join("squashfs-root");
+        
+        let extraction_result = crate::integrator::extract_appimage_root(path, &temp_extract_parent, &extracted_root);
+        
+        let _ = fs::remove_dir_all(&temp_extract_parent);
+
+        extraction_result.context("Downloaded AppImage is broken or corrupt: failed squashfs metadata extraction check")?;
+    }
+
+    Ok(())
+}
+
+fn rename_to_final_path(tmp_path: &Path, final_path: &Path) -> Result<()> {
+    let backup_path = final_path.with_extension("bak");
+    if final_path.exists() {
+        if backup_path.exists() {
+            let _ = fs::remove_file(&backup_path);
+        }
+        fs::rename(final_path, &backup_path)
+            .context("Failed to back up existing AppImage binary before update")?;
+    }
+
+    if let Err(err) = fs::rename(tmp_path, final_path) {
+        if backup_path.exists() {
+            let _ = fs::rename(&backup_path, final_path);
+        }
+        return Err(anyhow::Error::from(err).context("Failed to rename tmp file to final destination"));
+    }
+
+    Ok(())
+}
+
 pub fn download_app(
     client: &Agent,
     app: &AppConfig,
@@ -54,6 +113,7 @@ pub fn download_app(
     naming_format: &str,
     state: Option<&AppState>,
     segmented_downloads: bool,
+    manage_desktop_files: bool,
     quiet: bool,
     colors: bool,
 ) -> Result<DownloadResult> {
@@ -112,13 +172,12 @@ pub fn download_app(
     }
 
     if zsync_success {
-        if let Err(err) = ensure_downloaded_appimage_matches_host(&tmp_path) {
+        if let Err(err) = validate_downloaded_appimage(app, &tmp_path, manage_desktop_files) {
             let _ = fs::remove_file(&tmp_path);
             return Err(err);
         }
 
-        std::fs::rename(&tmp_path, &final_path)
-            .context("Failed to rename tmp file to final destination")?;
+        rename_to_final_path(&tmp_path, &final_path)?;
 
         let downloaded_bytes = fs::metadata(&final_path)
             .map(|meta| meta.len())
@@ -178,13 +237,12 @@ pub fn download_app(
             fs::rename(&extracted_path, &tmp_path)?;
         }
 
-        if let Err(err) = ensure_downloaded_appimage_matches_host(&tmp_path) {
+        if let Err(err) = validate_downloaded_appimage(app, &tmp_path, manage_desktop_files) {
             let _ = fs::remove_file(&tmp_path);
             return Err(err);
         }
 
-        std::fs::rename(&tmp_path, &final_path)
-            .context("Failed to rename tmp file to final destination")?;
+        rename_to_final_path(&tmp_path, &final_path)?;
 
         let downloaded_bytes = fs::metadata(&final_path)
             .map(|meta| meta.len())

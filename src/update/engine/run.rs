@@ -137,6 +137,7 @@ pub fn run(
                                  storage_dir: std::path::PathBuf,
                                  naming_format: String,
                                  segmented_downloads: bool,
+                                 manage_desktop_files: bool,
                                  tx: mpsc::Sender<UpdateEvent>,
                                  json_output: bool,
                                  color_output: bool| {
@@ -148,6 +149,7 @@ pub fn run(
                 storage_dir,
                 naming_format,
                 segmented_downloads,
+                manage_desktop_files,
                 json_output,
                 color_output,
             );
@@ -206,6 +208,7 @@ pub fn run(
                     storage_dir,
                     naming_format,
                     segmented_downloads,
+                    global_config.manage_desktop_files,
                     tx.clone(),
                     json_output,
                     color_output,
@@ -252,6 +255,7 @@ pub fn run(
                         storage_dir,
                         naming_format,
                         segmented_downloads,
+                        global_config.manage_desktop_files,
                         tx.clone(),
                         json_output,
                         color_output,
