@@ -65,3 +65,29 @@ fn legacy_desktop_asset_names_include_old_variants() {
 
     assert_eq!(names, vec!["My App".to_string(), "old-app".to_string()]);
 }
+
+#[test]
+fn test_dummy_app_config_for_orphans() {
+    let target_name = "orphaned-app".to_string();
+    let dummy_app = AppConfig {
+        config_dir: PathBuf::new(),
+        name: target_name.clone(),
+        ignore: None,
+        zsync: None,
+        integration: None,
+        create_symlink: None,
+        segmented_downloads: None,
+        respect_rate_limits: None,
+        github_proxy: None,
+        github_proxy_prefix: None,
+        storage_dir: None,
+        naming_format: None,
+        inner_asset_match: None,
+        strategy: StrategyConfig::Direct {
+            url: "https://example.com/My.AppImage".to_string(),
+            check_method: fp_appimage_updater::config::CheckMethod::Etag,
+        },
+    };
+
+    assert_eq!(dummy_app.name, "orphaned-app");
+}

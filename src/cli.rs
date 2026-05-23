@@ -47,7 +47,7 @@ pub const COMMAND_DEFS: &[CmdInfo] = &[
     CmdInfo {
         name: "remove",
         desc: "Remove an application and its symlink",
-        opts: &["-a", "--all"],
+        opts: &["-a", "--all", "--orphan"],
     },
     CmdInfo {
         name: "self-update",
@@ -131,6 +131,7 @@ pub enum Commands {
     Remove {
         app_name: Option<String>,
         all: bool,
+        orphan: bool,
     },
     SelfUpdate {
         pre_release: bool,
@@ -222,9 +223,11 @@ impl Cli {
             }
             "remove" => {
                 let all = args.contains(["-a", "--all"]);
+                let orphan = args.contains("--orphan");
                 Commands::Remove {
                     app_name: args.opt_free_from_str()?,
                     all,
+                    orphan,
                 }
             }
             "self-update" | "selfupdate" => Commands::SelfUpdate {

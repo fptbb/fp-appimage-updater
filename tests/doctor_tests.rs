@@ -847,3 +847,32 @@ fn reports_script_resolvers_access_as_warn_for_missing_script() {
 
     let _ = fs::remove_dir_all(&root);
 }
+
+#[test]
+fn reports_orphaned_apps_in_state_as_warn() {
+    let root = unique_temp_dir("orphaned-apps");
+    let paths = ConfigPaths {
+        config_dir: root.join("config"),
+        state_dir: root.join("state"),
+    };
+    fs::create_dir_all(&paths.config_dir).expect("failed to create config dir");
+    fs::create_dir_all(&paths.state_dir).expect("failed to create state dir");
+    write_global_config(&paths);
+
+    // Write a cache file with an orphaned application
+    let cache_path = paths.cache_path();
+    fs::write(
+        &cache_path,
+        r#"{"apps": {"orphaned-app": {"local_version": "1.0.0", "file_path": "/tmp/orphaned.AppImage"}}}"#
+    ).expect("failed to write cache file");
+
+    let global_config = GlobalConfig::default();
+    let client = ureq::Agent::new_with_defaults();
+    let checks = doctor::run(&paths, &global_config, &client);
+
+    let orphaned_check = doctor_check(&checks, "orphaned_apps");
+    assert!(matches!(orphaned_check.status, DoctorStatus::Warn));
+    assert!(orphaned_check.detail.contains("1 orphaned application(s) found in cache: orphaned-app"));
+
+    let _ = fs::remove_dir_all(&root);
+}

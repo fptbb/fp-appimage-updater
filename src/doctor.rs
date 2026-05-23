@@ -49,6 +49,7 @@ pub fn run(paths: &ConfigPaths, global_config: &GlobalConfig, client: &Agent) ->
     checks.push(appimage_runtime_check(paths, app_load.as_ref()));
     checks.push(lock_check(&paths.lock_path()));
     checks.push(github_api_check(global_config, client));
+    checks.push(orphaned_apps_check(paths, app_load.as_ref()));
 
     checks
 }
@@ -560,5 +561,51 @@ fn github_api_check(global_config: &config::GlobalConfig, client: &Agent) -> Doc
                 err
             ),
         },
+    }
+}
+
+fn orphaned_apps_check(
+    paths: &ConfigPaths,
+    app_load: Result<&parser::AppConfigLoadResult, &anyhow::Error>,
+) -> DoctorCheck {
+    let Ok(result) = app_load else {
+        return DoctorCheck {
+            name: "orphaned_apps".to_string(),
+            status: DoctorStatus::Warn,
+            detail: "skipped orphaned applications check because recipes could not be loaded".to_string(),
+        };
+    };
+
+    let state = std::fs::read_to_string(paths.cache_path())
+        .ok()
+        .and_then(|content| serde_json::from_str::<State>(&content).ok())
+        .unwrap_or_default();
+
+    let mut orphaned: Vec<String> = state
+        .apps
+        .keys()
+        .filter(|name| !result.apps.iter().any(|app| app.name == **name))
+        .cloned()
+        .collect();
+
+    orphaned.sort();
+
+    if orphaned.is_empty() {
+        DoctorCheck {
+            name: "orphaned_apps".to_string(),
+            status: DoctorStatus::Ok,
+            detail: "no orphaned applications found in cache".to_string(),
+        }
+    } else {
+        DoctorCheck {
+            name: "orphaned_apps".to_string(),
+            status: DoctorStatus::Warn,
+            detail: format!(
+                "{} orphaned application(s) found in cache: {}. Run `{} remove --orphan` to clean them up.",
+                orphaned.len(),
+                orphaned.join(", "),
+                crate::cli::current_bin_name()
+            ),
+        }
     }
 }

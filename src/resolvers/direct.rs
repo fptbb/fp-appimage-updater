@@ -74,6 +74,15 @@ pub fn resolve(
         }
     }
 
+    let file_exists = state
+        .and_then(|s| s.file_path.as_deref())
+        .map(|p| std::path::Path::new(p).exists())
+        .unwrap_or(false);
+
+    if !file_exists {
+        is_new = true;
+    }
+
     if is_new || state.is_none() || state.unwrap().local_version.is_none() {
         let pseudo_version = match check_method {
             CheckMethod::Etag => new_etag.clone().unwrap(),

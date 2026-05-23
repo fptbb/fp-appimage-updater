@@ -104,7 +104,14 @@ pub fn resolve(
     }
     dedupe_capabilities(&mut capabilities);
 
-    let update = if state.and_then(|s| s.local_version.as_deref()) == Some(version.as_str()) {
+    let file_exists = state
+        .and_then(|s| s.file_path.as_deref())
+        .map(|p| std::path::Path::new(p).exists())
+        .unwrap_or(false);
+
+    let is_up_to_date = state.and_then(|s| s.local_version.as_deref()) == Some(version.as_str()) && file_exists;
+
+    let update = if is_up_to_date {
         None
     } else {
         Some(UpdateInfo {

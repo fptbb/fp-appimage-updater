@@ -4,7 +4,6 @@ description = "A tool for updating AppImage applications automatically."
 version = "1.4.13"
 edition = "2024"
 license = "MIT"
-license-file = "LICENSE"
 authors = [ "Lucas Oliveira <lucas@fptbb.com>" ]
 documentation = "https://docs.fau.fpt.icu/"
 readme = "README.md"

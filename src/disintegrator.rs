@@ -20,12 +20,18 @@ pub fn remove_app(
         && let Some(file_path_str) = &s.file_path
     {
         let file_path = std::path::Path::new(file_path_str);
-        if file_path.exists()
-            && let Err(e) = fs::remove_file(file_path)
-            && !quiet
-        {
+        if file_path.exists() {
+            if let Err(e) = fs::remove_file(file_path) {
+                if !quiet {
+                    print_warning(
+                        &format!("Failed to delete AppImage binary {:?}: {}", file_path, e),
+                        colors,
+                    );
+                }
+            }
+        } else if !quiet {
             print_warning(
-                &format!("Failed to delete AppImage binary {:?}: {}", file_path, e),
+                &format!("Warning: AppImage binary {:?} was already missing or deleted.", file_path),
                 colors,
             );
         }
@@ -34,17 +40,23 @@ pub fn remove_app(
     let symlink_dir = expand_tilde(&global.symlink_dir);
     let symlink_path = symlink_dir.join(&app.name);
 
-    if (symlink_path.exists() || symlink_path.is_symlink())
-        && let Err(e) = fs::remove_file(&symlink_path)
-        && !quiet
-    {
+    if symlink_path.exists() || symlink_path.is_symlink() {
+        if let Err(e) = fs::remove_file(&symlink_path) {
+            if !quiet {
+                print_warning(
+                    &format!("Failed to remove symlink {:?}: {}", symlink_path, e),
+                    colors,
+                );
+            }
+        }
+    } else if !quiet {
         print_warning(
-            &format!("Failed to remove symlink {:?}: {}", symlink_path, e),
+            &format!("Warning: Symlink {:?} was already missing or deleted.", symlink_path),
             colors,
         );
     }
 
-    remove_desktop(app, state, colors)?;
+    remove_desktop(app, state, quiet, colors)?;
 
     if !quiet {
         print_success(&format!("Removed {}", app.name), colors);
@@ -52,7 +64,7 @@ pub fn remove_app(
     Ok(())
 }
 
-fn remove_desktop(app: &AppConfig, state: Option<&AppState>, colors: bool) -> Result<()> {
+fn remove_desktop(app: &AppConfig, state: Option<&AppState>, quiet: bool, colors: bool) -> Result<()> {
     let data_local_dir = std::env::var_os("XDG_DATA_HOME")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| expand_tilde("~/.local/share"));
@@ -65,11 +77,18 @@ fn remove_desktop(app: &AppConfig, state: Option<&AppState>, colors: bool) -> Re
 
     for name in desktop_names {
         let desktop_path = apps_dir.join(format!("{}.desktop", name));
-        if desktop_path.exists()
-            && let Err(e) = fs::remove_file(&desktop_path)
-        {
+        if desktop_path.exists() {
+            if let Err(e) = fs::remove_file(&desktop_path) {
+                if !quiet {
+                    print_warning(
+                        &format!("Failed to remove desktop file {:?}: {}", desktop_path, e),
+                        colors,
+                    );
+                }
+            }
+        } else if !quiet {
             print_warning(
-                &format!("Failed to remove desktop file {:?}: {}", desktop_path, e),
+                &format!("Warning: Desktop file {:?} was already missing or deleted.", desktop_path),
                 colors,
             );
         }
@@ -88,7 +107,14 @@ fn remove_desktop(app: &AppConfig, state: Option<&AppState>, colors: bool) -> Re
                 for ext in ["png", "svg"] {
                     let icon_path = icons_dir.join(format!("{}.{}", name, ext));
                     if icon_path.exists() {
-                        let _ = fs::remove_file(&icon_path);
+                        if let Err(e) = fs::remove_file(&icon_path) {
+                            if !quiet {
+                                print_warning(
+                                    &format!("Failed to remove icon file {:?}: {}", icon_path, e),
+                                    colors,
+                                );
+                            }
+                        }
                     }
                 }
             }
