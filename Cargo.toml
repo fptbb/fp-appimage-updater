@@ -1,7 +1,18 @@
 [package]
 name = "fp-appimage-updater"
-version = "1.4.12"
+description = "A tool for updating AppImage applications automatically."
+version = "1.4.13"
 edition = "2024"
+license = "MIT"
+license-file = "LICENSE"
+authors = [ "Lucas Oliveira <lucas@fptbb.com>" ]
+documentation = "https://docs.fau.fpt.icu/"
+readme = "README.md"
+homepage = "https://fau.fpt.icu/"
+repository = "https://gitlab.com/fpsys/fp-appimage-updater"
+keywords = [ "appimage", "cli", "linux", "updater" ]
+categories = [ "command-line-utilities" ]
+
 
 [dependencies]
 pico-args = "=0.5.0"

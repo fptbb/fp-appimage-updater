@@ -2,7 +2,7 @@
 
 Name:           fp-appimage-updater
 Version:        1.4.12
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        A lightweight declarative AppImage updater
 
 License:        MIT
@@ -69,6 +69,8 @@ install -D -m 0644 fp-appimage-updater.fish %{buildroot}%{_datadir}/fish/vendor_
 %license LICENSE
 
 %changelog
+* Sat May 23 2026 fp-appimage-updater Maintainer - 1.4.12-2
+- Update to version 1.4.12
 * Thu May 21 2026 fp-appimage-updater Maintainer - 1.4.12-1
 - Update to version 1.4.12
 * Sun May 17 2026 fp-appimage-updater Maintainer - 1.4.11-1
