@@ -9,6 +9,7 @@ use ureq::Agent;
 
 use crate::commands::helpers::build_http_agent;
 use crate::downloader::progress::*;
+use crate::downloader::suspend_for_print;
 use crate::output::print_warning;
 use zsync_rs::ZsyncAssembly;
 
@@ -386,43 +387,69 @@ fn download_range(
     end: u64,
     handle: &Option<ProgressHandle>,
 ) -> Result<()> {
-    let range_header = format!("bytes={}-{}", start, end);
-    let response = client
-        .get(url)
-        .header("Range", &range_header)
-        .call()
-        .with_context(|| format!("Failed to download range {} for {}", range_header, url))?;
+    let mut current_start = start;
+    let mut attempts = 0;
+    let max_attempts = 3;
 
-    if response.status().as_u16() != 206 {
-        bail!(
-            "Server returned {} instead of 206 for {}",
-            response.status(),
-            range_header
-        );
-    }
-
-    let mut file = OpenOptions::new()
-        .write(true)
-        .open(target_path)
-        .with_context(|| {
-            format!(
-                "Failed to open {} for segmented download",
-                target_path.display()
-            )
-        })?;
-    file.seek(SeekFrom::Start(start))?;
-
-    let mut reader = response.into_body().into_reader();
-    let mut buffer = [0u8; DOWNLOAD_BUFFER_SIZE];
     loop {
-        let bytes_read = reader.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break;
+        attempts += 1;
+        let range_header = format!("bytes={}-{}", current_start, end);
+        let result = (|| -> Result<()> {
+            let response = client
+                .get(url)
+                .header("Range", &range_header)
+                .call()
+                .with_context(|| format!("Failed to download range {} for {}", range_header, url))?;
+
+            if response.status().as_u16() != 206 {
+                bail!(
+                    "Server returned {} instead of 206 for {}",
+                    response.status(),
+                    range_header
+                );
+            }
+
+            let mut file = OpenOptions::new()
+                .write(true)
+                .open(target_path)
+                .with_context(|| {
+                    format!(
+                        "Failed to open {} for segmented download",
+                        target_path.display()
+                    )
+                })?;
+            file.seek(SeekFrom::Start(current_start))?;
+
+            let mut reader = response.into_body().into_reader();
+            let mut buffer = [0u8; DOWNLOAD_BUFFER_SIZE];
+            loop {
+                let bytes_read = reader.read(&mut buffer)?;
+                if bytes_read == 0 {
+                    break;
+                }
+                file.write_all(&buffer[..bytes_read])?;
+                current_start = current_start.saturating_add(bytes_read as u64);
+                progress_update(*handle, bytes_read as u64)?;
+            }
+            Ok(())
+        })();
+
+        match result {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                if attempts >= max_attempts {
+                    return Err(err);
+                }
+                let err_msg = format!("{:#}", err);
+                if !is_retryable_chunk_completion_error(&err_msg) {
+                    return Err(err);
+                }
+
+                // Exponential backoff sleep: 1s, 2s
+                thread::sleep(std::time::Duration::from_secs(attempts as u64));
+            }
         }
-        file.write_all(&buffer[..bytes_read])?;
-        progress_update(*handle, bytes_read as u64)?;
     }
-    Ok(())
 }
 
 pub fn download_http(
@@ -432,23 +459,44 @@ pub fn download_http(
     url: &str,
     target_path: &Path,
     quiet: bool,
-    _colors: bool,
+    colors: bool,
 ) -> Result<(bool, bool)> {
-    match download_http_once(client, app_name, version, url, target_path, quiet, _colors) {
-        Ok(result) => Ok(result),
-        Err(err) if is_retryable_chunk_completion_error(&format!("{:#}", err)) => {
-            let fresh_client = build_http_agent();
-            download_http_once(
-                &fresh_client,
-                app_name,
-                version,
-                url,
-                target_path,
-                quiet,
-                _colors,
-            )
+    let mut attempts = 0;
+    let max_attempts = 3;
+    let mut current_client = client.clone();
+
+    loop {
+        attempts += 1;
+        match download_http_once(&current_client, app_name, version, url, target_path, quiet, colors) {
+            Ok(result) => return Ok(result),
+            Err(err) => {
+                if attempts >= max_attempts {
+                    return Err(err);
+                }
+                let err_msg = format!("{:#}", err);
+                if !is_retryable_chunk_completion_error(&err_msg) {
+                    return Err(err);
+                }
+
+                if !quiet {
+                    suspend_for_print(|| {
+                        print_warning(
+                            &format!(
+                                "Download failed: {}. Retrying attempt {}/{} in {}s...",
+                                err_msg.trim(),
+                                attempts + 1,
+                                max_attempts,
+                                attempts
+                            ),
+                            colors,
+                        );
+                    });
+                }
+
+                thread::sleep(std::time::Duration::from_secs(attempts as u64));
+                current_client = build_http_agent();
+            }
         }
-        Err(err) => Err(err),
     }
 }
 
