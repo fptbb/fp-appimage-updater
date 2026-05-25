@@ -11,7 +11,7 @@ use crate::downloader;
 use crate::integrator;
 use crate::output::{
     UpdateApp, UpdateResponse, UpdateStatus, format_rate_limit_retry_text, print_json,
-    print_progress, print_success, print_warning,
+    print_progress, print_success, print_warning, colorize, Color,
 };
 use crate::state::AppState;
 use crate::update::filter_update_apps;
@@ -41,6 +41,7 @@ pub fn run(
     let mut total_downloaded_bytes = 0u64;
     let mut download_speed_samples: Vec<f64> = Vec::new();
     let mut peak_download_bps: Option<f64> = None;
+    let mut total_retries = 0usize;
     let now = now_epoch_seconds();
     let mut pending_checks = Vec::new();
 
@@ -450,6 +451,7 @@ pub fn run(
                     } => {
                         if let Some(retry_job) = retry_job {
                             retry_downloads.push(retry_job);
+                            total_retries = total_retries.saturating_add(1);
                             continue;
                         }
                         let state = state_manager.get_app_mut(&name);
@@ -487,6 +489,7 @@ pub fn run(
 
                 check_limit =
                     adapt_worker_limit(check_limit, elapsed, pending_checks.len(), hard_max_check);
+                let _ = state_manager.save();
             }
             UpdateEvent::Download { provider, result } => {
                 active_downloads = active_downloads.saturating_sub(1);
@@ -657,7 +660,23 @@ pub fn run(
                         retry_job,
                     } => {
                         if let Some(retry_job) = retry_job {
+                            if !json_output {
+                                if let Ok(mut ui) = downloader::progress_ui().lock() {
+                                    let warning_msg = colorize(
+                                        &format!(
+                                            "Segmented download for {} failed: {}. Queued for full download retry...",
+                                            name,
+                                            error.trim()
+                                        ),
+                                        Color::Yellow,
+                                        color_output,
+                                    );
+                                    ui.temp_messages.push(warning_msg);
+                                    let _ = ui.draw();
+                                }
+                            }
                             retry_downloads.push(retry_job);
+                            total_retries = total_retries.saturating_add(1);
                             continue;
                         }
                         let state = state_manager.get_app_mut(&name);
@@ -692,6 +711,7 @@ pub fn run(
                     }
                     _ => {}
                 }
+                let _ = state_manager.save();
             }
         }
 
@@ -804,11 +824,12 @@ pub fn run(
         let median_download_speed = median_speed_bps(&download_speed_samples);
         print_progress(
             &format!(
-                "summary: {} updated, {} current, {} rate limited, {} failed, {} total downloaded, median speed {}",
+                "summary: {} updated, {} current, {} rate limited, {} failed, {} retried, {} total downloaded, median speed {}",
                 updated,
                 current,
                 rate_limited,
                 failed,
+                total_retries,
                 downloader::human_bytes_precise(total_downloaded_bytes as f64),
                 median_download_speed
                     .map(downloader::human_rate)

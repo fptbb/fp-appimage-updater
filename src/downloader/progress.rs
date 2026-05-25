@@ -9,6 +9,7 @@ pub struct ProgressUi {
     rendered_lines: usize,
     last_draw: Instant,
     entries: Vec<ProgressEntry>,
+    pub temp_messages: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -89,10 +90,12 @@ impl ProgressUi {
             rendered_lines: 0,
             last_draw: Instant::now(),
             entries: Vec::new(),
+            temp_messages: Vec::new(),
         }
     }
 
     pub fn begin(&mut self, total: u64, name: &str) -> Option<ProgressHandle> {
+        self.temp_messages.clear();
         if !self.enabled || total == 0 {
             return None;
         }
@@ -173,6 +176,7 @@ impl ProgressUi {
     pub fn clear_all(&mut self) -> Result<()> {
         self.clear_rendered()?;
         self.entries.clear();
+        self.temp_messages.clear();
         Ok(())
     }
 
@@ -183,17 +187,20 @@ impl ProgressUi {
 
         self.clear_rendered()?;
 
-        if self.entries.is_empty() {
+        if self.entries.is_empty() && self.temp_messages.is_empty() {
             return Ok(());
         }
 
         let mut stderr = std::io::stderr();
+        for msg in &self.temp_messages {
+            writeln!(stderr, "{}", msg)?;
+        }
         for entry in &self.entries {
             writeln!(stderr, "{}", format_progress_line(entry))?;
         }
 
         stderr.flush()?;
-        self.rendered_lines = self.entries.len();
+        self.rendered_lines = self.temp_messages.len().saturating_add(self.entries.len());
         self.last_draw = Instant::now();
         Ok(())
     }
