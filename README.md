@@ -1,7 +1,7 @@
 # fp-appimage-updater
 
 [![Copr build status](https://copr.fedorainfracloud.org/coprs/fptbb/fp-appimage-updater/package/fp-appimage-updater/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/fptbb/fp-appimage-updater/package/fp-appimage-updater/)
-[![Documentation](https://img.shields.io/badge/docs-fau.fpt.icu-blue)](https://docs.fau.fpt.icu/)
+[![Documentation](https://img.shields.io/badge/docs-fau.fpt.icu-blue)](https://docs.fau.fpt.icu/) [![Crates.io](https://img.shields.io/crates/d/fp-appimage-updater?label=Crates.io&color=blue)](https://crates.io/crates/fp-appimage-updater)
 
 # [🇧🇷](README-BR.md) [🇻🇦](README-LA.md)
 
@@ -65,12 +65,18 @@ curl -sL fau.fpt.icu/i | bash -s -- --uninstall
 You can download the latest compiled binaries from the official [Releases pages](https://gitlab.com/fpsys/fp-appimage-updater/-/releases).
 Drop the binary cleanly into your preferred binary folder (e.g. `~/.local/bin/`), run `chmod +x`, and you're good to go. It functions natively as an isolated, standalone executable capable of integrating into standard POSIX workflows, even the self-update works.
 
-### 4. Homebrew Tap
+### 4. Homebrew Tap && Crates.io Installation
 If you prefer Homebrew, you can install the Linux binary from the GitLab-hosted tap:
 
 ```bash
 brew tap fpsys/tap https://gitlab.com/fpsys/homebrew-tap.git
 brew install fp-appimage-updater
+```
+
+If you want to install the Rust crate globally, you can do so with Cargo:
+
+```bash
+cargo install fp-appimage-updater
 ```
 
 ### Building From Source
