@@ -42,6 +42,8 @@ pub fn run(
     let mut download_speed_samples: Vec<f64> = Vec::new();
     let mut peak_download_bps: Option<f64> = None;
     let mut total_retries = 0usize;
+    let mut download_fast_ticks = 0u32;
+    let mut download_slow_ticks = 0u32;
     let now = now_epoch_seconds();
     let mut pending_checks = Vec::new();
 
@@ -624,7 +626,7 @@ pub fn run(
                                 Some(peak_download_bps.map_or(speed, |peak| peak.max(speed)));
                         }
 
-                        download_limit = if let Some(download_bps) = download_bps {
+                        let (next_limit, next_fast, next_slow) = if let Some(download_bps) = download_bps {
                             adapt_download_limit(
                                 download_limit,
                                 downloaded_bytes,
@@ -632,6 +634,8 @@ pub fn run(
                                 peak_download_bps,
                                 pending_downloads.len(),
                                 hard_max_download,
+                                download_fast_ticks,
+                                download_slow_ticks,
                             )
                         } else {
                             adapt_download_limit(
@@ -641,8 +645,13 @@ pub fn run(
                                 peak_download_bps,
                                 pending_downloads.len(),
                                 hard_max_download,
+                                download_fast_ticks,
+                                download_slow_ticks,
                             )
                         };
+                        download_limit = next_limit;
+                        download_fast_ticks = next_fast;
+                        download_slow_ticks = next_slow;
                     }
                     UpdateWorkResult::Error {
                         stage,
@@ -671,7 +680,7 @@ pub fn run(
                                         Color::Yellow,
                                         color_output,
                                     );
-                                    ui.temp_messages.push(warning_msg);
+                                    ui.temp_warnings.push((name.clone(), warning_msg));
                                     let _ = ui.draw();
                                 }
                             }

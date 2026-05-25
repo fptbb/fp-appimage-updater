@@ -148,12 +148,12 @@ pub fn cache_app_metadata(
 
 pub fn build_http_agent() -> ureq::Agent {
     ureq::Agent::config_builder()
-        .timeout_connect(Some(Duration::from_secs(10)))
-        .timeout_resolve(Some(Duration::from_secs(10)))
-        .timeout_send_request(Some(Duration::from_secs(30)))
-        .timeout_send_body(Some(Duration::from_secs(30)))
-        .timeout_recv_response(Some(Duration::from_secs(30)))
-        .timeout_recv_body(Some(Duration::from_secs(30)))
+        .timeout_connect(Some(Duration::from_secs(30)))
+        .timeout_resolve(Some(Duration::from_secs(30)))
+        .timeout_send_request(Some(Duration::from_secs(60)))
+        .timeout_send_body(Some(Duration::from_secs(60)))
+        .timeout_recv_response(Some(Duration::from_secs(60)))
+        .timeout_recv_body(Some(Duration::from_secs(60)))
         .user_agent(concat!(env!("CARGO_PKG_NAME"), "/1.0"))
         .build()
         .into()

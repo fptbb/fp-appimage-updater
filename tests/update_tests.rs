@@ -13,8 +13,10 @@ fn large_downloads_reduce_concurrency_more_aggressively() {
             Some(20.0 * 1024.0 * 1024.0),
             None,
             4,
-            6
-        ),
+            6,
+            0,
+            0
+        ).0,
         2
     );
     assert_eq!(
@@ -24,8 +26,10 @@ fn large_downloads_reduce_concurrency_more_aggressively() {
             Some(20.0 * 1024.0 * 1024.0),
             None,
             4,
-            6
-        ),
+            6,
+            0,
+            0
+        ).0,
         1
     );
 }
