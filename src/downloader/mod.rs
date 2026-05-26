@@ -49,7 +49,11 @@ pub fn finalize_progress_output() -> Result<()> {
     Ok(())
 }
 
-fn validate_downloaded_appimage(app: &AppConfig, path: &Path, manage_desktop_files: bool) -> Result<()> {
+fn validate_downloaded_appimage(
+    app: &AppConfig,
+    path: &Path,
+    manage_desktop_files: bool,
+) -> Result<()> {
     // 1. Make executable first so we can extract/check it
     #[cfg(unix)]
     {
@@ -57,8 +61,12 @@ fn validate_downloaded_appimage(app: &AppConfig, path: &Path, manage_desktop_fil
             .with_context(|| format!("Failed to read metadata of temp AppImage at {:?}", path))?
             .permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(path, perms)
-            .with_context(|| format!("Failed to set executable permissions on temp AppImage at {:?}", path))?;
+        fs::set_permissions(path, perms).with_context(|| {
+            format!(
+                "Failed to set executable permissions on temp AppImage at {:?}",
+                path
+            )
+        })?;
     }
 
     // 2. Check architecture match
@@ -67,19 +75,23 @@ fn validate_downloaded_appimage(app: &AppConfig, path: &Path, manage_desktop_fil
     // 3. Check extractability (if integration is enabled for this app)
     let should_integrate = app.integration.unwrap_or(manage_desktop_files);
     if should_integrate {
-        let temp_extract_parent = std::env::temp_dir().join(format!("fp-appimage-val-{}", app.name));
+        let temp_extract_parent =
+            std::env::temp_dir().join(format!("fp-appimage-val-{}", app.name));
         if temp_extract_parent.exists() {
             let _ = fs::remove_dir_all(&temp_extract_parent);
         }
         fs::create_dir_all(&temp_extract_parent)?;
 
         let extracted_root = temp_extract_parent.join("squashfs-root");
-        
-        let extraction_result = crate::integrator::extract_appimage_root(path, &temp_extract_parent, &extracted_root);
-        
+
+        let extraction_result =
+            crate::integrator::extract_appimage_root(path, &temp_extract_parent, &extracted_root);
+
         let _ = fs::remove_dir_all(&temp_extract_parent);
 
-        extraction_result.context("Downloaded AppImage is broken or corrupt: failed squashfs metadata extraction check")?;
+        extraction_result.context(
+            "Downloaded AppImage is broken or corrupt: failed squashfs metadata extraction check",
+        )?;
     }
 
     Ok(())
@@ -99,7 +111,9 @@ fn rename_to_final_path(tmp_path: &Path, final_path: &Path) -> Result<()> {
         if backup_path.exists() {
             let _ = fs::rename(&backup_path, final_path);
         }
-        return Err(anyhow::Error::from(err).context("Failed to rename tmp file to final destination"));
+        return Err(
+            anyhow::Error::from(err).context("Failed to rename tmp file to final destination")
+        );
     }
 
     Ok(())
@@ -135,7 +149,7 @@ pub fn download_app(
         fs::create_dir_all(parent)?;
     }
 
-    let download_started = Instant::now();
+    let mut download_elapsed = None;
 
     // zsync is a delta path: try an existing AppImage first, then fall back to HTTP.
     let zsync_url = match &app.zsync {
@@ -154,6 +168,7 @@ pub fn download_app(
         let old_path = Path::new(old_path_str);
         if old_path.exists() {
             let was_update = state.and_then(|s| s.local_version.as_ref()).is_some();
+            let zsync_started = Instant::now();
             let (success, completion_rendered) = try_zsync(
                 &zurl,
                 old_path,
@@ -167,6 +182,7 @@ pub fn download_app(
             if success {
                 zsync_success = true;
                 zsync_completion_rendered = completion_rendered;
+                download_elapsed = Some(zsync_started.elapsed());
             }
         }
     }
@@ -188,12 +204,13 @@ pub fn download_app(
             segmented_downloads: segmented_downloads_support,
             progress_completion_rendered: zsync_completion_rendered,
             downloaded_bytes,
-            download_elapsed: Some(download_started.elapsed()),
+            download_elapsed,
         });
     }
 
     if !zsync_success {
         let mut progress_completion_rendered = false;
+        let http_started = Instant::now();
         let (segmented_success, segmented_support, segmented_progress_displayed) =
             if segmented_downloads {
                 try_segmented_http_download(
@@ -225,6 +242,7 @@ pub fn download_app(
                 )?;
             progress_completion_rendered |= download_progress_completion_rendered;
         }
+        download_elapsed = Some(http_started.elapsed());
 
         if crate::extractor::is_zip_file(&tmp_path) {
             let inner_match = app.inner_asset_match.as_deref();
@@ -253,7 +271,7 @@ pub fn download_app(
             segmented_downloads: segmented_downloads_support,
             progress_completion_rendered,
             downloaded_bytes,
-            download_elapsed: Some(download_started.elapsed()),
+            download_elapsed,
         });
     }
 

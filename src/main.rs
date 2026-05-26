@@ -110,7 +110,11 @@ fn main() -> Result<()> {
                 commands::self_update::check(&ctx, false)?;
             }
         }
-        Commands::Remove { app_name, all, orphan } => {
+        Commands::Remove {
+            app_name,
+            all,
+            orphan,
+        } => {
             commands::remove::run(&mut ctx, app_name.as_ref(), *all, *orphan)?;
             save_state_best_effort(ctx.state_manager, ctx.color_output);
         }

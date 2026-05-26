@@ -10,8 +10,8 @@ use crate::config;
 use crate::downloader;
 use crate::integrator;
 use crate::output::{
-    UpdateApp, UpdateResponse, UpdateStatus, format_rate_limit_retry_text, print_json,
-    print_progress, print_success, print_warning, colorize, Color,
+    Color, UpdateApp, UpdateResponse, UpdateStatus, colorize, format_rate_limit_retry_text,
+    print_json, print_progress, print_success, print_warning,
 };
 use crate::state::AppState;
 use crate::update::filter_update_apps;
@@ -626,29 +626,30 @@ pub fn run(
                                 Some(peak_download_bps.map_or(speed, |peak| peak.max(speed)));
                         }
 
-                        let (next_limit, next_fast, next_slow) = if let Some(download_bps) = download_bps {
-                            adapt_download_limit(
-                                download_limit,
-                                downloaded_bytes,
-                                Some(download_bps),
-                                peak_download_bps,
-                                pending_downloads.len(),
-                                hard_max_download,
-                                download_fast_ticks,
-                                download_slow_ticks,
-                            )
-                        } else {
-                            adapt_download_limit(
-                                download_limit,
-                                downloaded_bytes,
-                                None,
-                                peak_download_bps,
-                                pending_downloads.len(),
-                                hard_max_download,
-                                download_fast_ticks,
-                                download_slow_ticks,
-                            )
-                        };
+                        let (next_limit, next_fast, next_slow) =
+                            if let Some(download_bps) = download_bps {
+                                adapt_download_limit(
+                                    download_limit,
+                                    downloaded_bytes,
+                                    Some(download_bps),
+                                    peak_download_bps,
+                                    pending_downloads.len(),
+                                    hard_max_download,
+                                    download_fast_ticks,
+                                    download_slow_ticks,
+                                )
+                            } else {
+                                adapt_download_limit(
+                                    download_limit,
+                                    downloaded_bytes,
+                                    None,
+                                    peak_download_bps,
+                                    pending_downloads.len(),
+                                    hard_max_download,
+                                    download_fast_ticks,
+                                    download_slow_ticks,
+                                )
+                            };
                         download_limit = next_limit;
                         download_fast_ticks = next_fast;
                         download_slow_ticks = next_slow;

@@ -303,9 +303,15 @@ pub fn should_retry_download_error(error: &anyhow::Error) -> bool {
 /// opening new connections to the same provider for a cooling-off period.
 pub fn is_rate_limit_error(error: &anyhow::Error) -> bool {
     let message = format!("{:#}", error).to_ascii_lowercase();
-    ["429", "too many requests", "rate limit", "rate-limit", "retry-after"]
-        .iter()
-        .any(|needle| message.contains(needle))
+    [
+        "429",
+        "too many requests",
+        "rate limit",
+        "rate-limit",
+        "retry-after",
+    ]
+    .iter()
+    .any(|needle| message.contains(needle))
 }
 
 /// Compute an exponential back-off delay for retry attempt `attempt` (0-indexed).
@@ -460,14 +466,20 @@ mod tests {
     #[test]
     fn percentile_p50_equals_median() {
         let samples = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        assert_eq!(percentile_speed_bps(&samples, 50.0), median_speed_bps(&samples));
+        assert_eq!(
+            percentile_speed_bps(&samples, 50.0),
+            median_speed_bps(&samples)
+        );
     }
 
     // ── download_provider_key ────────────────────────────────────────────────
 
     #[test]
     fn strips_port_from_provider_key() {
-        assert_eq!(download_provider_key("https://github.com:443/foo/bar"), "github");
+        assert_eq!(
+            download_provider_key("https://github.com:443/foo/bar"),
+            "github"
+        );
     }
 
     #[test]

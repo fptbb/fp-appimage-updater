@@ -31,7 +31,10 @@ pub fn remove_app(
             }
         } else if !quiet {
             print_warning(
-                &format!("Warning: AppImage binary {:?} was already missing or deleted.", file_path),
+                &format!(
+                    "Warning: AppImage binary {:?} was already missing or deleted.",
+                    file_path
+                ),
                 colors,
             );
         }
@@ -51,7 +54,10 @@ pub fn remove_app(
         }
     } else if !quiet {
         print_warning(
-            &format!("Warning: Symlink {:?} was already missing or deleted.", symlink_path),
+            &format!(
+                "Warning: Symlink {:?} was already missing or deleted.",
+                symlink_path
+            ),
             colors,
         );
     }
@@ -64,7 +70,12 @@ pub fn remove_app(
     Ok(())
 }
 
-fn remove_desktop(app: &AppConfig, state: Option<&AppState>, quiet: bool, colors: bool) -> Result<()> {
+fn remove_desktop(
+    app: &AppConfig,
+    state: Option<&AppState>,
+    quiet: bool,
+    colors: bool,
+) -> Result<()> {
     let data_local_dir = std::env::var_os("XDG_DATA_HOME")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| expand_tilde("~/.local/share"));
@@ -88,7 +99,10 @@ fn remove_desktop(app: &AppConfig, state: Option<&AppState>, quiet: bool, colors
             }
         } else if !quiet {
             print_warning(
-                &format!("Warning: Desktop file {:?} was already missing or deleted.", desktop_path),
+                &format!(
+                    "Warning: Desktop file {:?} was already missing or deleted.",
+                    desktop_path
+                ),
                 colors,
             );
         }

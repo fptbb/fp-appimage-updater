@@ -872,7 +872,11 @@ fn reports_orphaned_apps_in_state_as_warn() {
 
     let orphaned_check = doctor_check(&checks, "orphaned_apps");
     assert!(matches!(orphaned_check.status, DoctorStatus::Warn));
-    assert!(orphaned_check.detail.contains("1 orphaned application(s) found in cache: orphaned-app"));
+    assert!(
+        orphaned_check
+            .detail
+            .contains("1 orphaned application(s) found in cache: orphaned-app")
+    );
 
     let _ = fs::remove_dir_all(&root);
 }

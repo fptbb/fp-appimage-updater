@@ -6,14 +6,23 @@ use crate::output::{
 use crate::state::AppState;
 use anyhow::Result;
 
-pub fn run(ctx: &mut ExecutionContext, app_name: Option<&String>, all: bool, orphan: bool) -> Result<()> {
+pub fn run(
+    ctx: &mut ExecutionContext,
+    app_name: Option<&String>,
+    all: bool,
+    orphan: bool,
+) -> Result<()> {
     let mut found = false;
     let mut apps_to_remove = Vec::new();
     let mut results = Vec::new();
 
     if orphan {
         // Collect all orphaned app names from state that are not in configs
-        let orphans: Vec<String> = ctx.state_manager.state.apps.keys()
+        let orphans: Vec<String> = ctx
+            .state_manager
+            .state
+            .apps
+            .keys()
             .filter(|name| !ctx.app_configs.iter().any(|app| app.name == **name))
             .cloned()
             .collect();
@@ -26,11 +35,17 @@ pub fn run(ctx: &mut ExecutionContext, app_name: Option<&String>, all: bool, orp
                     print_json(&RemoveResponse {
                         command: "remove",
                         apps: Vec::new(),
-                        error: Some(format!("App '{}' is not an orphaned application in state cache.", target)),
+                        error: Some(format!(
+                            "App '{}' is not an orphaned application in state cache.",
+                            target
+                        )),
                     })?;
                 } else {
                     print_warning(
-                        &format!("Error: App '{}' is not an orphaned application in state cache.", target),
+                        &format!(
+                            "Error: App '{}' is not an orphaned application in state cache.",
+                            target
+                        ),
                         ctx.color_output,
                     );
                 }
@@ -49,7 +64,10 @@ pub fn run(ctx: &mut ExecutionContext, app_name: Option<&String>, all: bool, orp
                         error: Some("No orphaned applications found to remove.".to_string()),
                     })?;
                 } else {
-                    print_progress("No orphaned applications found to remove.", ctx.color_output);
+                    print_progress(
+                        "No orphaned applications found to remove.",
+                        ctx.color_output,
+                    );
                 }
                 return Ok(());
             }
@@ -66,7 +84,8 @@ pub fn run(ctx: &mut ExecutionContext, app_name: Option<&String>, all: bool, orp
                 command: "remove",
                 apps: Vec::new(),
                 error: Some(
-                    "Please provide an application name to remove, or use --all or --orphan.".to_string(),
+                    "Please provide an application name to remove, or use --all or --orphan."
+                        .to_string(),
                 ),
             })?;
         } else {

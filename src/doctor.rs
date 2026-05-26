@@ -572,7 +572,8 @@ fn orphaned_apps_check(
         return DoctorCheck {
             name: "orphaned_apps".to_string(),
             status: DoctorStatus::Warn,
-            detail: "skipped orphaned applications check because recipes could not be loaded".to_string(),
+            detail: "skipped orphaned applications check because recipes could not be loaded"
+                .to_string(),
         };
     };
 

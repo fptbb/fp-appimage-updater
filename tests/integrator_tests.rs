@@ -184,7 +184,8 @@ fn rollback_restores_backup_file_and_deletes_failed_binary() {
 
     // Assert that the failed binary is deleted/restored
     assert!(failed_path.exists());
-    let restored_content = fs::read_to_string(&failed_path).expect("failed to read restored binary");
+    let restored_content =
+        fs::read_to_string(&failed_path).expect("failed to read restored binary");
     assert_eq!(restored_content, "working backup binary");
     assert!(!backup_path.exists());
 }

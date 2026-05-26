@@ -399,7 +399,9 @@ fn download_range(
                 .get(url)
                 .header("Range", &range_header)
                 .call()
-                .with_context(|| format!("Failed to download range {} for {}", range_header, url))?;
+                .with_context(|| {
+                    format!("Failed to download range {} for {}", range_header, url)
+                })?;
 
             if response.status().as_u16() != 206 {
                 bail!(
@@ -467,7 +469,15 @@ pub fn download_http(
 
     loop {
         attempts += 1;
-        match download_http_once(&current_client, app_name, version, url, target_path, quiet, colors) {
+        match download_http_once(
+            &current_client,
+            app_name,
+            version,
+            url,
+            target_path,
+            quiet,
+            colors,
+        ) {
             Ok(result) => return Ok(result),
             Err(err) => {
                 if attempts >= max_attempts {

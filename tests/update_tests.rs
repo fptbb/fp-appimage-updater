@@ -16,7 +16,8 @@ fn large_downloads_reduce_concurrency_more_aggressively() {
             6,
             0,
             0
-        ).0,
+        )
+        .0,
         2
     );
     assert_eq!(
@@ -29,7 +30,8 @@ fn large_downloads_reduce_concurrency_more_aggressively() {
             6,
             0,
             0
-        ).0,
+        )
+        .0,
         1
     );
 }
