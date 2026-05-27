@@ -75,6 +75,10 @@ ci_resolve_release_meta() {
 ci_resolve_changelog_context() {
     local compare_url_prefix="$1"
     
+    if [[ -z "${CI_VERSION:-}" ]]; then
+        ci_read_cargo_version || true
+    fi
+
     CI_HEAD_SHA="$(git rev-parse --short HEAD)"
     if [[ "${EVENT_NAME:-}" == "workflow_dispatch" || "${EVENT_NAME:-}" == "web" ]]; then
         if [[ "${PRERELEASE:-false}" == "true" ]]; then
@@ -84,6 +88,47 @@ ci_resolve_changelog_context() {
         fi
     else
         CI_PREV_TAG="$(git tag --sort=-creatordate | grep -v -- '-RC' | head -1 || true)"
+    fi
+    
+    if [[ -n "${CI_VERSION:-}" ]]; then
+        local major minor fix
+        IFS='.' read -r major minor fix <<< "${CI_VERSION:-0.0.0}"
+        major="${major:-0}"
+        minor="${minor:-0}"
+        fix="${fix:-0}"
+        
+        # Strip any pre-release or build metadata suffixes from fix (e.g. 0-RC1 -> 0)
+        fix="$(echo "$fix" | sed -E 's/[-+].*//')"
+        
+        if [[ "$fix" -eq 0 ]]; then
+            if [[ "$minor" -gt 0 ]]; then
+                local prev_minor_tag="v${major}.$((minor - 1)).0"
+                if git rev-parse --verify "$prev_minor_tag" >/dev/null 2>&1; then
+                    CI_PREV_TAG="$prev_minor_tag"
+                elif git rev-parse --verify "${major}.$((minor - 1)).0" >/dev/null 2>&1; then
+                    CI_PREV_TAG="${major}.$((minor - 1)).0"
+                else
+                    local found_tag
+                    found_tag="$(git tag | grep -E "^v?${major}\.$((minor - 1))\." | sort -V | head -n1 || true)"
+                    if [[ -n "$found_tag" ]]; then
+                        CI_PREV_TAG="$found_tag"
+                    fi
+                fi
+            elif [[ "$minor" -eq 0 && "$major" -gt 0 ]]; then
+                local prev_major_tag="v$((major - 1)).0.0"
+                if git rev-parse --verify "$prev_major_tag" >/dev/null 2>&1; then
+                    CI_PREV_TAG="$prev_major_tag"
+                elif git rev-parse --verify "$((major - 1)).0.0" >/dev/null 2>&1; then
+                    CI_PREV_TAG="$((major - 1)).0.0"
+                else
+                    local found_tag
+                    found_tag="$(git tag | grep -E "^v?$((major - 1))\." | sort -V | head -n1 || true)"
+                    if [[ -n "$found_tag" ]]; then
+                        CI_PREV_TAG="$found_tag"
+                    fi
+                fi
+            fi
+        fi
     fi
     
     if [[ -z "${CI_PREV_TAG:-}" ]]; then
