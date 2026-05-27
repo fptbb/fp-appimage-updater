@@ -300,13 +300,16 @@ pub fn print_self_update_success(tag: &str, colors: bool) {
 }
 
 fn print_command_header(command: &str, count: usize, colors: bool) {
+    let noun = if command == "doctor" { "check" } else { "app" };
+
     println!(
         "{}",
         bold(
             &format!(
-                "{} results ({} app{})",
+                "{} results ({} {}{})",
                 command,
                 count,
+                noun,
                 if count == 1 { "" } else { "s" }
             ),
             colors
