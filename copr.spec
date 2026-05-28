@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 
 Name:           fp-appimage-updater
-Version:        1.4.14
+Version:        1.5.0
 Release:        1%{?dist}
 Summary:        A lightweight declarative AppImage updater
 
@@ -69,6 +69,8 @@ install -D -m 0644 fp-appimage-updater.fish %{buildroot}%{_datadir}/fish/vendor_
 %license LICENSE
 
 %changelog
+* Thu May 28 2026 fp-appimage-updater Maintainer - 1.5.0-1
+- Update to version 1.5.0
 * Mon May 25 2026 fp-appimage-updater Maintainer - 1.4.14-1
 - Update to version 1.4.14
 * Sat May 23 2026 fp-appimage-updater Maintainer - 1.4.12-2

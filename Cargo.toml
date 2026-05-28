@@ -1,7 +1,7 @@
 [package]
 name = "fp-appimage-updater"
 description = "A tool for updating AppImage applications automatically."
-version = "1.4.14"
+version = "1.5.0"
 edition = "2024"
 license = "MIT"
 authors = [ "Lucas Oliveira <lucas@fptbb.com>" ]
