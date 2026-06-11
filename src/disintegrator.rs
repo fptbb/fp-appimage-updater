@@ -40,27 +40,30 @@ pub fn remove_app(
         }
     }
 
-    let symlink_dir = expand_tilde(&global.symlink_dir);
-    let sanitized_name = sanitized_app_name(&app.name);
-    let symlink_path = symlink_dir.join(&sanitized_name);
+    let should_symlink = app.create_symlink.unwrap_or(global.create_symlinks);
+    if should_symlink {
+        let symlink_dir = expand_tilde(&global.symlink_dir);
+        let sanitized_name = sanitized_app_name(&app.name);
+        let symlink_path = symlink_dir.join(&sanitized_name);
 
-    if symlink_path.exists() || symlink_path.is_symlink() {
-        if let Err(e) = fs::remove_file(&symlink_path) {
-            if !quiet {
-                print_warning(
-                    &format!("Failed to remove symlink {:?}: {}", symlink_path, e),
-                    colors,
-                );
+        if symlink_path.exists() || symlink_path.is_symlink() {
+            if let Err(e) = fs::remove_file(&symlink_path) {
+                if !quiet {
+                    print_warning(
+                        &format!("Failed to remove symlink {:?}: {}", symlink_path, e),
+                        colors,
+                    );
+                }
             }
+        } else if !quiet {
+            print_warning(
+                &format!(
+                    "Warning: Symlink {:?} was already missing or deleted.",
+                    symlink_path
+                ),
+                colors,
+            );
         }
-    } else if !quiet {
-        print_warning(
-            &format!(
-                "Warning: Symlink {:?} was already missing or deleted.",
-                symlink_path
-            ),
-            colors,
-        );
     }
 
     remove_desktop(app, state, quiet, colors)?;
@@ -98,7 +101,7 @@ fn remove_desktop(
                     );
                 }
             }
-        } else if !quiet {
+        } else if !quiet && name == sanitized_name {
             print_warning(
                 &format!(
                     "Warning: Desktop file {:?} was already missing or deleted.",

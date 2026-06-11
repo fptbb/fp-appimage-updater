@@ -131,3 +131,30 @@ fn cleanup_orphan_appimage_files_removes_only_unreferenced_appimages() {
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].name, "orphan.AppImage");
 }
+
+#[test]
+fn legacy_desktop_asset_names_do_not_block_sanitized_removal() {
+    let app = AppConfig {
+        config_dir: PathBuf::new(),
+        name: "linux toys".to_string(),
+        ignore: None,
+        zsync: None,
+        integration: None,
+        create_symlink: None,
+        segmented_downloads: None,
+        respect_rate_limits: None,
+        github_proxy: None,
+        github_proxy_prefix: None,
+        storage_dir: None,
+        naming_format: None,
+        inner_asset_match: None,
+        strategy: StrategyConfig::Direct {
+            url: "https://example.com/linux-toys.AppImage".to_string(),
+            check_method: fp_appimage_updater::config::CheckMethod::Etag,
+        },
+    };
+
+    let names = legacy_desktop_asset_names(&app, None, "linux-toys");
+
+    assert_eq!(names, vec!["linux toys".to_string()]);
+}
