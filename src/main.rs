@@ -114,8 +114,9 @@ fn main() -> Result<()> {
             app_name,
             all,
             orphan,
+            orphan_files,
         } => {
-            commands::remove::run(&mut ctx, app_name.as_ref(), *all, *orphan)?;
+            commands::remove::run(&mut ctx, app_name.as_ref(), *all, *orphan, *orphan_files)?;
             save_state_best_effort(ctx.state_manager, ctx.color_output);
         }
         Commands::SelfUpdate { pre_release } => {

@@ -1,7 +1,10 @@
+use fp_appimage_updater::commands::remove::cleanup_orphan_appimage_files;
 use fp_appimage_updater::commands::remove::clear_installed_state;
 use fp_appimage_updater::config::{AppConfig, StrategyConfig};
 use fp_appimage_updater::integrator::legacy_desktop_asset_names;
-use fp_appimage_updater::state::{AppState, ForgePlatform};
+use fp_appimage_updater::state::{AppState, ForgePlatform, State};
+use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
 
 #[test]
@@ -90,4 +93,41 @@ fn test_dummy_app_config_for_orphans() {
     };
 
     assert_eq!(dummy_app.name, "orphaned-app");
+}
+
+#[test]
+fn cleanup_orphan_appimage_files_removes_only_unreferenced_appimages() {
+    let dir = tempfile::tempdir().expect("failed to create tempdir");
+    let storage_dir = dir.path().join("AppImages");
+    let icons_dir = storage_dir.join(".icons");
+    let kept = storage_dir.join("kept.AppImage");
+    let orphan = storage_dir.join("orphan.AppImage");
+    let note = storage_dir.join("notes.txt");
+
+    fs::create_dir_all(&icons_dir).expect("failed to create icons dir");
+    fs::write(&kept, "kept").expect("failed to write kept file");
+    fs::write(&orphan, "orphan").expect("failed to write orphan file");
+    fs::write(&note, "note").expect("failed to write note file");
+    fs::write(icons_dir.join("icon.png"), "icon").expect("failed to write icon");
+
+    let mut apps = HashMap::new();
+    apps.insert(
+        "kept-app".to_string(),
+        AppState {
+            file_path: Some(kept.to_string_lossy().to_string()),
+            ..AppState::default()
+        },
+    );
+    let state = State { apps };
+    let mut results = Vec::new();
+
+    cleanup_orphan_appimage_files(&storage_dir, &state, &mut results, false, true)
+        .expect("cleanup should succeed");
+
+    assert!(kept.exists());
+    assert!(!orphan.exists());
+    assert!(note.exists());
+    assert!(icons_dir.join("icon.png").exists());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "orphan.AppImage");
 }

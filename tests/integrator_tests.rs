@@ -1,10 +1,13 @@
+use fp_appimage_updater::config::{AppConfig, CheckMethod, GlobalConfig, StrategyConfig};
+use fp_appimage_updater::disintegrator::remove_app;
 use fp_appimage_updater::integrator::{
-    extract_appimage_root, find_best_icon, find_desktop_file, nixos_unsupported_appimage_message,
-    parse_os_release_id, sanitized_app_name,
+    extract_appimage_root, find_best_icon, find_desktop_file, integrate,
+    nixos_unsupported_appimage_message, parse_os_release_id, sanitized_app_name,
 };
 use std::ffi::OsString;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 fn env_lock() -> &'static Mutex<()> {
@@ -188,4 +191,50 @@ fn rollback_restores_backup_file_and_deletes_failed_binary() {
         fs::read_to_string(&failed_path).expect("failed to read restored binary");
     assert_eq!(restored_content, "working backup binary");
     assert!(!backup_path.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn integrates_and_removes_symlink_using_sanitized_name() {
+    let dir = tempfile::tempdir().expect("failed to create tempdir");
+    let symlink_dir = dir.path().join("links");
+    let appimage_path = dir.path().join("My App.AppImage");
+
+    fs::create_dir_all(&symlink_dir).expect("failed to create symlink dir");
+    write_executable(&appimage_path, "#!/bin/sh\nexit 0\n");
+
+    let app = AppConfig {
+        config_dir: PathBuf::new(),
+        name: "My App".to_string(),
+        ignore: None,
+        zsync: None,
+        integration: Some(false),
+        create_symlink: Some(true),
+        segmented_downloads: None,
+        respect_rate_limits: None,
+        github_proxy: None,
+        github_proxy_prefix: None,
+        storage_dir: None,
+        naming_format: None,
+        inner_asset_match: None,
+        strategy: StrategyConfig::Direct {
+            url: "https://example.com/My App.AppImage".to_string(),
+            check_method: CheckMethod::Etag,
+        },
+    };
+    let mut global = GlobalConfig::default();
+    global.symlink_dir = symlink_dir.to_string_lossy().to_string();
+    global.create_symlinks = true;
+    global.manage_desktop_files = false;
+
+    integrate(&app, &global, &appimage_path, None, None).expect("expected integration to succeed");
+
+    let sanitized_symlink = symlink_dir.join("my-app");
+    assert!(sanitized_symlink.exists());
+    assert!(sanitized_symlink.is_symlink());
+    assert!(!symlink_dir.join("My App").exists());
+
+    remove_app(&app, &global, None, true, true).expect("expected removal to succeed");
+
+    assert!(!sanitized_symlink.exists());
 }

@@ -18,6 +18,8 @@ pub fn integrate(
     old_appimage_path: Option<&Path>,
     state: Option<&AppState>,
 ) -> Result<()> {
+    let sanitized_name = sanitized_app_name(&app.name);
+
     // Make executable
     let mut perms = fs::metadata(appimage_path)?.permissions();
     perms.set_mode(0o755);
@@ -30,7 +32,7 @@ pub fn integrate(
         if !symlink_dir.exists() {
             fs::create_dir_all(&symlink_dir)?;
         }
-        let symlink_path = symlink_dir.join(&app.name);
+        let symlink_path = symlink_dir.join(&sanitized_name);
 
         // Atomic-ish symlink update
         let tmp_symlink = symlink_path.with_extension("tmp_symlink");
@@ -87,7 +89,7 @@ fn integrate_desktop(app: &AppConfig, exec_path: &Path, state: Option<&AppState>
     }
 
     // Use a unique temp dir for extraction
-    let tmp_dir = std::env::temp_dir().join(format!("fp-appimage-int-{}", app.name));
+    let tmp_dir = std::env::temp_dir().join(format!("fp-appimage-int-{}", sanitized_name));
     if tmp_dir.exists() {
         let _ = fs::remove_dir_all(&tmp_dir);
     }
@@ -122,7 +124,7 @@ fn integrate_desktop(app: &AppConfig, exec_path: &Path, state: Option<&AppState>
                 .map(|idx| &existing_exec[idx..])
                 .unwrap_or("");
 
-            section.insert("Exec", format!("{}{}", exec_path.display(), args));
+            section.insert("Exec", format_desktop_exec(exec_path, args));
             section.insert("TryExec", exec_path.display().to_string());
             if !actual_icon_path.is_empty() {
                 section.insert("Icon", actual_icon_path);
@@ -136,6 +138,10 @@ fn integrate_desktop(app: &AppConfig, exec_path: &Path, state: Option<&AppState>
 
     let _ = fs::remove_dir_all(&tmp_dir);
     Ok(())
+}
+
+fn format_desktop_exec(exec_path: &Path, args: &str) -> String {
+    format!("\"{}\"{}", exec_path.display(), args)
 }
 
 pub fn extract_appimage_root(
@@ -332,6 +338,18 @@ pub fn find_best_icon(root: &Path, desktop_path: Option<&Path>) -> Option<PathBu
 
 pub fn find_desktop_file(root: &Path) -> Option<PathBuf> {
     find_first_file_with_extensions(root, &["desktop"])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_desktop_exec;
+    use std::path::Path;
+
+    #[test]
+    fn quotes_desktop_exec_path_when_it_contains_spaces() {
+        let exec = format_desktop_exec(Path::new("/tmp/My App.AppImage"), " %U");
+        assert_eq!(exec, "\"/tmp/My App.AppImage\" %U");
+    }
 }
 
 fn find_icon_for_desktop_entry(root: &Path, icon_value: &str) -> Option<PathBuf> {

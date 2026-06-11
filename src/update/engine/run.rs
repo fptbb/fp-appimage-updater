@@ -111,8 +111,15 @@ pub fn run(
     let (tx, rx) = mpsc::channel::<UpdateEvent>();
     let total_checks = pending_checks.len();
     if !json_output && total_checks > 0 {
-        let app_word = if total_checks == 1 { "application" } else { "applications" };
-        print_progress(&format!("Checking {} {} for updates...", total_checks, app_word), color_output);
+        let app_word = if total_checks == 1 {
+            "application"
+        } else {
+            "applications"
+        };
+        print_progress(
+            &format!("Checking {} {} for updates...", total_checks, app_word),
+            color_output,
+        );
     }
     let mut pending_checks = pending_checks.into_iter().peekable();
     let mut pending_downloads = DownloadQueues::new();

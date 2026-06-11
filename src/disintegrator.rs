@@ -41,7 +41,8 @@ pub fn remove_app(
     }
 
     let symlink_dir = expand_tilde(&global.symlink_dir);
-    let symlink_path = symlink_dir.join(&app.name);
+    let sanitized_name = sanitized_app_name(&app.name);
+    let symlink_path = symlink_dir.join(&sanitized_name);
 
     if symlink_path.exists() || symlink_path.is_symlink() {
         if let Err(e) = fs::remove_file(&symlink_path) {

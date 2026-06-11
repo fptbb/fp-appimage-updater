@@ -1,16 +1,21 @@
 use crate::commands::helpers::ExecutionContext;
 use crate::disintegrator;
+use crate::integrator::expand_tilde;
 use crate::output::{
     RemoveApp, RemoveResponse, RemoveStatus, print_json, print_progress, print_warning,
 };
-use crate::state::AppState;
+use crate::state::{AppState, State};
 use anyhow::Result;
+use std::collections::HashSet;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub fn run(
     ctx: &mut ExecutionContext,
     app_name: Option<&String>,
     all: bool,
     orphan: bool,
+    orphan_files: bool,
 ) -> Result<()> {
     let mut found = false;
     let mut apps_to_remove = Vec::new();
@@ -78,7 +83,7 @@ pub fn run(
         }
     } else if let Some(target) = app_name {
         apps_to_remove.push((target.clone(), false));
-    } else {
+    } else if !orphan_files {
         if ctx.json_output {
             print_json(&RemoveResponse {
                 command: "remove",
@@ -211,8 +216,18 @@ pub fn run(
         }
     }
 
+    if orphan_files {
+        cleanup_orphan_appimage_files(
+            &expand_tilde(&ctx.global_config.storage_dir),
+            &ctx.state_manager.state,
+            &mut results,
+            ctx.json_output,
+            ctx.color_output,
+        )?;
+    }
+
     if ctx.json_output {
-        let error = if !found && !all && !orphan {
+        let error = if !found && !all && !orphan && !orphan_files {
             app_name.map(|target| format!("App '{}' not found in configuration.", target))
         } else {
             None
@@ -222,7 +237,7 @@ pub fn run(
             apps: results,
             error,
         })?;
-    } else if !found && !all && !orphan {
+    } else if !found && !all && !orphan && !orphan_files {
         print_warning(
             &format!("App '{:?}' not found in configuration.", app_name),
             ctx.color_output,
@@ -258,4 +273,66 @@ pub fn clear_installed_state(state: &mut AppState) {
     state.file_path = None;
     state.sanitized_name = None;
     state.rate_limited_until = None;
+}
+
+pub fn cleanup_orphan_appimage_files(
+    storage_dir: &Path,
+    state: &State,
+    results: &mut Vec<RemoveApp>,
+    json_output: bool,
+    colors: bool,
+) -> Result<()> {
+    if !storage_dir.exists() {
+        return Ok(());
+    }
+
+    let kept_paths: HashSet<PathBuf> = state
+        .apps
+        .values()
+        .filter_map(|app_state| app_state.file_path.as_deref())
+        .map(PathBuf::from)
+        .collect();
+
+    for entry in fs::read_dir(storage_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let file_type = entry.file_type()?;
+        if !file_type.is_file() {
+            continue;
+        }
+
+        let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if !file_name.ends_with(".AppImage") {
+            continue;
+        }
+        if kept_paths.contains(&path) {
+            continue;
+        }
+
+        match fs::remove_file(&path) {
+            Ok(()) => results.push(RemoveApp {
+                name: file_name.to_string(),
+                status: RemoveStatus::Removed,
+                error: None,
+            }),
+            Err(err) => {
+                if json_output {
+                    results.push(RemoveApp {
+                        name: file_name.to_string(),
+                        status: RemoveStatus::Error,
+                        error: Some(format!("{:#}", err)),
+                    });
+                } else {
+                    print_warning(
+                        &format!("Failed to remove orphaned AppImage {:?}: {}", path, err),
+                        colors,
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

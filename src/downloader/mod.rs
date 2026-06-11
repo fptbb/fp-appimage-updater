@@ -16,6 +16,7 @@ pub use progress::*;
 
 use crate::config::ensure_safe_path_component;
 use crate::config::{AppConfig, ZsyncConfig};
+use crate::integrator::sanitized_app_name;
 use crate::resolvers::UpdateInfo;
 use crate::state::AppState;
 
@@ -76,7 +77,7 @@ fn validate_downloaded_appimage(
     let should_integrate = app.integration.unwrap_or(manage_desktop_files);
     if should_integrate {
         let temp_extract_parent =
-            std::env::temp_dir().join(format!("fp-appimage-val-{}", app.name));
+            std::env::temp_dir().join(format!("fp-appimage-val-{}", sanitized_app_name(&app.name)));
         if temp_extract_parent.exists() {
             let _ = fs::remove_dir_all(&temp_extract_parent);
         }
@@ -119,6 +120,12 @@ fn rename_to_final_path(tmp_path: &Path, final_path: &Path) -> Result<()> {
     Ok(())
 }
 
+fn format_download_filename(naming_format: &str, app_name: &str, version: &str) -> String {
+    naming_format
+        .replace("{name}", &sanitized_app_name(app_name))
+        .replace("{version}", version)
+}
+
 pub fn download_app(
     client: &Agent,
     app: &AppConfig,
@@ -137,9 +144,7 @@ pub fn download_app(
         .map(|s| crate::integrator::expand_tilde(s))
         .unwrap_or_else(|| storage_dir.to_path_buf());
 
-    let file_name = naming_format
-        .replace("{name}", &app.name)
-        .replace("{version}", &update_info.version);
+    let file_name = format_download_filename(naming_format, &app.name, &update_info.version);
     ensure_safe_path_component(&file_name, "download filename")?;
 
     let final_path = actual_storage_dir.join(&file_name);
@@ -377,4 +382,16 @@ pub fn detect_elf_machine_arch_from_bytes(header: &[u8]) -> Result<ElfMachineArc
     };
 
     Ok(arch)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_download_filename;
+
+    #[test]
+    fn sanitizes_name_placeholder_in_download_filename() {
+        let file_name =
+            format_download_filename("{name}-{version}.AppImage", "Linux Toys", "1.2.3");
+        assert_eq!(file_name, "linux-toys-1.2.3.AppImage");
+    }
 }
